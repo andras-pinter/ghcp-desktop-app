@@ -5,6 +5,94 @@
 
 ---
 
+## ⚠️ MANDATORY: Agent Task Completion Protocol
+
+**Every agent working on this project MUST follow these rules. These are non-negotiable.**
+
+### 1. Review-Fix Loop (Zero Issues Required)
+
+After completing any task, the agent **MUST** run a review-fix cycle:
+
+```
+┌─────────────────────────┐
+│   Complete the task      │
+└────────────┬────────────┘
+             ▼
+┌─────────────────────────┐
+│   REVIEW all changes:   │
+│   - cargo build         │
+│   - cargo clippy        │
+│   - cargo test          │
+│   - cargo fmt --check   │
+│   - Manual code review  │
+│   - Security audit      │
+│   - Doc completeness    │
+└────────────┬────────────┘
+             ▼
+        ┌─────────┐     YES     ┌─────────────────┐
+        │ Issues? │────────────▶│  FIX all issues  │──┐
+        └────┬────┘             └─────────────────┘  │
+             │ NO                                     │
+             ▼                                        │
+┌─────────────────────────┐          ┌────────────────┘
+│   ✅ Task complete       │          │
+│   (0 issues confirmed)   │          ▼
+└──────────────────────────┘    (loop back to REVIEW)
+```
+
+**The loop MUST repeat until a full review pass finds ZERO issues.** There is no
+"good enough" — the review cycle terminates only at zero. This process can and should
+be dispatched to multiple agents in parallel (e.g., one agent reviews code quality,
+another reviews tests, another reviews docs).
+
+### Review Checklist (every cycle)
+
+- [ ] `cargo build --workspace` compiles with zero warnings
+- [ ] `cargo clippy --workspace -- -D warnings` passes with zero diagnostics
+- [ ] `cargo test --workspace` — all tests pass, no skipped tests without justification
+- [ ] `cargo fmt --all -- --check` — formatting is clean
+- [ ] **Code review** — logic is correct, no dead code, no TODOs left behind, no hardcoded values
+- [ ] **Security review** — no filesystem access beyond app data dir, no token leaks, no unsanitized inputs
+- [ ] **Error handling** — all error paths handled, user-friendly messages, no panics/unwraps in production code
+- [ ] **Documentation** — all public items have doc comments, README/AGENTS.md updated if needed
+- [ ] **Tests** — new code has tests, edge cases covered, integration tests for API interactions
+
+### 2. Update Everything
+
+When an agent completes a task, it **MUST** update **all** affected artifacts:
+
+- **Code** — the implementation itself
+- **Tests** — new/updated tests covering the changes
+- **Documentation** — doc comments, README.md, AGENTS.md (if architecture/scope/phases changed)
+- **Dependencies** — Cargo.toml updated, lock file committed
+- **Types** — all type definitions, interfaces, and models updated consistently across crates
+- **State** — app state models, SQLite schemas, config structures updated
+- **Views** — any UI that references changed models/state must be updated
+- **Sibling crates** — if a change in `copilot-api` affects `app`, update `app` too
+- **Plan** — if the task reveals new work or changes scope, update the plan
+
+**"Update everything" means: no partial changes.** If you modify a struct in `copilot-api/types.rs`,
+you MUST also update every file that uses that struct. If you add a new feature, you MUST add it to
+the settings UI, keyboard shortcuts, and documentation. If you rename something, you MUST rename it
+everywhere. Agents must grep/search the entire workspace to find all references before considering
+a change complete.
+
+### 3. Multi-Agent Review Dispatch
+
+For any non-trivial task, the review cycle SHOULD be split across multiple agents:
+
+| Review Agent | Responsibility |
+|---|---|
+| **Build Agent** | Compile, clippy, fmt, test — mechanical correctness |
+| **Code Review Agent** | Logic, architecture, patterns, dead code, consistency |
+| **Security Agent** | Filesystem isolation, token handling, input sanitization, network boundaries |
+| **Docs Agent** | Doc comments, README, AGENTS.md, inline comments where needed |
+
+Each agent independently reviews and reports issues. ALL reported issues must be fixed
+before the task is considered complete. Then the full review cycle runs again.
+
+---
+
 ## Project Overview
 
 Copilot Desktop is a standalone desktop application that provides a conversational chat interface
