@@ -24,9 +24,11 @@ After completing any task, the agent **MUST** run a review-fix cycle:
 │   - cargo clippy        │
 │   - cargo test          │
 │   - cargo fmt --check   │
+│   - cargo audit         │
 │   - Manual code review  │
 │   - Security audit      │
 │   - Doc completeness    │
+│   - Dependency check    │
 └────────────┬────────────┘
              ▼
         ┌─────────┐     YES     ┌─────────────────┐
@@ -56,6 +58,7 @@ another reviews tests, another reviews docs).
 - [ ] **Error handling** — all error paths handled, user-friendly messages, no panics/unwraps in production code
 - [ ] **Documentation** — all public items have doc comments, README/AGENTS.md updated if needed
 - [ ] **Tests** — new code has tests, edge cases covered, integration tests for API interactions
+- [ ] **Dependencies** — all crates are latest stable versions, actively maintained, no deprecated or unmaintained crates
 
 ### 2. Update Everything
 
@@ -83,7 +86,7 @@ For any non-trivial task, the review cycle SHOULD be split across multiple agent
 
 | Review Agent | Responsibility |
 |---|---|
-| **Build Agent** | Compile, clippy, fmt, test — mechanical correctness |
+| **Build Agent** | Compile, clippy, fmt, test, audit — mechanical correctness |
 | **Code Review Agent** | Logic, architecture, patterns, dead code, consistency |
 | **Security Agent** | Filesystem isolation, token handling, input sanitization, network boundaries |
 | **Docs Agent** | Doc comments, README, AGENTS.md, inline comments where needed |
@@ -290,6 +293,18 @@ copilot-desktop/
 - Use `log` + `env_logger` for logging (not `println!` for debug output)
 - All public API items must have doc comments (`///`)
 
+### Dependencies Policy
+
+**Only stable, actively maintained crates at their latest version. No exceptions.**
+
+- **Always use the latest stable release** of every dependency. When adding a crate, check [crates.io](https://crates.io) or [lib.rs](https://lib.rs) for the current version — do not guess or use old versions from memory.
+- **No unmaintained crates.** Before adding a dependency, verify it has been updated within the last 12 months and has no "unmaintained" advisory on [RustSec](https://rustsec.org/).
+- **No deprecated crates.** If a crate is deprecated in favor of a successor, use the successor.
+- **Run `cargo audit`** as part of every review cycle to detect known vulnerabilities in dependencies.
+- **Run `cargo update`** regularly to pick up patch/minor version bumps. Lock file (`Cargo.lock`) must be committed.
+- **Prefer well-established crates** with broad ecosystem adoption (high download counts, active issue trackers, multiple contributors) over niche alternatives.
+- If a listed dependency in this document is outdated or superseded by the time implementation begins, **use the better alternative** and update this document accordingly.
+
 ### GPUI Patterns
 
 - Follow GPUI's component model: views own their state via `Model<T>` / `View<T>`
@@ -345,6 +360,10 @@ an MCP server binary. This is the **only** exception to the no-subprocess rule:
 ---
 
 ## Key Dependencies
+
+> ⚠️ **Always use the latest stable version.** The crates listed below are recommendations —
+> verify versions on [crates.io](https://crates.io) at implementation time. If a crate has been
+> superseded or deprecated, use the replacement and update this table.
 
 | Crate | Purpose |
 |---|---|
@@ -678,6 +697,12 @@ cargo clippy --workspace -- -D warnings
 
 # Format
 cargo fmt --all -- --check
+
+# Audit dependencies for vulnerabilities
+cargo audit
+
+# Update dependencies to latest compatible versions
+cargo update
 ```
 
 ---
