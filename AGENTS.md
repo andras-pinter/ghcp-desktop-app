@@ -36,12 +36,28 @@ native app with conversation management, file attachments, projects, and streami
 - **Conversation persistence** — local SQLite storage
 - **Secure auth** — OAuth device flow + OS keychain token storage
 
+### ⛔ Hard Requirement: No Filesystem / Machine Access
+
+**This app must NEVER access the user's machine beyond what the user explicitly provides.**
+
+- The app has **zero access** to the filesystem — it cannot read, write, browse, or scan any files or directories on its own
+- The **only** way files enter the app is through explicit user action: drag-and-drop or file picker dialog
+- File contents are read **once** into memory at the moment the user attaches them — the app does not retain file paths or re-read from disk
+- The app stores **only** its own data: conversations (SQLite in app data dir), auth tokens (OS keychain), and user preferences (app config dir)
+- No shell execution, no subprocess spawning, no system command access
+- No screen capture, no clipboard snooping, no background scanning
+- No network requests except to the GitHub Copilot API (and GitHub OAuth endpoints)
+- macOS builds should use **App Sandbox** entitlements to enforce this at the OS level
+- This is a **non-negotiable security boundary** — any feature that requires filesystem or machine access is out of scope
+
 ### Out of Scope
 
 - Computer Use / screen control / autonomous agents
 - Cowork (background task execution)
 - Code editing / IDE features / inline code suggestions
 - File creation/modification on disk
+- Filesystem browsing or scanning
+- Shell/command execution
 - MCP / Desktop Extensions (possible future phase)
 - Voice input (possible future phase)
 
@@ -180,6 +196,11 @@ copilot-desktop/
 - **Never log or display OAuth tokens** in any output
 - Tokens must be stored only in the OS keychain — never in plain text files or config
 - Validate all API responses — don't trust server data shapes blindly
+- **No filesystem access** — the app cannot read, write, or browse files on its own. Files only enter via explicit user drag-and-drop or file picker. File contents are read into memory once; the app never stores or re-accesses file paths.
+- **No shell/subprocess execution** — the app must never spawn processes or run commands
+- **No network requests** except to GitHub Copilot API and GitHub OAuth endpoints
+- **macOS App Sandbox required** — enforce filesystem and network restrictions at the OS level via entitlements
+- Treat any code path that touches the filesystem (outside app data dir) or spawns a process as a **security violation**
 
 ---
 
@@ -257,7 +278,7 @@ Uses the **OAuth device flow** — the same flow VS Code uses to authenticate wi
 ### Phase 5: Projects & Persistence
 12. **conversation-persistence** — SQLite storage, load on startup, lazy-load older
 13. **projects** — Named project containers with instructions, pinned files, grouped conversations
-14. **file-context** — Read text/PDF/images into context, preview in input, drag-and-drop
+14. **file-context** — User-initiated only: read file contents into memory via drag-and-drop or file picker. Preview in input. Never retain paths or re-read from disk. No filesystem browsing.
 
 ### Phase 6: Polish & UX
 15. **theme-system** — Light/dark with system detection + manual override
