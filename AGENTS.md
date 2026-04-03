@@ -1,7 +1,7 @@
 # Copilot Desktop — Agent Instructions
 
 > A native, cross-platform desktop chat GUI for GitHub Copilot, built with **Rust + GPUI**.
-> Inspired by Claude Desktop's clean chat experience — without code editing, computer use, or agent features.
+> Inspired by Claude Desktop's chat experience — with web research, MCP tools, custom agents, and a strict no-machine-access security model.
 
 ---
 
@@ -97,7 +97,8 @@ before the task is considered complete. Then the full review cycle runs again.
 
 Copilot Desktop is a standalone desktop application that provides a conversational chat interface
 for GitHub Copilot. Think of it as "Claude Desktop, but for Copilot" — a polished, GPU-accelerated
-native app with conversation management, file attachments, projects, and streaming responses.
+native app with conversation management, file attachments, projects, web research, MCP tool
+integration, custom agent personas, and streaming responses.
 
 ### Stack
 
@@ -121,7 +122,7 @@ native app with conversation management, file attachments, projects, and streami
 - **MCP integration** — connect to MCP servers for extended tool capabilities; built-in catalog of popular servers + custom server configuration
 - **Skills management** — enable/disable/configure Copilot Extensions (tools/plugins) that extend what Copilot can do in conversations
 - **Agents management** — create custom agent personas with specific system prompts, assigned skills, and MCP connections
-- **Model selector** — pick from available Copilot models (if API supports)
+- **Model selector** — pick from available Copilot models (implement always; gracefully hide if API returns only one model)
 - **Light/dark theme** — follow system preference, manual toggle
 - **Global hotkey** — summon the app from anywhere (e.g., Cmd+Shift+Space)
 - **Keyboard shortcuts** — standard app navigation
@@ -136,10 +137,11 @@ native app with conversation management, file attachments, projects, and streami
 - The **only** way files enter the app is through explicit user action: drag-and-drop or file picker dialog
 - File contents are read **once** into memory at the moment the user attaches them — the app does not retain file paths or re-read from disk
 - The app stores **only** its own data: conversations (SQLite in app data dir), auth tokens (OS keychain), and user preferences (app config dir)
-- No shell execution, no subprocess spawning, no system command access
+- No shell execution, no subprocess spawning, no system command access — **with one exception:** MCP stdio transport may spawn user-approved MCP server binaries (see MCP Security below)
 - No screen capture, no clipboard snooping, no background scanning
 - No network requests except to: GitHub Copilot API, GitHub OAuth endpoints, **user-configured MCP servers**, **web search API**, and **user-provided URLs**
 - All outbound network destinations beyond GitHub must be **explicitly configured or initiated by the user**
+- **URL fetching safeguards:** the app must block requests to private IP ranges (10.x, 172.16-31.x, 192.168.x), localhost, link-local (169.254.x), and cloud metadata endpoints (169.254.169.254). Only fetch public HTTPS URLs.
 - macOS builds should use **App Sandbox** entitlements to enforce this at the OS level
 - This is a **non-negotiable security boundary** — any feature that requires filesystem or machine access is out of scope
 
@@ -234,6 +236,8 @@ copilot-desktop/
 │   │   │   │   ├── project.rs  # Project model (name, instructions, attached files)
 │   │   │   │   ├── agent.rs    # Agent model (name, system prompt, assigned skills, MCP connections)
 │   │   │   │   ├── skill.rs    # Skill/extension model (id, name, enabled, config)
+│   │   │   │   ├── mcp.rs      # MCP server connection state + catalog
+│   │   │   │   ├── web.rs      # Web search results + URL fetch state (ephemeral)
 │   │   │   │   └── config.rs   # User preferences
 │   │   │   └── theme/
 │   │   │       ├── mod.rs      # Theme definitions (light + dark)
@@ -245,7 +249,7 @@ copilot-desktop/
 │   │   │   ├── auth.rs         # OAuth device flow + token refresh
 │   │   │   ├── client.rs       # HTTP client + SSE streaming
 │   │   │   ├── types.rs        # Request/response types (messages, roles, attachments)
-│   │   │   └── keychain.rs     # Secure token storage (per-platform)
+│   │   │   └── keychain.rs     # Secure token/API key storage (cross-platform via `keyring`)
 │   │   └── Cargo.toml
 │   ├── mcp-client/             # MCP (Model Context Protocol) client library
 │   │   ├── src/
@@ -314,15 +318,29 @@ copilot-desktop/
 
 ### Security
 
-- **Never log or display OAuth tokens** in any output
-- Tokens must be stored only in the OS keychain — never in plain text files or config
+- **Never log or display OAuth tokens or API keys** in any output
+- Tokens and API keys must be stored only in the OS keychain — never in plain text files or config
 - Validate all API responses — don't trust server data shapes blindly
 - **No filesystem access** — the app cannot read, write, or browse files on its own. Files only enter via explicit user drag-and-drop or file picker. File contents are read into memory once; the app never stores or re-accesses file paths.
-- **No shell/subprocess execution** — the app must never spawn processes or run commands
+- **No shell/subprocess execution** — the app must never spawn processes or run commands, **except** for MCP stdio transport (see MCP Security below)
 - **No network requests** except to: GitHub Copilot API, GitHub OAuth, user-configured MCP servers, web search API, and user-provided URLs. All non-GitHub network destinations must be explicitly user-configured or user-initiated.
+- **URL fetching:** block private IPs (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16), localhost (127.0.0.0/8), link-local (169.254.0.0/16), and cloud metadata (169.254.169.254). Only fetch public HTTPS URLs.
 - **MCP server connections** are user-managed — the app never auto-discovers or connects to MCP servers without explicit user configuration
+- **MCP response sanitization** — all MCP tool responses must be sanitized before rendering. Strip HTML/scripts from text content, enforce max payload size (e.g., 1MB), validate JSON structure.
 - **macOS App Sandbox required** — enforce filesystem and network restrictions at the OS level via entitlements
-- Treat any code path that touches the filesystem (outside app data dir) or spawns a process as a **security violation**
+- Treat any code path that touches the filesystem (outside app data dir) or spawns a non-MCP process as a **security violation**
+
+### MCP Security
+
+MCP supports two transports: **HTTP** and **stdio**. Stdio transport spawns a local process to run
+an MCP server binary. This is the **only** exception to the no-subprocess rule:
+
+- Stdio MCP servers may **only** be spawned if the user has explicitly configured them in settings
+- The binary path must be user-provided — the app never searches the filesystem for binaries
+- Each stdio server launch must be logged and visible in the MCP settings UI
+- The app should show a clear confirmation dialog the first time a new stdio server binary is launched
+- HTTP transport is preferred and should be the default recommendation in the catalog
+- If App Sandbox restricts subprocess spawning, document this limitation and fall back to HTTP-only
 
 ---
 
@@ -335,11 +353,10 @@ copilot-desktop/
 | `serde` / `serde_json` | JSON serialization |
 | `tokio` | Async runtime |
 | `eventsource-stream` | SSE parsing for streaming responses |
-| `security-framework` | macOS Keychain access |
-| `secret-service` | Linux keychain access |
+| `keyring` | Cross-platform keychain (macOS Keychain, Linux Secret Service, Windows Credential Manager) |
 | `syntect` | Syntax highlighting for code blocks |
 | `pulldown-cmark` | Markdown parsing |
-| `rusqlite` | Local conversation persistence |
+| `rusqlite` | Local persistence (conversations, projects, agents, skills, MCP configs) |
 | `image` / `pdf-extract` | Extract text from PDFs/images for file context |
 | `directories` | XDG / platform-appropriate config paths |
 | `global-hotkeys` | System-wide keyboard shortcut registration |
@@ -347,6 +364,7 @@ copilot-desktop/
 | `log` / `env_logger` | Logging |
 | `scraper` / `readability` | HTML-to-text extraction for URL fetching |
 | `url` | URL parsing and validation |
+| `rmcp` or custom | MCP protocol client (target spec version 2025-03-26) |
 
 ---
 
@@ -378,7 +396,216 @@ Uses the **OAuth device flow** — the same flow VS Code uses to authenticate wi
 
 ---
 
-## Implementation Phases
+## Web Research Integration
+
+### Search API
+
+- Use **Bing Web Search API** (primary) or Google Custom Search as fallback
+- API key stored in OS keychain alongside OAuth tokens
+- Search can be triggered two ways:
+  1. **AI-initiated:** Copilot requests a web search via function calling / tool use (the app exposes a `web_search` tool in the system prompt). Results are injected into context automatically.
+  2. **User-initiated:** User clicks the 🌐 button or pastes a URL in the input area
+- Search results are displayed as **cited cards** in the chat: title, snippet, source URL
+- Results are cached in-memory for the session to avoid redundant API calls
+- Rate limits: respect API quotas, show clear error if quota exceeded
+
+### URL Fetching
+
+- User pastes a URL → app fetches the page over HTTPS → extracts readable text via `readability` algorithm
+- **Security:** only public HTTPS URLs allowed. Block private IPs, localhost, metadata endpoints (see Security section)
+- Extracted content is truncated to a reasonable size (e.g., 50KB of text) before inclusion in context
+- Show a URL preview card in the input area (title, domain, favicon if available)
+
+---
+
+## MCP Integration
+
+### Protocol
+
+- Target **MCP specification version 2025-03-26** (or latest stable at implementation time)
+- Reference: https://modelcontextprotocol.io/specification
+- Support two transports:
+  - **HTTP (SSE)** — preferred, works with remote servers. Default for catalog entries.
+  - **Stdio** — for local MCP servers. Requires user-approved binary path (see MCP Security).
+
+### Built-in Catalog (initial entries)
+
+| Server | Description | Transport |
+|---|---|---|
+| GitHub | Repository search, issues, PRs | HTTP |
+| Web Search | Bing/Google search (if not using built-in) | HTTP |
+| Filesystem (read-only) | User-selected directory read access | Stdio |
+| PostgreSQL | Database queries | HTTP/Stdio |
+| Brave Search | Privacy-focused web search | HTTP |
+
+The catalog is a static list shipped with the app. Users can enable/disable entries and provide required config (API keys, connection strings). The catalog can be extended in future releases.
+
+### Custom Servers
+
+Users can add custom MCP servers in settings:
+- **HTTP servers:** URL + optional auth header
+- **Stdio servers:** binary path + arguments (user-approved, see MCP Security)
+- Test connectivity button to verify the server responds
+- View discovered tools/resources from the server
+
+---
+
+## Skills & Agents Concepts
+
+### Definitions
+
+| Concept | What It Is | Example |
+|---|---|---|
+| **Skill** | A capability/tool that extends what the AI can do. Can be a Copilot Extension (GitHub-hosted) or an MCP tool (from a connected MCP server). | "Web Search", "GitHub PR Lookup", "SQL Query" |
+| **Agent** | A named persona with a system prompt, a set of assigned skills, and optionally specific MCP server connections. Agents define *how* the AI behaves and *what tools* it has access to. | "Research Agent" with web search + URL fetch skills |
+| **Copilot Extension** | A GitHub-hosted plugin/tool that Copilot can use. Managed via the GitHub Extensions marketplace. Represented as a Skill in this app. | `@docker`, `@azure` |
+| **MCP Tool** | A tool exposed by a connected MCP server. Also represented as a Skill in this app. | `query_database`, `search_files` |
+
+### How Agents Map to API Calls
+
+When a conversation uses a custom agent, the app constructs the Copilot API request as follows:
+
+```
+System message = [Agent system prompt] + [Project instructions (if any)]
+Tools/functions = [Agent's assigned skills as function definitions]
+                + [MCP tools from agent's connected MCP servers]
+Messages = [Conversation history]
+```
+
+- The agent's system prompt is prepended as a `system` role message
+- Skills are exposed as `tools` / `functions` in the API request (OpenAI function calling format)
+- When the AI calls a tool, the app routes it: Copilot Extensions → GitHub API, MCP tools → MCP server, built-in tools (web search) → web-research crate
+- Tool results are sent back as `tool` role messages in the next API call
+
+### Default Agent
+
+The app ships with a **Default Agent** that cannot be deleted:
+- System prompt: minimal (just app context)
+- Skills: none by default (user can assign)
+- MCP connections: none by default
+- All new conversations use the Default Agent unless the user selects another
+
+---
+
+## Data Model (SQLite)
+
+All persistent data is stored in a single SQLite database in the app data directory
+(`directories::data_dir()/copilot-desktop/data.db`).
+
+### Tables
+
+```sql
+-- Conversations
+CREATE TABLE conversations (
+    id TEXT PRIMARY KEY,           -- UUID
+    title TEXT,                    -- Auto-generated or user-edited
+    agent_id TEXT REFERENCES agents(id),
+    project_id TEXT REFERENCES projects(id),
+    model TEXT,                    -- Model used (e.g., "gpt-4o")
+    created_at TEXT NOT NULL,      -- ISO 8601
+    updated_at TEXT NOT NULL
+);
+
+-- Messages
+CREATE TABLE messages (
+    id TEXT PRIMARY KEY,           -- UUID
+    conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+    role TEXT NOT NULL,            -- "user", "assistant", "system", "tool"
+    content TEXT NOT NULL,         -- Message text (markdown for assistant)
+    tool_call_id TEXT,             -- For tool responses
+    tool_name TEXT,                -- For tool calls
+    attachments TEXT,              -- JSON array of {name, type, size} for attached files
+    created_at TEXT NOT NULL,
+    sort_order INTEGER NOT NULL    -- Ordering within conversation
+);
+
+-- Projects
+CREATE TABLE projects (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    instructions TEXT,             -- Custom system instructions
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+-- Project pinned files (content stored, not paths)
+CREATE TABLE project_files (
+    id TEXT PRIMARY KEY,
+    project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,            -- Original filename
+    content_type TEXT NOT NULL,    -- MIME type
+    content BLOB NOT NULL,         -- File content (stored in DB, not on filesystem)
+    created_at TEXT NOT NULL
+);
+
+-- Agents
+CREATE TABLE agents (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    avatar TEXT,                   -- Emoji or icon identifier
+    system_prompt TEXT NOT NULL,
+    is_default INTEGER DEFAULT 0,  -- 1 for the built-in default agent
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+-- Agent ↔ Skill assignments
+CREATE TABLE agent_skills (
+    agent_id TEXT NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+    skill_id TEXT NOT NULL,        -- Skill identifier (extension ID or MCP tool ID)
+    PRIMARY KEY (agent_id, skill_id)
+);
+
+-- Agent ↔ MCP server connections
+CREATE TABLE agent_mcp_connections (
+    agent_id TEXT NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+    mcp_server_id TEXT NOT NULL REFERENCES mcp_servers(id) ON DELETE CASCADE,
+    PRIMARY KEY (agent_id, mcp_server_id)
+);
+
+-- Skills (Copilot Extensions + MCP tools registry)
+CREATE TABLE skills (
+    id TEXT PRIMARY KEY,           -- Unique skill ID
+    name TEXT NOT NULL,
+    description TEXT,
+    source TEXT NOT NULL,          -- "extension" or "mcp"
+    mcp_server_id TEXT REFERENCES mcp_servers(id),  -- NULL for extensions
+    config TEXT,                   -- JSON config blob
+    enabled INTEGER DEFAULT 1,
+    created_at TEXT NOT NULL
+);
+
+-- MCP server configurations
+CREATE TABLE mcp_servers (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    transport TEXT NOT NULL,       -- "http" or "stdio"
+    url TEXT,                      -- For HTTP transport
+    binary_path TEXT,              -- For stdio transport
+    args TEXT,                     -- JSON array of arguments for stdio
+    auth_header TEXT,              -- Optional auth for HTTP
+    from_catalog INTEGER DEFAULT 0, -- 1 if from built-in catalog
+    enabled INTEGER DEFAULT 1,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+-- User preferences
+CREATE TABLE config (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
+```
+
+### Persistence Rules
+
+- **Conversations, messages, projects, agents, skills, MCP configs** → SQLite
+- **OAuth tokens, API keys** → OS keychain (never in SQLite)
+- **User preferences** (theme, font size, hotkey) → SQLite `config` table
+- **File contents** for project pinned files → SQLite `project_files.content` as BLOB
+- **Attached file contents** in chat → stored in `messages.attachments` as metadata only; full content is ephemeral (in-memory during conversation, not persisted)
+
+---
 
 ### Phase 1: Project Scaffolding & GPUI Hello World
 1. **project-setup** — Initialize Rust workspace, configure 5 crates, pin GPUI
@@ -386,46 +613,49 @@ Uses the **OAuth device flow** — the same flow VS Code uses to authenticate wi
 
 ### Phase 2: Copilot API Client
 3. **oauth-device-flow** — GitHub OAuth device flow with token refresh
-4. **keychain-storage** — OS keychain token storage (per-platform)
+4. **keychain-storage** — OS keychain token storage (per-platform, using `keyring` crate)
 5. **chat-completions-client** — `/v1/chat/completions` with SSE streaming + file context
 
-### Phase 3: Core Chat UI (Claude Desktop-style)
-6. **sidebar** — Conversation list grouped by date, new chat, projects, agents, search, collapsible
-7. **chat-view** — Message list with avatars, timestamps, thinking indicator
-8. **input-area** — Multi-line input, file drop zone, attachment pills, agent selector, loading state
-9. **streaming-display** — Token-by-token rendering with cursor animation, stop button
+### Phase 3: Persistence & Data Layer
+6. **sqlite-setup** — Initialize SQLite database with full schema (see Data Model section). Migrations support for future schema changes.
+7. **conversation-persistence** — CRUD for conversations + messages. Load on startup, lazy-load older messages. Auto-generate conversation titles.
 
-### Phase 4: Markdown & Code Rendering
-10. **markdown-parser** — Bold, italic, headers, lists, links, code, blockquotes, tables
-11. **code-blocks** — Syntax-highlighted fenced blocks with copy button + language label
+### Phase 4: Core Chat UI (Claude Desktop-style)
+8. **sidebar** — Conversation list grouped by date, new chat, projects, agents, search, collapsible
+9. **chat-view** — Message list with avatars, timestamps, thinking indicator
+10. **input-area** — Multi-line input, file drop zone, attachment pills, agent selector, loading state
+11. **streaming-display** — Token-by-token rendering with cursor animation, stop button
 
-### Phase 5: Web Research
-12. **web-search** — Integrate a web search API (e.g., Bing Search API). AI can trigger searches; results included in context. Display search results as cited cards in chat.
-13. **url-fetcher** — User pastes a URL → app fetches page, extracts readable text content, includes in conversation context. Show URL preview card in input area.
+### Phase 5: Markdown & Code Rendering
+12. **markdown-parser** — Bold, italic, headers, lists, links, code, blockquotes, tables
+13. **code-blocks** — Syntax-highlighted fenced blocks with copy button + language label
 
-### Phase 6: MCP Integration
-14. **mcp-client** — Implement MCP protocol client: connect to MCP servers, discover tools, invoke tools, handle responses. Support stdio and HTTP transports.
-15. **mcp-catalog** — Built-in catalog of popular MCP servers (GitHub, web search, databases, etc.) with one-click enable. Show descriptions, required config fields.
-16. **mcp-settings** — UI for managing MCP connections: add custom servers (URL + auth), enable/disable catalog servers, test connectivity, view available tools.
+### Phase 6: Web Research
+14. **web-search** — Integrate Bing Web Search API. Triggered by AI (function calling) or user (🌐 button). Results displayed as cited cards in chat. API key stored in keychain.
+15. **url-fetcher** — User pastes a URL → app fetches page (HTTPS only, public IPs only) → extracts readable text → includes in context. URL preview card in input area. Max 50KB extracted text.
 
-### Phase 7: Skills & Agents
-17. **skills-manager** — Skills/extensions management view: browse available Copilot Extensions, toggle on/off, configure per-extension settings. Skills are tools/capabilities the AI can use.
-18. **agents-manager** — Agent management view: create/edit/delete custom agent personas. Each agent has a name, avatar, system prompt, assigned skills, and MCP connections.
-19. **agent-selector** — Agent picker in the chat input area. Conversations are tied to an agent. Default agent uses base Copilot; custom agents add their system prompt + skills + MCP tools.
+### Phase 7: MCP Integration
+16. **mcp-client** — MCP protocol client (spec 2025-03-26): connect, discover tools, invoke, handle responses. HTTP and stdio transports.
+17. **mcp-catalog** — Built-in catalog of popular MCP servers with one-click enable. Show descriptions, required config fields. Persist enabled state to SQLite.
+18. **mcp-settings** — UI for managing MCP connections: add custom servers (URL + auth or binary path), enable/disable, test connectivity, view discovered tools.
 
-### Phase 8: Projects & Persistence
-20. **conversation-persistence** — SQLite storage, load on startup, lazy-load older
-21. **projects** — Named project containers with instructions, pinned files, grouped conversations
-22. **file-context** — User-initiated only: read file contents into memory via drag-and-drop or file picker. Preview in input. Never retain paths or re-read from disk. No filesystem browsing.
+### Phase 8: Skills & Agents
+19. **skills-manager** — Skills management view: browse Copilot Extensions + MCP tools as unified skill list. Toggle on/off, configure per-skill settings. Persist to SQLite.
+20. **agents-manager** — Agent management view: create/edit/delete custom agent personas. Each agent has name, avatar, system prompt, assigned skills, MCP connections. Default agent is built-in and undeletable.
+21. **agent-selector** — Agent picker in chat input area. Conversations tied to an agent. Agent config maps to API request structure (see Skills & Agents Concepts section).
 
-### Phase 9: Polish & UX
-23. **theme-system** — Light/dark with system detection + manual override
-24. **settings-panel** — Account, theme, font size, model, MCP, export, clear history
-25. **keyboard-shortcuts** — Cmd+N, Cmd+K, Cmd+,, Cmd+Shift+S, Escape
-26. **global-hotkey** — System-wide app summon (Cmd+Shift+Space or configurable)
+### Phase 9: Projects & File Context
+22. **projects** — Named project containers with custom instructions, pinned files (stored as BLOBs in SQLite), grouped conversations. Project selector in sidebar.
+23. **file-context** — User-initiated only: read file contents into memory via drag-and-drop or file picker. Preview in input. Never retain paths or re-read from disk. No filesystem browsing.
 
-### Phase 10: Distribution
-27. **app-packaging** — `.app` (macOS signed), `.AppImage`/`.deb` (Linux), `.msi` (Windows), GitHub Actions CI/CD
+### Phase 10: Polish & UX
+24. **theme-system** — Light/dark with system detection + manual override
+25. **settings-panel** — Account, theme, font size, default model, MCP management, conversation export (JSON + Markdown), clear history
+26. **keyboard-shortcuts** — Cmd+N (new chat), Cmd+K (search conversations), Cmd+, (settings), Cmd+Shift+S (toggle sidebar), Escape (cancel streaming)
+27. **global-hotkey** — System-wide app summon (Cmd+Shift+Space or configurable)
+
+### Phase 11: Distribution
+28. **app-packaging** — `.app` (macOS with code signing + App Sandbox), `.AppImage`/`.deb` (Linux), `.msi` (Windows), GitHub Actions CI/CD
 
 ---
 
