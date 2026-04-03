@@ -305,6 +305,63 @@ copilot-desktop/
 - **Prefer well-established crates** with broad ecosystem adoption (high download counts, active issue trackers, multiple contributors) over niche alternatives.
 - If a listed dependency in this document is outdated or superseded by the time implementation begins, **use the better alternative** and update this document accordingly.
 
+### Git Conventions
+
+#### ⛔ Never Push
+
+**Agents must NEVER push to any remote.** Commit locally only. The human reviews and pushes.
+
+- `git push` is **forbidden** — no exceptions, no force push, no push to any branch
+- Agents commit to the local branch only
+- The human owner reviews all commits and decides when/where to push
+- This applies to all agents, all tasks, all circumstances
+
+#### Conventional Commits
+
+All commits **must** follow the [Conventional Commits](https://www.conventionalcommits.org/) specification:
+
+```
+<type>(<scope>): <short summary>
+
+<optional body>
+
+<optional footer(s)>
+```
+
+**Types:**
+
+| Type | When to use |
+|---|---|
+| `feat` | A new feature or capability |
+| `fix` | A bug fix |
+| `refactor` | Code change that neither fixes a bug nor adds a feature |
+| `docs` | Documentation only changes |
+| `style` | Formatting, missing semicolons, etc. (no code change) |
+| `test` | Adding or updating tests |
+| `chore` | Build process, dependencies, tooling, CI changes |
+| `perf` | Performance improvements |
+| `ci` | CI/CD configuration changes |
+| `build` | Build system or external dependency changes |
+
+**Scope** is the crate or area affected: `app`, `copilot-api`, `mcp-client`, `web-research`, `markdown-render`, `deps`, `ci`
+
+**Examples:**
+
+```
+feat(copilot-api): add SSE streaming for chat completions
+fix(app): prevent layout thrashing during rapid token updates
+docs: update AGENTS.md with MCP security section
+refactor(mcp-client): extract transport layer into separate module
+chore(deps): update reqwest to 0.12.5
+test(web-research): add URL validation tests for private IP blocking
+```
+
+**Rules:**
+- Subject line: imperative mood, lowercase, no period, max 72 characters
+- Body: wrap at 72 characters, explain *what* and *why* (not *how*)
+- Breaking changes: add `BREAKING CHANGE:` footer or `!` after type/scope
+- Reference issues/tasks when applicable
+
 ### GPUI Patterns
 
 - Follow GPUI's component model: views own their state via `Model<T>` / `View<T>`
