@@ -13,15 +13,19 @@ GHCP Desktop provides a dedicated chat interface for GitHub Copilot — inspired
 
 - 💬 **Streaming chat** — real-time token-by-token responses via SSE
 - ✏️ **Edit & regenerate** — edit any sent message or regenerate the last response
+- 📎 **File attachments** — drag-and-drop files (text, PDF, images) as context
 - ⭐ **Favourites** — pin important conversations for quick access
-- 🔍 **Search** — find conversations in the sidebar and text within a conversation
+- 🔍 **Search** — find conversations in the sidebar; Cmd+F / Ctrl+F within a conversation
 - 📂 **Projects** — organize conversations by topic with pinned context files
 - 🔌 **MCP integration** — connect external tools via the Model Context Protocol
 - 🌐 **Web research** — AI-powered search and URL fetching for grounded answers
 - 🤖 **Skills & Agents** — configurable agent personas with custom system prompts and tool access
 - 🧠 **Thinking display** — collapsible reasoning/thinking sections from supported models
+- 🎨 **Themes** — light/dark with system preference detection and manual toggle
+- 🔀 **Model selector** — pick from available Copilot models
+- 🖥️ **System tray** — minimize to tray; streaming continues when window is hidden
 - 🔒 **Privacy-first** — zero filesystem access; files enter only via drag-and-drop/picker, read once into memory
-- ⌨️ **Global hotkey** — summon the app instantly from anywhere
+- ⌨️ **Keyboard shortcuts** — global hotkey to summon from anywhere + full app navigation
 - 🖥️ **Native performance** — Rust + GPUI, no Electron, no web views
 - 🔄 **Auto-update** — seamless updates from GitHub Releases
 - 💾 **Crash recovery** — auto-saved drafts and interrupted stream preservation
@@ -68,7 +72,7 @@ cargo build --release
 ### Run
 
 ```bash
-cargo run -p app
+cargo run -p copilot-desktop
 ```
 
 ## Security Model

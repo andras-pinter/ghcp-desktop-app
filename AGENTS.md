@@ -151,6 +151,12 @@ integration, custom agent personas, and streaming responses.
 - **In-conversation search** — Cmd+F / Ctrl+F to find text within the current conversation
 - **System tray / menu bar** — minimize to tray instead of closing; streaming continues when window is hidden; right-click menu (New Chat, Show, Quit)
 - **Thinking/reasoning display** — show model thinking tokens in a collapsible section, collapsed by default
+- **Context window management** — automatic summarization of older messages to stay within model limits; visual indicator when summarization has occurred
+- **Conversation title generation** — auto-generate titles via lightweight API call after first exchange; user can edit
+- **Crash recovery** — auto-save input drafts to SQLite; preserve partial responses on interruption; restore on next launch
+- **Offline mode** — full read access when offline, sending disabled with clear indicator, auto-reconnect
+- **Conversation export** — export conversations as JSON (structured backup) or Markdown (human-readable) via save dialog
+- **Database management** — show DB size in settings, offer cleanup of old conversations, warn at 500MB
 
 ### ⛔ Hard Requirement: No Filesystem / Machine Access
 
@@ -177,7 +183,7 @@ integration, custom agent personas, and streaming responses.
 - Filesystem browsing or scanning
 - Shell/command execution
 - Voice input (possible future phase)
-- Conversation sharing / export as shareable link (possible future phase)
+- Conversation sharing as a cloud-hosted shareable link (possible future phase)
 - Drag-and-drop reordering of sidebar items (possible future phase)
 - Data portability / DB import-export (possible future phase)
 - Localization / i18n — English only for v1 (possible future phase)
@@ -217,6 +223,7 @@ integration, custom agent personas, and streaming responses.
 │  │  App State (Model)                        │   │
 │  │  conversations[] │ agents[] │ skills[] │ mcp_connections[] │   │
 │  │  active_project  │ config   │ auth_state │ update_state     │   │
+│  │  drafts          │ network_status │ favourites              │   │
 │  └────────────────────────────┬──────────────────────────────┘   │
 └───────────────────────────────┼──────────────────────────────────┘
                                 │
@@ -319,7 +326,7 @@ copilot-desktop/
 - Prefer `thiserror` for library error types, `anyhow` for application-level errors
 - Use `log` + `env_logger` for logging (not `println!` for debug output)
 - All public API items must have doc comments (`///`)
-- **i18n preparation:** English only for v1, but keep all user-facing strings in a centralized location (e.g., a `strings` module per crate) to make future localization extraction straightforward. Avoid hardcoded strings scattered across view code.
+- **i18n preparation:** English only for v1, but prefer centralizing user-facing strings (e.g., in dedicated constants or a `strings` module) rather than scattering hardcoded strings across view code. This makes future localization extraction easier.
 
 ### Dependencies Policy
 
@@ -430,7 +437,9 @@ test(web-research): add URL validation tests for private IP blocking
 - **MCP response sanitization** — all MCP tool responses must be sanitized before rendering. Strip HTML/scripts from text content, enforce max payload size (e.g., 1MB), validate JSON structure.
 - **macOS App Sandbox required** — enforce filesystem and network restrictions at the OS level via entitlements
 - Treat any code path that touches the filesystem (outside app data dir) or spawns a non-MCP process as a **security violation**
-- **Auto-update exception:** the `self_update` crate performs an atomic binary swap of the app's own executable. This is the **only** permitted filesystem write outside the app data directory, and it requires explicit user confirmation before executing.
+- **Auto-update exception:** the `self_update` crate performs an atomic binary swap of the app's own executable. This requires explicit user confirmation before executing.
+- **Conversation export exception:** exporting conversations (JSON/Markdown) writes to a user-chosen location via the OS save-file dialog. The app never picks a destination on its own — the user explicitly selects the output path through the system file picker.
+- These two are the **only** permitted filesystem writes outside the app data directory.
 
 ### MCP Security
 
@@ -717,6 +726,7 @@ CREATE TABLE messages (
     conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
     role TEXT NOT NULL,            -- "user", "assistant", "system", "tool"
     content TEXT NOT NULL,         -- Message text (markdown for assistant)
+    thinking_content TEXT,         -- Thinking/reasoning tokens (if model provides them)
     tool_call_id TEXT,             -- For tool responses
     tool_name TEXT,                -- For tool calls
     attachments TEXT,              -- JSON array of {name, type, size} for attached files
