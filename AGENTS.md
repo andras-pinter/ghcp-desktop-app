@@ -131,6 +131,7 @@ integration, custom agent personas, and streaming responses.
 - **Keyboard shortcuts** — standard app navigation
 - **Conversation persistence** — local SQLite storage
 - **Secure auth** — OAuth device flow + OS keychain token storage
+- **Auto-update** — check for new versions on startup (and periodically), download + apply seamlessly from GitHub Releases
 
 ### ⛔ Hard Requirement: No Filesystem / Machine Access
 
@@ -142,7 +143,7 @@ integration, custom agent personas, and streaming responses.
 - The app stores **only** its own data: conversations (SQLite in app data dir), auth tokens (OS keychain), and user preferences (app config dir)
 - No shell execution, no subprocess spawning, no system command access — **with one exception:** MCP stdio transport may spawn user-approved MCP server binaries (see MCP Security below)
 - No screen capture, no clipboard snooping, no background scanning
-- No network requests except to: GitHub Copilot API, GitHub OAuth endpoints, **user-configured MCP servers**, **web search API**, and **user-provided URLs**
+- No network requests except to: GitHub Copilot API, GitHub OAuth endpoints, **user-configured MCP servers**, **web search API**, **user-provided URLs**, and **GitHub Releases API** (for auto-update)
 - All outbound network destinations beyond GitHub must be **explicitly configured or initiated by the user**
 - **URL fetching safeguards:** the app must block requests to private IP ranges (10.x, 172.16-31.x, 192.168.x), localhost, link-local (169.254.x), and cloud metadata endpoints (169.254.169.254). Only fetch public HTTPS URLs.
 - macOS builds should use **App Sandbox** entitlements to enforce this at the OS level
@@ -442,6 +443,7 @@ an MCP server binary. This is the **only** exception to the no-subprocess rule:
 | `scraper` / `readability` | HTML-to-text extraction for URL fetching |
 | `url` | URL parsing and validation |
 | `rmcp` or custom | MCP protocol client (target spec version 2025-03-26) |
+| `self_update` | Auto-update from GitHub Releases (version check, download, atomic binary swap) |
 
 ---
 
@@ -470,6 +472,40 @@ Uses the **OAuth device flow** — the same flow VS Code uses to authenticate wi
 - Respect `Retry-After` headers on 429 responses
 - Show a non-intrusive toast/banner for rate limit warnings
 - Gracefully degrade if the API is unreachable (show cached conversations, disable send)
+
+---
+
+## Auto-Update
+
+### Mechanism
+
+- Uses the `self_update` crate to check for and apply updates from **GitHub Releases**
+- On startup (and at a configurable interval), the app queries the GitHub Releases API for the latest version
+- Compares the current binary version (`CARGO_PKG_VERSION`) against the latest release tag
+- If a new version is available, shows a **non-intrusive notification** in the app (not a blocking dialog)
+
+### Update Flow
+
+1. App checks GitHub Releases API → finds newer version
+2. Shows banner: "Version X.Y.Z is available" with changelog summary
+3. User clicks "Update now" → downloads platform-specific binary from the release assets
+4. Verifies download integrity (checksum + optional signature)
+5. Performs atomic binary swap via `self_update`
+6. Prompts user to restart the app
+
+### User Controls (in Settings)
+
+- **Auto-check for updates:** on/off (default: on)
+- **Check frequency:** startup only, daily, weekly
+- **"Skip this version"** — suppress notifications for a specific release
+- **"Remind me later"** — snooze for a configurable period
+
+### Security
+
+- Only fetch from the project's own GitHub Releases — no third-party update servers
+- Verify release asset checksums before applying
+- HTTPS only for all update traffic
+- Never auto-apply without user confirmation — always require explicit action
 
 ---
 
@@ -731,8 +767,11 @@ CREATE TABLE config (
 26. **keyboard-shortcuts** — Cmd+N (new chat), Cmd+K (search conversations), Cmd+, (settings), Cmd+Shift+S (toggle sidebar), Escape (cancel streaming)
 27. **global-hotkey** — System-wide app summon (Cmd+Shift+Space or configurable)
 
-### Phase 11: Distribution
-28. **app-packaging** — `.app` (macOS with code signing + App Sandbox), `.AppImage`/`.deb` (Linux), `.msi` (Windows), GitHub Actions CI/CD
+### Phase 11: Auto-Update
+28. **auto-update** — Check for new versions on startup and periodically (configurable interval). Compare current version against latest GitHub Release. Show non-intrusive notification when update is available. Download and apply update with user confirmation. Atomic binary swap via `self_update` crate. Verify release signatures. Show changelog/release notes. Allow "skip this version" and "remind me later". Settings toggle to disable auto-update.
+
+### Phase 12: Distribution
+29. **app-packaging** — `.app` (macOS with code signing + App Sandbox), `.AppImage`/`.deb` (Linux), `.msi` (Windows), GitHub Actions CI/CD. Publish releases to GitHub Releases for auto-update consumption.
 
 ---
 
