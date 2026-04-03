@@ -29,6 +29,10 @@ native app with conversation management, file attachments, projects, and streami
 - **Chat window** — streaming message display with markdown + syntax-highlighted code blocks
 - **File attachments** — drag-and-drop files into chat as context (text, PDF, images)
 - **Projects** — group conversations + attached files under named projects with custom instructions
+- **Web research** — AI-driven web search (via search API) + manual URL fetching/extraction for context
+- **MCP integration** — connect to MCP servers for extended tool capabilities; built-in catalog of popular servers + custom server configuration
+- **Skills management** — enable/disable/configure Copilot Extensions (tools/plugins) that extend what Copilot can do in conversations
+- **Agents management** — create custom agent personas with specific system prompts, assigned skills, and MCP connections
 - **Model selector** — pick from available Copilot models (if API supports)
 - **Light/dark theme** — follow system preference, manual toggle
 - **Global hotkey** — summon the app from anywhere (e.g., Cmd+Shift+Space)
@@ -46,19 +50,19 @@ native app with conversation management, file attachments, projects, and streami
 - The app stores **only** its own data: conversations (SQLite in app data dir), auth tokens (OS keychain), and user preferences (app config dir)
 - No shell execution, no subprocess spawning, no system command access
 - No screen capture, no clipboard snooping, no background scanning
-- No network requests except to the GitHub Copilot API (and GitHub OAuth endpoints)
+- No network requests except to: GitHub Copilot API, GitHub OAuth endpoints, **user-configured MCP servers**, **web search API**, and **user-provided URLs**
+- All outbound network destinations beyond GitHub must be **explicitly configured or initiated by the user**
 - macOS builds should use **App Sandbox** entitlements to enforce this at the OS level
 - This is a **non-negotiable security boundary** — any feature that requires filesystem or machine access is out of scope
 
 ### Out of Scope
 
-- Computer Use / screen control / autonomous agents
-- Cowork (background task execution)
+- Computer Use / screen control / autonomous desktop agents
+- Cowork (background task execution on the user's machine)
 - Code editing / IDE features / inline code suggestions
 - File creation/modification on disk
 - Filesystem browsing or scanning
 - Shell/command execution
-- MCP / Desktop Extensions (possible future phase)
 - Voice input (possible future phase)
 
 ---
@@ -74,38 +78,44 @@ native app with conversation management, file attachments, projects, and streami
 │  │              │  │                                          │  │
 │  │ [New Chat]   │  │  ┌──────────────────────────────────┐   │  │
 │  │              │  │  │      Message List (scrollable)    │   │  │
-│  │ Projects ▾   │  │  │                                  │   │  │
-│  │  └─ Convos   │  │  │  [User]  How do I parse JSON?    │   │  │
-│  │              │  │  │                                  │   │  │
-│  │ Recent       │  │  │  [Copilot] You can use serde...  │   │  │
-│  │  • Chat 1    │  │  │  ```rust                         │   │  │
-│  │  • Chat 2    │  │  │  use serde::Deserialize; [Copy]  │   │  │
-│  │  • Chat 3    │  │  │  ```                             │   │  │
-│  │              │  │  │                                  │   │  │
-│  │ Search 🔍    │  │  └──────────────────────────────────┘   │  │
-│  │              │  │                                          │  │
+│  │ Agents ▾     │  │  │                                  │   │  │
+│  │  • Research  │  │  │  [User]  How do I parse JSON?    │   │  │
+│  │  • Coder     │  │  │                                  │   │  │
+│  │              │  │  │  [Copilot] You can use serde...  │   │  │
+│  │ Projects ▾   │  │  │  ```rust                         │   │  │
+│  │  └─ Convos   │  │  │  use serde::Deserialize; [Copy]  │   │  │
+│  │              │  │  │  ```                             │   │  │
+│  │ Recent       │  │  │                                  │   │  │
+│  │  • Chat 1    │  │  │  🌐 [Web result: serde docs]    │   │  │
+│  │  • Chat 2    │  │  │                                  │   │  │
+│  │              │  │  └──────────────────────────────────┘   │  │
+│  │ Search 🔍    │  │                                          │  │
 │  │              │  │  ┌──────────────────────────────────┐   │  │
-│  │              │  │  │ [📎 Attach] Type a message...    │   │  │
-│  │              │  │  │                        [Send ➤]  │   │  │
-│  │ [⚙ Settings] │  │  └──────────────────────────────────┘   │  │
+│  │ Skills ⚡    │  │  │ [📎 Attach] [🌐 Web] Message... │   │  │
+│  │ [⚙ Settings] │  │  │ [Agent: Research ▾]    [Send ➤] │   │  │
 │  └──────────────┘  └──────────────────────────────────────────┘  │
 │                                                                  │
 │  ┌───────────────────────────────────────────────────────────┐   │
 │  │                  App State (Model)                        │   │
-│  │  conversations[] │ active_project │ config │ auth_state   │   │
+│  │  conversations[] │ agents[] │ skills[] │ mcp_connections[] │   │
+│  │  active_project  │ config   │ auth_state                  │   │
 │  └────────────────────────────┬──────────────────────────────┘   │
 └───────────────────────────────┼──────────────────────────────────┘
                                 │
-          ┌─────────────────────┴─────────────────────┐
-          │           Copilot API Client              │
-          │  OAuth Device Flow │ SSE Streaming Chat   │
-          │  Token Refresh     │ File Context Upload  │
-          └─────────────────────┬─────────────────────┘
-                                │
-                   ┌────────────┴────────────┐
-                   │    GitHub Copilot API   │
-                   │   /v1/chat/completions  │
-                   └─────────────────────────┘
+       ┌────────────────────────┼────────────────────────────┐
+       │                        │                            │
+┌──────┴───────────┐  ┌────────┴─────────┐  ┌──────────────┴──────┐
+│ Copilot API      │  │  MCP Client      │  │  Web Research       │
+│ OAuth + SSE Chat │  │  Tool calls to   │  │  Search API +       │
+│ Token Refresh    │  │  user-configured  │  │  URL fetcher +      │
+│ File Context     │  │  MCP servers     │  │  content extraction  │
+└──────┬───────────┘  └────────┬─────────┘  └──────────────┬──────┘
+       │                       │                            │
+┌──────┴──────┐    ┌───────────┴──────────┐    ┌───────────┴────────┐
+│ GitHub API  │    │ MCP Servers          │    │ Web (search API +  │
+│ /v1/chat/   │    │ (user-configured)    │    │  user-provided     │
+│ completions │    │                      │    │  URLs)             │
+└─────────────┘    └──────────────────────┘    └────────────────────┘
 ```
 
 ---
@@ -121,17 +131,21 @@ copilot-desktop/
 │   │   │   ├── main.rs         # Entry point, window setup, global hotkey
 │   │   │   ├── app.rs          # Root application component (sidebar + main panel layout)
 │   │   │   ├── views/
-│   │   │   │   ├── sidebar.rs  # Conversation list, project browser, search
+│   │   │   │   ├── sidebar.rs  # Conversation list, project browser, agents, search
 │   │   │   │   ├── chat.rs     # Chat view (message list + input)
-│   │   │   │   ├── message.rs  # Individual message rendering (markdown + code blocks)
-│   │   │   │   ├── input.rs    # Multi-line input with file attachment drop zone
+│   │   │   │   ├── message.rs  # Individual message rendering (markdown + code blocks + web results)
+│   │   │   │   ├── input.rs    # Multi-line input with file attachment + URL input + agent selector
 │   │   │   │   ├── auth.rs     # OAuth login/welcome screen
 │   │   │   │   ├── settings.rs # Settings panel (modal or slide-over)
-│   │   │   │   └── project.rs  # Project detail view (instructions, files, conversations)
+│   │   │   │   ├── project.rs  # Project detail view (instructions, files, conversations)
+│   │   │   │   ├── agents.rs   # Agent management: create/edit/delete custom agent personas
+│   │   │   │   └── skills.rs   # Skills/extensions browser: enable/disable/configure
 │   │   │   ├── state/
 │   │   │   │   ├── mod.rs      # App state model
 │   │   │   │   ├── conversation.rs  # Conversation + message models
 │   │   │   │   ├── project.rs  # Project model (name, instructions, attached files)
+│   │   │   │   ├── agent.rs    # Agent model (name, system prompt, assigned skills, MCP connections)
+│   │   │   │   ├── skill.rs    # Skill/extension model (id, name, enabled, config)
 │   │   │   │   └── config.rs   # User preferences
 │   │   │   └── theme/
 │   │   │       ├── mod.rs      # Theme definitions (light + dark)
@@ -144,6 +158,21 @@ copilot-desktop/
 │   │   │   ├── client.rs       # HTTP client + SSE streaming
 │   │   │   ├── types.rs        # Request/response types (messages, roles, attachments)
 │   │   │   └── keychain.rs     # Secure token storage (per-platform)
+│   │   └── Cargo.toml
+│   ├── mcp-client/             # MCP (Model Context Protocol) client library
+│   │   ├── src/
+│   │   │   ├── lib.rs          # Public API
+│   │   │   ├── client.rs       # MCP server connection + tool invocation
+│   │   │   ├── types.rs        # MCP protocol types (tools, resources, prompts)
+│   │   │   ├── catalog.rs      # Built-in catalog of popular MCP servers
+│   │   │   └── registry.rs     # User-configured MCP server registry
+│   │   └── Cargo.toml
+│   ├── web-research/           # Web search + URL content extraction
+│   │   ├── src/
+│   │   │   ├── lib.rs          # Public API
+│   │   │   ├── search.rs       # Web search API client (Bing/Google/etc.)
+│   │   │   ├── fetcher.rs      # URL fetcher + HTML-to-text extraction
+│   │   │   └── types.rs        # Search results, extracted content types
 │   │   └── Cargo.toml
 │   └── markdown-render/        # Markdown + code rendering for GPUI
 │       ├── src/
@@ -181,8 +210,12 @@ copilot-desktop/
 
 - **`copilot-api`** is a standalone library with **zero GPUI dependency**. It should be usable
   from any Rust project (CLI, different GUI framework, etc.)
-- **`markdown-render`** depends on GPUI for element types but not on `app` or `copilot-api`
-- **`app`** depends on both `copilot-api` and `markdown-render`
+- **`mcp-client`** is a standalone library with **zero GPUI dependency**. Handles MCP protocol,
+  server connections, tool invocation, and the built-in catalog.
+- **`web-research`** is a standalone library with **zero GPUI dependency**. Handles web search
+  API calls and URL content fetching/extraction.
+- **`markdown-render`** depends on GPUI for element types but not on any other crate
+- **`app`** depends on all other crates — it is the only crate with GPUI views
 - No circular dependencies between crates
 
 ### Error Handling
@@ -198,7 +231,8 @@ copilot-desktop/
 - Validate all API responses — don't trust server data shapes blindly
 - **No filesystem access** — the app cannot read, write, or browse files on its own. Files only enter via explicit user drag-and-drop or file picker. File contents are read into memory once; the app never stores or re-accesses file paths.
 - **No shell/subprocess execution** — the app must never spawn processes or run commands
-- **No network requests** except to GitHub Copilot API and GitHub OAuth endpoints
+- **No network requests** except to: GitHub Copilot API, GitHub OAuth, user-configured MCP servers, web search API, and user-provided URLs. All non-GitHub network destinations must be explicitly user-configured or user-initiated.
+- **MCP server connections** are user-managed — the app never auto-discovers or connects to MCP servers without explicit user configuration
 - **macOS App Sandbox required** — enforce filesystem and network restrictions at the OS level via entitlements
 - Treat any code path that touches the filesystem (outside app data dir) or spawns a process as a **security violation**
 
@@ -223,6 +257,8 @@ copilot-desktop/
 | `global-hotkeys` | System-wide keyboard shortcut registration |
 | `thiserror` / `anyhow` | Error handling |
 | `log` / `env_logger` | Logging |
+| `scraper` / `readability` | HTML-to-text extraction for URL fetching |
+| `url` | URL parsing and validation |
 
 ---
 
@@ -257,7 +293,7 @@ Uses the **OAuth device flow** — the same flow VS Code uses to authenticate wi
 ## Implementation Phases
 
 ### Phase 1: Project Scaffolding & GPUI Hello World
-1. **project-setup** — Initialize Rust workspace, configure 3 crates, pin GPUI
+1. **project-setup** — Initialize Rust workspace, configure 5 crates, pin GPUI
 2. **gpui-hello-world** — Basic GPUI window with sidebar + main area layout
 
 ### Phase 2: Copilot API Client
@@ -266,28 +302,42 @@ Uses the **OAuth device flow** — the same flow VS Code uses to authenticate wi
 5. **chat-completions-client** — `/v1/chat/completions` with SSE streaming + file context
 
 ### Phase 3: Core Chat UI (Claude Desktop-style)
-6. **sidebar** — Conversation list grouped by date, new chat, projects, search, collapsible
+6. **sidebar** — Conversation list grouped by date, new chat, projects, agents, search, collapsible
 7. **chat-view** — Message list with avatars, timestamps, thinking indicator
-8. **input-area** — Multi-line input, file drop zone, attachment pills, loading state
+8. **input-area** — Multi-line input, file drop zone, attachment pills, agent selector, loading state
 9. **streaming-display** — Token-by-token rendering with cursor animation, stop button
 
 ### Phase 4: Markdown & Code Rendering
 10. **markdown-parser** — Bold, italic, headers, lists, links, code, blockquotes, tables
 11. **code-blocks** — Syntax-highlighted fenced blocks with copy button + language label
 
-### Phase 5: Projects & Persistence
-12. **conversation-persistence** — SQLite storage, load on startup, lazy-load older
-13. **projects** — Named project containers with instructions, pinned files, grouped conversations
-14. **file-context** — User-initiated only: read file contents into memory via drag-and-drop or file picker. Preview in input. Never retain paths or re-read from disk. No filesystem browsing.
+### Phase 5: Web Research
+12. **web-search** — Integrate a web search API (e.g., Bing Search API). AI can trigger searches; results included in context. Display search results as cited cards in chat.
+13. **url-fetcher** — User pastes a URL → app fetches page, extracts readable text content, includes in conversation context. Show URL preview card in input area.
 
-### Phase 6: Polish & UX
-15. **theme-system** — Light/dark with system detection + manual override
-16. **settings-panel** — Account, theme, font size, model, export, clear history
-17. **keyboard-shortcuts** — Cmd+N, Cmd+K, Cmd+,, Cmd+Shift+S, Escape
-18. **global-hotkey** — System-wide app summon (Cmd+Shift+Space or configurable)
+### Phase 6: MCP Integration
+14. **mcp-client** — Implement MCP protocol client: connect to MCP servers, discover tools, invoke tools, handle responses. Support stdio and HTTP transports.
+15. **mcp-catalog** — Built-in catalog of popular MCP servers (GitHub, web search, databases, etc.) with one-click enable. Show descriptions, required config fields.
+16. **mcp-settings** — UI for managing MCP connections: add custom servers (URL + auth), enable/disable catalog servers, test connectivity, view available tools.
 
-### Phase 7: Distribution
-19. **app-packaging** — `.app` (macOS signed), `.AppImage`/`.deb` (Linux), `.msi` (Windows), GitHub Actions CI/CD
+### Phase 7: Skills & Agents
+17. **skills-manager** — Skills/extensions management view: browse available Copilot Extensions, toggle on/off, configure per-extension settings. Skills are tools/capabilities the AI can use.
+18. **agents-manager** — Agent management view: create/edit/delete custom agent personas. Each agent has a name, avatar, system prompt, assigned skills, and MCP connections.
+19. **agent-selector** — Agent picker in the chat input area. Conversations are tied to an agent. Default agent uses base Copilot; custom agents add their system prompt + skills + MCP tools.
+
+### Phase 8: Projects & Persistence
+20. **conversation-persistence** — SQLite storage, load on startup, lazy-load older
+21. **projects** — Named project containers with instructions, pinned files, grouped conversations
+22. **file-context** — User-initiated only: read file contents into memory via drag-and-drop or file picker. Preview in input. Never retain paths or re-read from disk. No filesystem browsing.
+
+### Phase 9: Polish & UX
+23. **theme-system** — Light/dark with system detection + manual override
+24. **settings-panel** — Account, theme, font size, model, MCP, export, clear history
+25. **keyboard-shortcuts** — Cmd+N, Cmd+K, Cmd+,, Cmd+Shift+S, Escape
+26. **global-hotkey** — System-wide app summon (Cmd+Shift+Space or configurable)
+
+### Phase 10: Distribution
+27. **app-packaging** — `.app` (macOS signed), `.AppImage`/`.deb` (Linux), `.msi` (Windows), GitHub Actions CI/CD
 
 ---
 
@@ -323,6 +373,9 @@ cargo fmt --all -- --check
 | Copilot API not officially public | API could change or break | Modular client design — easy to swap to official SDK when available |
 | Short-lived OAuth tokens | Auth interruptions | Auto-refresh logic + graceful re-auth prompts |
 | SSE streaming layout thrashing | Janky UI during responses | Batch UI updates, debounce reflows, test with fast streams |
+| MCP server reliability | Tool calls may fail or timeout | Timeout handling, retry logic, graceful fallback in chat |
+| MCP security surface | Untrusted servers could return harmful data | User must explicitly add servers; validate/sanitize all MCP responses |
+| Web search API costs/limits | Rate limiting or billing | Cache results, respect rate limits, show clear errors |
 
 ---
 
@@ -336,4 +389,4 @@ The UX is modeled after **Claude Desktop** (Anthropic's desktop app):
 - Light/dark theme with system preference detection
 - Global hotkey to summon from anywhere
 
-**Key difference:** This app is purely a chat interface — no computer use, no file editing, no autonomous agents. It's a focused, fast, native chat client for GitHub Copilot.
+**Key difference:** This app has **no access to the user's machine** — no filesystem browsing, no shell execution, no screen capture. All external capabilities come through explicit user actions (file attach, URL paste) or user-configured connections (MCP servers, web search). It's a powerful but sandboxed chat client for GitHub Copilot with extensibility via MCP and custom agents.
