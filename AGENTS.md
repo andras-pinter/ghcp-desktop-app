@@ -146,6 +146,11 @@ integration, custom agent personas, and streaming responses.
 - **Conversation persistence** — local SQLite storage
 - **Secure auth** — OAuth device flow + OS keychain token storage
 - **Auto-update** — check for new versions on startup (and periodically), download + apply seamlessly from GitHub Releases
+- **Message editing** — edit a sent message (discards everything after it, re-sends); regenerate last assistant response
+- **Favourites** — pin important conversations to the top of the sidebar
+- **In-conversation search** — Cmd+F / Ctrl+F to find text within the current conversation
+- **System tray / menu bar** — minimize to tray instead of closing; streaming continues when window is hidden; right-click menu (New Chat, Show, Quit)
+- **Thinking/reasoning display** — show model thinking tokens in a collapsible section, collapsed by default
 
 ### ⛔ Hard Requirement: No Filesystem / Machine Access
 
@@ -172,6 +177,11 @@ integration, custom agent personas, and streaming responses.
 - Filesystem browsing or scanning
 - Shell/command execution
 - Voice input (possible future phase)
+- Conversation sharing / export as shareable link (possible future phase)
+- Drag-and-drop reordering of sidebar items (possible future phase)
+- Data portability / DB import-export (possible future phase)
+- Localization / i18n — English only for v1 (possible future phase)
+- Full accessibility / screen reader support — deferred; GPUI is pre-1.0 (target as a goal, defer full implementation)
 
 ---
 
@@ -236,13 +246,13 @@ copilot-desktop/
 ├── crates/
 │   ├── app/                    # Main application binary
 │   │   ├── src/
-│   │   │   ├── main.rs         # Entry point, window setup, global hotkey
+│   │   │   ├── main.rs         # Entry point, window setup, global hotkey, system tray
 │   │   │   ├── app.rs          # Root application component (sidebar + main panel layout)
 │   │   │   ├── views/
-│   │   │   │   ├── sidebar.rs  # Conversation list, project browser, agents, search
-│   │   │   │   ├── chat.rs     # Chat view (message list + input)
-│   │   │   │   ├── message.rs  # Individual message rendering (markdown + code blocks + web results)
-│   │   │   │   ├── input.rs    # Multi-line input with file attachment + URL input + agent selector
+│   │   │   │   ├── sidebar.rs  # Conversation list, project browser, agents, favourites, search
+│   │   │   │   ├── chat.rs     # Chat view (message list + input + in-conversation search)
+│   │   │   │   ├── message.rs  # Individual message rendering (markdown + code blocks + web results + thinking)
+│   │   │   │   ├── input.rs    # Multi-line input with file attachment + URL input + agent/model selector
 │   │   │   │   ├── auth.rs     # OAuth login/welcome screen
 │   │   │   │   ├── settings.rs # Settings panel (modal or slide-over)
 │   │   │   │   ├── project.rs  # Project detail view (instructions, files, conversations)
@@ -309,6 +319,7 @@ copilot-desktop/
 - Prefer `thiserror` for library error types, `anyhow` for application-level errors
 - Use `log` + `env_logger` for logging (not `println!` for debug output)
 - All public API items must have doc comments (`///`)
+- **i18n preparation:** English only for v1, but keep all user-facing strings in a centralized location (e.g., a `strings` module per crate) to make future localization extraction straightforward. Avoid hardcoded strings scattered across view code.
 
 ### Dependencies Policy
 
@@ -490,6 +501,69 @@ Uses the **OAuth device flow** — the same flow VS Code uses to authenticate wi
 - Show a non-intrusive toast/banner for rate limit warnings
 - Gracefully degrade if the API is unreachable (show cached conversations, disable send)
 
+### Context Window Management
+
+- The app must manage conversation history to fit within the model's context window
+- Strategy: **summarization** — when history exceeds the context limit, older messages are summarized into a condensed system-level recap, preserving key context while freeing token budget
+- Always retain: the system prompt, project instructions, and the most recent messages
+- Show a subtle indicator when older messages have been summarized (e.g., "Earlier messages summarized")
+- The summarization prompt is internal and should not be visible to the user as a separate message
+
+### Model Discovery
+
+- On startup (and on auth token change), query the Copilot API for available models
+- Cache the model list in memory for the session
+- If the API endpoint fails or returns empty, fall back to a hardcoded default model
+- The model selector in the UI always renders; if only one model is available, show it as a label instead of a dropdown
+
+### Conversation Title Generation
+
+- After the first assistant response in a new conversation, send a lightweight API call:
+  *"Generate a concise 4-6 word title for this conversation"* with the first user message + response as context
+- Title appears in the sidebar immediately; user can always edit it manually
+- If the title generation call fails, fall back to the first ~50 characters of the user's first message
+
+### Message Editing & Regeneration
+
+- **Edit:** user can click to edit any of their sent messages. This discards all messages after the edited one and re-sends from that point. No conversation branching — history is linear.
+- **Regenerate:** a button on the last assistant message re-sends the last user message to get a fresh response. The previous response is replaced (not preserved).
+- Both actions show a confirmation if they would discard more than one message pair.
+
+### Thinking / Reasoning Display
+
+- If the model returns thinking/reasoning tokens (e.g., extended thinking), display them in a **collapsible "Thinking…" section** above the response
+- Collapsed by default — user can expand to see the reasoning process
+- Visually distinct from the main response (lighter text, indented, or in a subtle container)
+
+### Crash Recovery
+
+- **Draft auto-save:** persist the current input text to SQLite every few seconds while the user types. Clear on successful send. On next launch, restore draft if present.
+- **Interrupted streaming:** if the app crashes or loses connection mid-stream, save whatever tokens were received so far with a "(response interrupted)" marker. The user can regenerate.
+- **Startup check:** on launch, detect if the previous session ended abnormally and show a brief "Recovered from unexpected shutdown" toast if drafts were restored.
+
+### Offline Behavior
+
+- **Full read access:** browse all conversations, search, manage projects/agents/skills/settings
+- **Sending disabled:** input area shows a clear "You're offline" indicator, send button disabled
+- **Auto-reconnect:** monitor network status; when connectivity returns, automatically re-enable sending and show a brief "Back online" toast
+- **No queue:** messages are not queued for later sending — the user must explicitly send when online
+
+### Conversation Export
+
+- Available from settings and per-conversation context menu
+- **JSON format:** full structured data — messages, metadata, timestamps, tool calls. Machine-readable, suitable for backup.
+- **Markdown format:** human-readable document — one file per conversation with headers, message attribution, code blocks preserved. Suitable for sharing or archiving.
+
+### Database & Storage
+
+- SQLite database and app config stored in the **platform-standard app data directory** via the `directories` crate:
+  - macOS: `~/Library/Application Support/copilot-desktop/`
+  - Linux: `~/.local/share/copilot-desktop/` (XDG_DATA_HOME)
+  - Windows: `%APPDATA%\copilot-desktop\`
+- Show database size in settings
+- Offer "Delete conversations older than X days" cleanup option
+- Warn if database exceeds 500MB with a suggestion to clean up old conversations
+
 ---
 
 ## Auto-Update
@@ -632,6 +706,7 @@ CREATE TABLE conversations (
     agent_id TEXT REFERENCES agents(id),
     project_id TEXT REFERENCES projects(id),
     model TEXT,                    -- Model used (e.g., "gpt-4o")
+    is_favourite INTEGER DEFAULT 0, -- 1 if pinned to top of sidebar
     created_at TEXT NOT NULL,      -- ISO 8601
     updated_at TEXT NOT NULL
 );
@@ -725,6 +800,13 @@ CREATE TABLE config (
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL
 );
+
+-- Draft auto-save (crash recovery)
+CREATE TABLE drafts (
+    conversation_id TEXT PRIMARY KEY REFERENCES conversations(id) ON DELETE CASCADE,
+    content TEXT NOT NULL,         -- Draft input text
+    updated_at TEXT NOT NULL
+);
 ```
 
 ### Persistence Rules
@@ -762,50 +844,57 @@ CREATE TABLE config (
 3. **oauth-device-flow** — GitHub OAuth device flow with token refresh
 4. **keychain-storage** — OS keychain token storage (per-platform, using `keyring` crate)
 5. **chat-completions-client** — `/v1/chat/completions` with SSE streaming + file context
+6. **model-discovery** — Query API for available models at startup, cache list, fallback to default
 
 ### Phase 3: Persistence & Data Layer
-6. **sqlite-setup** — Initialize SQLite database with full schema (see Data Model section). Migrations support for future schema changes.
-7. **conversation-persistence** — CRUD for conversations + messages. Load on startup, lazy-load older messages. Auto-generate conversation titles.
+7. **sqlite-setup** — Initialize SQLite database with full schema (see Data Model section). Migrations support for future schema changes. Platform-standard data directory via `directories` crate.
+8. **conversation-persistence** — CRUD for conversations + messages. Load on startup, lazy-load older messages. Auto-generate conversation titles via lightweight API call after first response.
+9. **draft-auto-save** — Persist input text to `drafts` table every few seconds. Restore on launch. Clear on successful send.
 
 ### Phase 4: Core Chat UI (Claude Desktop-style)
-8. **sidebar** — Conversation list grouped by date, new chat, projects, agents, search, collapsible
-9. **chat-view** — Message list with avatars, timestamps, thinking indicator
-10. **input-area** — Multi-line input, file drop zone, attachment pills, agent selector, loading state
-11. **streaming-display** — Token-by-token rendering with cursor animation, stop button
+10. **sidebar** — Conversation list grouped by date, new chat, favourites (pinned), projects, agents, search, collapsible
+11. **chat-view** — Message list with avatars, timestamps, thinking indicator, collapsible reasoning sections
+12. **input-area** — Multi-line input, file drop zone, attachment pills, agent selector, model selector, loading state
+13. **streaming-display** — Token-by-token rendering with cursor animation, stop button. Save partial response on interruption with "(response interrupted)" marker.
+14. **message-actions** — Edit sent messages (discard + re-send from that point), regenerate last assistant response, copy individual messages
+15. **in-conversation-search** — Cmd+F / Ctrl+F to find text within current chat, highlight matches, navigate with arrows
 
 ### Phase 5: Markdown & Code Rendering
-12. **markdown-parser** — Bold, italic, headers, lists, links, code, blockquotes, tables
-13. **code-blocks** — Syntax-highlighted fenced blocks with copy button + language label
+16. **markdown-parser** — Bold, italic, headers, lists, links, code, blockquotes, tables
+17. **code-blocks** — Syntax-highlighted fenced blocks with copy button + language label
 
 ### Phase 6: Web Research
-14. **web-search** — Integrate Bing Web Search API. Triggered by AI (function calling) or user (🌐 button). Results displayed as cited cards in chat. API key stored in keychain.
-15. **url-fetcher** — User pastes a URL → app fetches page (HTTPS only, public IPs only) → extracts readable text → includes in context. URL preview card in input area. Max 50KB extracted text.
+18. **web-search** — Integrate Bing Web Search API. Triggered by AI (function calling) or user (🌐 button). Results displayed as cited cards in chat. API key stored in keychain.
+19. **url-fetcher** — User pastes a URL → app fetches page (HTTPS only, public IPs only) → extracts readable text → includes in context. URL preview card in input area. Max 50KB extracted text.
 
 ### Phase 7: MCP Integration
-16. **mcp-client** — MCP protocol client (spec 2025-03-26): connect, discover tools, invoke, handle responses. HTTP and stdio transports.
-17. **mcp-catalog** — Built-in catalog of popular MCP servers with one-click enable. Show descriptions, required config fields. Persist enabled state to SQLite.
-18. **mcp-settings** — UI for managing MCP connections: add custom servers (URL + auth or binary path), enable/disable, test connectivity, view discovered tools.
+20. **mcp-client** — MCP protocol client (spec 2025-03-26): connect, discover tools, invoke, handle responses. HTTP and stdio transports.
+21. **mcp-catalog** — Built-in catalog of popular MCP servers with one-click enable. Show descriptions, required config fields. Persist enabled state to SQLite.
+22. **mcp-settings** — UI for managing MCP connections: add custom servers (URL + auth or binary path), enable/disable, test connectivity, view discovered tools.
 
 ### Phase 8: Skills & Agents
-19. **skills-manager** — Skills management view: browse Copilot Extensions + MCP tools as unified skill list. Toggle on/off, configure per-skill settings. Persist to SQLite.
-20. **agents-manager** — Agent management view: create/edit/delete custom agent personas. Each agent has name, avatar, system prompt, assigned skills, MCP connections. Default agent is built-in and undeletable.
-21. **agent-selector** — Agent picker in chat input area. Conversations tied to an agent. Agent config maps to API request structure (see Skills & Agents Concepts section).
+23. **skills-manager** — Skills management view: browse Copilot Extensions + MCP tools as unified skill list. Toggle on/off, configure per-skill settings. Persist to SQLite.
+24. **agents-manager** — Agent management view: create/edit/delete custom agent personas. Each agent has name, avatar, system prompt, assigned skills, MCP connections. Default agent is built-in and undeletable.
+25. **agent-selector** — Agent picker in chat input area. Conversations tied to an agent. Agent config maps to API request structure (see Skills & Agents Concepts section).
 
 ### Phase 9: Projects & File Context
-22. **projects** — Named project containers with custom instructions, pinned files (stored as BLOBs in SQLite), grouped conversations. Project selector in sidebar.
-23. **file-context** — User-initiated only: read file contents into memory via drag-and-drop or file picker. Preview in input. Never retain paths or re-read from disk. No filesystem browsing.
+26. **projects** — Named project containers with custom instructions, pinned files (stored as BLOBs in SQLite), grouped conversations. Project selector in sidebar.
+27. **file-context** — User-initiated only: read file contents into memory via drag-and-drop or file picker. Preview in input. Never retain paths or re-read from disk. No filesystem browsing.
+28. **context-window** — Implement conversation summarization for long chats. Older messages summarized into condensed recap. Visual indicator when summarization has occurred.
 
 ### Phase 10: Polish & UX
-24. **theme-system** — Light/dark with system detection + manual override
-25. **settings-panel** — Account, theme, font size, default model, auto-update preferences, MCP management, conversation export (JSON + Markdown), clear history
-26. **keyboard-shortcuts** — Cmd+N (new chat), Cmd+K (search conversations), Cmd+, (settings), Cmd+Shift+S (toggle sidebar), Escape (cancel streaming)
-27. **global-hotkey** — System-wide app summon (Cmd+Shift+Space or configurable)
+29. **theme-system** — Light/dark with system detection + manual override
+30. **settings-panel** — Account, theme, font size, default model, auto-update preferences, MCP management, conversation export (JSON + Markdown), database size display + cleanup, clear history
+31. **keyboard-shortcuts** — Cmd+N (new chat), Cmd+K (search conversations), Cmd+F (search in conversation), Cmd+, (settings), Cmd+Shift+S (toggle sidebar), Escape (cancel streaming)
+32. **global-hotkey** — System-wide app summon (Cmd+Shift+Space or configurable)
+33. **system-tray** — Minimize to tray instead of closing. Streaming continues when window is hidden. Right-click menu: New Chat, Show, Quit. Status indicator.
+34. **offline-mode** — Detect network status. Full read access when offline, sending disabled with clear indicator. Auto-reconnect with "Back online" toast.
 
 ### Phase 11: Auto-Update
-28. **auto-update** — Check for new versions on startup and periodically (configurable interval). Compare current version against latest GitHub Release. Show non-intrusive notification when update is available. Download and apply update with user confirmation. Atomic binary swap via `self_update` crate. Verify release signatures. Show changelog/release notes. Allow "skip this version" and "remind me later". Settings toggle to disable auto-update.
+35. **auto-update** — Check for new versions on startup and periodically (configurable interval). Compare current version against latest GitHub Release. Show non-intrusive notification when update is available. Download and apply update with user confirmation. Atomic binary swap via `self_update` crate. Verify release signatures. Show changelog/release notes. Allow "skip this version" and "remind me later". Settings toggle to disable auto-update.
 
 ### Phase 12: Distribution
-29. **app-packaging** — `.app` (macOS with code signing + App Sandbox), `.AppImage`/`.deb` (Linux), `.msi` (Windows), GitHub Actions CI/CD. Publish releases to GitHub Releases for auto-update consumption.
+36. **app-packaging** — `.app` (macOS with code signing + App Sandbox), `.AppImage`/`.deb` (Linux), `.msi` (Windows), GitHub Actions CI/CD. Publish releases to GitHub Releases for auto-update consumption.
 
 ---
 

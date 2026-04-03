@@ -12,13 +12,19 @@ GHCP Desktop provides a dedicated chat interface for GitHub Copilot — inspired
 ### Key Features
 
 - 💬 **Streaming chat** — real-time token-by-token responses via SSE
+- ✏️ **Edit & regenerate** — edit any sent message or regenerate the last response
+- ⭐ **Favourites** — pin important conversations for quick access
+- 🔍 **Search** — find conversations in the sidebar and text within a conversation
 - 📂 **Projects** — organize conversations by topic with pinned context files
 - 🔌 **MCP integration** — connect external tools via the Model Context Protocol
 - 🌐 **Web research** — AI-powered search and URL fetching for grounded answers
 - 🤖 **Skills & Agents** — configurable agent personas with custom system prompts and tool access
+- 🧠 **Thinking display** — collapsible reasoning/thinking sections from supported models
 - 🔒 **Privacy-first** — zero filesystem access; files enter only via drag-and-drop/picker, read once into memory
 - ⌨️ **Global hotkey** — summon the app instantly from anywhere
 - 🖥️ **Native performance** — Rust + GPUI, no Electron, no web views
+- 🔄 **Auto-update** — seamless updates from GitHub Releases
+- 💾 **Crash recovery** — auto-saved drafts and interrupted stream preservation
 
 ### Supported Platforms
 
