@@ -5,13 +5,20 @@
 
 ---
 
-## ⚠️ MANDATORY: Agent Task Completion Protocol
+## ⛔ MANDATORY: Agent Task Completion Protocol
 
-**Every agent working on this project MUST follow these rules. These are non-negotiable.**
+> **🚨 STOP. READ THIS BEFORE DOING ANYTHING.**
+>
+> Every agent working on this project **MUST** follow the rules below.
+> These rules apply to **ALL tasks** — code, documentation, configuration, dependencies, refactoring, **everything**.
+> There are **ZERO exceptions**. "It's just a docs change" is not an excuse. "It's a small fix" is not an excuse.
+> **No task is complete until the review-fix loop exits with zero issues.**
+>
+> If you skip this protocol, your work is considered incomplete and invalid.
 
 ### 1. Review-Fix Loop (Zero Issues Required)
 
-After completing any task, the agent **MUST** run a review-fix cycle:
+After completing **any** task — no matter how small — the agent **MUST** run a review-fix cycle:
 
 ```
 ┌─────────────────────────┐
@@ -46,6 +53,13 @@ After completing any task, the agent **MUST** run a review-fix cycle:
 "good enough" — the review cycle terminates only at zero. This process can and should
 be dispatched to multiple agents in parallel (e.g., one agent reviews code quality,
 another reviews tests, another reviews docs).
+
+> **⚠️ Common excuses that DO NOT exempt you from this protocol:**
+> - "It's only a documentation change" — **No.** Review for consistency, broken links, contradictions, missing updates.
+> - "It's a one-line fix" — **No.** One-line fixes can introduce regressions. Review.
+> - "I already know it's correct" — **No.** Run the checks anyway. Trust the process, not your assumptions.
+> - "The build tools don't apply (no code yet)" — **Partially valid.** Skip `cargo build/clippy/test/fmt` only if there is literally no Rust code in the repo. Still run manual review, security audit, doc completeness, and consistency checks.
+> - "I'll do it later" — **No.** The review happens NOW, before the task is marked complete.
 
 ### Review Checklist (every cycle)
 
