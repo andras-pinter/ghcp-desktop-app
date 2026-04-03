@@ -190,9 +190,9 @@ integration, custom agent personas, and streaming responses.
 │  └──────────────┘  └──────────────────────────────────────────┘  │
 │                                                                  │
 │  ┌───────────────────────────────────────────────────────────┐   │
-│  │                  App State (Model)                        │   │
+│  │  App State (Model)                        │   │
 │  │  conversations[] │ agents[] │ skills[] │ mcp_connections[] │   │
-│  │  active_project  │ config   │ auth_state                  │   │
+│  │  active_project  │ config   │ auth_state │ update_state     │   │
 │  └────────────────────────────┬──────────────────────────────┘   │
 └───────────────────────────────┼──────────────────────────────────┘
                                 │
@@ -233,7 +233,8 @@ copilot-desktop/
 │   │   │   │   ├── settings.rs # Settings panel (modal or slide-over)
 │   │   │   │   ├── project.rs  # Project detail view (instructions, files, conversations)
 │   │   │   │   ├── agents.rs   # Agent management: create/edit/delete custom agent personas
-│   │   │   │   └── skills.rs   # Skills/extensions browser: enable/disable/configure
+│   │   │   │   ├── skills.rs   # Skills/extensions browser: enable/disable/configure
+│   │   │   │   └── update.rs   # Auto-update notification banner + download progress
 │   │   │   ├── state/
 │   │   │   │   ├── mod.rs      # App state model
 │   │   │   │   ├── conversation.rs  # Conversation + message models
@@ -242,6 +243,7 @@ copilot-desktop/
 │   │   │   │   ├── skill.rs    # Skill/extension model (id, name, enabled, config)
 │   │   │   │   ├── mcp.rs      # MCP server connection state + catalog
 │   │   │   │   ├── web.rs      # Web search results + URL fetch state (ephemeral)
+│   │   │   │   ├── update.rs   # Auto-update state (available version, download progress, skipped versions)
 │   │   │   │   └── config.rs   # User preferences
 │   │   │   └── theme/
 │   │   │       ├── mod.rs      # Theme definitions (light + dark)
@@ -397,12 +399,13 @@ test(web-research): add URL validation tests for private IP blocking
 - Validate all API responses — don't trust server data shapes blindly
 - **No filesystem access** — the app cannot read, write, or browse files on its own. Files only enter via explicit user drag-and-drop or file picker. File contents are read into memory once; the app never stores or re-accesses file paths.
 - **No shell/subprocess execution** — the app must never spawn processes or run commands, **except** for MCP stdio transport (see MCP Security below)
-- **No network requests** except to: GitHub Copilot API, GitHub OAuth, user-configured MCP servers, web search API, and user-provided URLs. All non-GitHub network destinations must be explicitly user-configured or user-initiated.
+- **No network requests** except to: GitHub Copilot API, GitHub OAuth, user-configured MCP servers, web search API, user-provided URLs, and GitHub Releases API (for auto-update). All non-GitHub network destinations must be explicitly user-configured or user-initiated.
 - **URL fetching:** block private IPs (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16), localhost (127.0.0.0/8), link-local (169.254.0.0/16), and cloud metadata (169.254.169.254). Only fetch public HTTPS URLs.
 - **MCP server connections** are user-managed — the app never auto-discovers or connects to MCP servers without explicit user configuration
 - **MCP response sanitization** — all MCP tool responses must be sanitized before rendering. Strip HTML/scripts from text content, enforce max payload size (e.g., 1MB), validate JSON structure.
 - **macOS App Sandbox required** — enforce filesystem and network restrictions at the OS level via entitlements
 - Treat any code path that touches the filesystem (outside app data dir) or spawns a non-MCP process as a **security violation**
+- **Auto-update exception:** the `self_update` crate performs an atomic binary swap of the app's own executable. This is the **only** permitted filesystem write outside the app data directory, and it requires explicit user confirmation before executing.
 
 ### MCP Security
 
@@ -569,9 +572,9 @@ Users can add custom MCP servers in settings:
 
 | Concept | What It Is | Example |
 |---|---|---|
-| **Skill** | A capability/tool that extends what the AI can do. Can be a Copilot Extension (GitHub-hosted) or an MCP tool (from a connected MCP server). | "Web Search", "GitHub PR Lookup", "SQL Query" |
+| **Skill** | A capability/tool that extends what the AI can do. Can be an MCP tool (from a connected MCP server) or a built-in tool (e.g., web search). Legacy Copilot Extensions may also be represented as skills if the API still supports them. | "Web Search", "GitHub PR Lookup", "SQL Query" |
 | **Agent** | A named persona with a system prompt, a set of assigned skills, and optionally specific MCP server connections. Agents define *how* the AI behaves and *what tools* it has access to. | "Research Agent" with web search + URL fetch skills |
-| **Copilot Extension** | A GitHub-hosted plugin/tool that Copilot can use. Managed via the GitHub Extensions marketplace. Represented as a Skill in this app. | `@docker`, `@azure` |
+| **Copilot Extension** | A GitHub-hosted plugin/tool. **Note:** GitHub deprecated Extensions in Nov 2025 in favor of MCP. The app should support them if the API still offers them, but prioritize MCP tools as the primary extensibility mechanism. | `@docker`, `@azure` |
 | **MCP Tool** | A tool exposed by a connected MCP server. Also represented as a Skill in this app. | `query_database`, `search_files` |
 
 ### How Agents Map to API Calls
@@ -714,11 +717,28 @@ CREATE TABLE config (
 
 - **Conversations, messages, projects, agents, skills, MCP configs** → SQLite
 - **OAuth tokens, API keys** → OS keychain (never in SQLite)
-- **User preferences** (theme, font size, hotkey) → SQLite `config` table
+- **User preferences** (theme, font size, hotkey, auto-update) → SQLite `config` table
 - **File contents** for project pinned files → SQLite `project_files.content` as BLOB
 - **Attached file contents** in chat → stored in `messages.attachments` as metadata only; full content is ephemeral (in-memory during conversation, not persisted)
 
+### Schema Migrations
+
+- Use a `schema_version` key in the `config` table to track the current DB schema version
+- On startup, compare `schema_version` against the app's expected version
+- Apply sequential migration scripts (embedded in the binary) to bring the schema up to date
+- Migrations must be forward-only and non-destructive — never drop data without user consent
+- This is critical for auto-update: after a binary swap, the new version may expect a newer schema
+
+### Versioning
+
+- Follow [Semantic Versioning](https://semver.org/) (`MAJOR.MINOR.PATCH`)
+- Git tags for releases use the format `vX.Y.Z` (e.g., `v1.2.3`)
+- `self_update` compares `CARGO_PKG_VERSION` against the latest GitHub Release tag
+- Pre-release versions (e.g., `v1.0.0-beta.1`) should be excluded from auto-update by default
+
 ---
+
+## Implementation Plan
 
 ### Phase 1: Project Scaffolding & GPUI Hello World
 1. **project-setup** — Initialize Rust workspace, configure 5 crates, pin GPUI
@@ -763,7 +783,7 @@ CREATE TABLE config (
 
 ### Phase 10: Polish & UX
 24. **theme-system** — Light/dark with system detection + manual override
-25. **settings-panel** — Account, theme, font size, default model, MCP management, conversation export (JSON + Markdown), clear history
+25. **settings-panel** — Account, theme, font size, default model, auto-update preferences, MCP management, conversation export (JSON + Markdown), clear history
 26. **keyboard-shortcuts** — Cmd+N (new chat), Cmd+K (search conversations), Cmd+, (settings), Cmd+Shift+S (toggle sidebar), Escape (cancel streaming)
 27. **global-hotkey** — System-wide app summon (Cmd+Shift+Space or configurable)
 
@@ -816,6 +836,8 @@ cargo update
 | MCP server reliability | Tool calls may fail or timeout | Timeout handling, retry logic, graceful fallback in chat |
 | MCP security surface | Untrusted servers could return harmful data | User must explicitly add servers; validate/sanitize all MCP responses |
 | Web search API costs/limits | Rate limiting or billing | Cache results, respect rate limits, show clear errors |
+| Auto-update failure | Corrupted binary, failed download | Atomic swap (old binary preserved until verified), checksum validation, user can re-download manually |
+| Schema migration on update | Data loss or app crash after update | Forward-only migrations, backup DB before migration, test migrations in CI |
 
 ---
 
@@ -829,4 +851,4 @@ The UX is modeled after **Claude Desktop** (Anthropic's desktop app):
 - Light/dark theme with system preference detection
 - Global hotkey to summon from anywhere
 
-**Key difference:** This app has **no access to the user's machine** — no filesystem browsing, no shell execution, no screen capture. All external capabilities come through explicit user actions (file attach, URL paste) or user-configured connections (MCP servers, web search). It's a powerful but sandboxed chat client for GitHub Copilot with extensibility via MCP and custom agents.
+**Key difference:** This app has **no access to the user's machine** — no filesystem browsing, no shell execution, no screen capture. All external capabilities come through explicit user actions (file attach, URL paste) or user-configured connections (MCP servers, web search). It includes seamless auto-updates from GitHub Releases. It's a powerful but sandboxed chat client for GitHub Copilot with extensibility via MCP and custom agents.
