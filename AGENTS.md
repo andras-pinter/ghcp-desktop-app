@@ -361,6 +361,7 @@ test(web-research): add URL validation tests for private IP blocking
 - Body: wrap at 72 characters, explain *what* and *why* (not *how*)
 - Breaking changes: add `BREAKING CHANGE:` footer or `!` after type/scope
 - Reference issues/tasks when applicable
+- **Type must match the actual change** — `feat`, `fix`, `refactor`, `test`, `perf` are for **code changes only**. If a commit only touches documentation (e.g., AGENTS.md, README), use `docs:` regardless of what the documentation describes. Reserve code-level types for commits that modify `.rs`, `.toml`, or other source/config files.
 
 ### GPUI Patterns
 
