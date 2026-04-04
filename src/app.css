@@ -105,6 +105,8 @@
   /* ── Layout ── */
   --sidebar-width: 260px;
   --sidebar-collapsed-width: 52px;
+  --titlebar-height: 38px;
+  --titlebar-traffic-light-offset: 78px;
   --content-max-width: 680px;
   --input-min-height: 44px;
 
