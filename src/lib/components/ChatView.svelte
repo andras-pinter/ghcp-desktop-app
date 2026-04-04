@@ -48,6 +48,39 @@
 </script>
 
 <div class="chat-view">
+  <!-- Sidebar toggle: always visible when sidebar is collapsed -->
+  {#if sidebarCollapsed}
+    <button
+      class="sidebar-toggle"
+      onclick={onToggleSidebar}
+      aria-label="Open sidebar"
+      title="Open sidebar (⌘⇧S)"
+    >
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <rect
+          x="1"
+          y="2"
+          width="4"
+          height="12"
+          rx="1"
+          stroke="currentColor"
+          stroke-width="1.5"
+          fill="none"
+        />
+        <rect
+          x="6"
+          y="2"
+          width="9"
+          height="12"
+          rx="1"
+          stroke="currentColor"
+          stroke-width="1.5"
+          fill="none"
+        />
+      </svg>
+    </button>
+  {/if}
+
   {#if messages.length === 0}
     <!-- Empty state: centered welcome -->
     <div class="welcome-container">
@@ -61,37 +94,6 @@
     </div>
   {:else}
     <!-- Conversation view -->
-    {#if sidebarCollapsed}
-      <button
-        class="sidebar-toggle"
-        onclick={onToggleSidebar}
-        aria-label="Open sidebar"
-        title="Open sidebar (⌘⇧S)"
-      >
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-          <rect
-            x="1"
-            y="2"
-            width="4"
-            height="12"
-            rx="1"
-            stroke="currentColor"
-            stroke-width="1.5"
-            fill="none"
-          />
-          <rect
-            x="6"
-            y="2"
-            width="9"
-            height="12"
-            rx="1"
-            stroke="currentColor"
-            stroke-width="1.5"
-            fill="none"
-          />
-        </svg>
-      </button>
-    {/if}
     <div class="chat-messages" bind:this={chatContainer} role="log" aria-label="Chat messages">
       <div class="messages-inner">
         {#each messages as message (message.id)}

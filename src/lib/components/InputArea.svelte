@@ -7,6 +7,9 @@
 
   let inputText = $state("");
   let textareaEl: HTMLTextAreaElement | undefined = $state();
+  // TODO: populate from API in Phase 2
+  let selectedModel = $state("GPT-4o");
+  const availableModels = ["GPT-4o", "GPT-4o mini", "Claude 3.5 Sonnet", "o1-preview"];
 
   function handleSend() {
     const trimmed = inputText.trim();
@@ -44,20 +47,29 @@
       aria-label="Message input"
     ></textarea>
     <div class="input-actions">
-      <button class="action-btn" aria-label="Attach file" title="Attach file">
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 16 16"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.5"
-        >
-          <path
-            d="M14 8.5l-5.5 5.5a3.5 3.5 0 0 1-5-5L9 3.5a2.5 2.5 0 0 1 3.5 3.5L7 12.5a1.5 1.5 0 0 1-2-2L10.5 5"
-          />
-        </svg>
-      </button>
+      <div class="actions-left">
+        <button class="action-btn" aria-label="Attach file" title="Attach file">
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+          >
+            <path
+              d="M14 8.5l-5.5 5.5a3.5 3.5 0 0 1-5-5L9 3.5a2.5 2.5 0 0 1 3.5 3.5L7 12.5a1.5 1.5 0 0 1-2-2L10.5 5"
+            />
+          </svg>
+        </button>
+        <div class="model-selector">
+          <select bind:value={selectedModel} aria-label="Select model">
+            {#each availableModels as model (model)}
+              <option value={model}>{model}</option>
+            {/each}
+          </select>
+        </div>
+      </div>
       <button
         class="send-btn"
         class:active={!!inputText.trim()}
@@ -119,6 +131,12 @@
     padding: 4px 8px 8px;
   }
 
+  .actions-left {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+  }
+
   .action-btn {
     width: 32px;
     height: 32px;
@@ -134,6 +152,25 @@
   }
 
   .action-btn:hover {
+    background: var(--color-bg-hover);
+    color: var(--color-text-secondary);
+  }
+
+  .model-selector select {
+    appearance: none;
+    background: transparent;
+    border: none;
+    color: var(--color-text-tertiary);
+    font-family: var(--font-sans);
+    font-size: var(--font-size-sm);
+    padding: 4px 8px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    outline: none;
+  }
+
+  .model-selector select:hover {
     background: var(--color-bg-hover);
     color: var(--color-text-secondary);
   }
