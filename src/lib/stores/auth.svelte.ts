@@ -1,18 +1,24 @@
 /** Reactive auth state using Svelte 5 runes. */
 
-import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
-import type { AuthState, DeviceCodeResponse, GitHubUser } from "$lib/types/auth";
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import {
+  getAuthState,
+  authenticate,
+  pollAuthToken as pollAuthTokenCmd,
+  doLogout,
+} from "$lib/utils/commands";
+import type { DeviceCodeResponse, GitHubUser } from "$lib/types/auth";
 
 let authenticated = $state(false);
 let user = $state<GitHubUser | null>(null);
 let loading = $state(true);
+let unlistenAuthChange: UnlistenFn | undefined;
 
 /** Initialize auth state — call once on app startup. */
 export async function initAuth(): Promise<void> {
   loading = true;
   try {
-    const state = await invoke<AuthState>("get_auth_state");
+    const state = await getAuthState();
     authenticated = state.authenticated;
     user = state.user ?? null;
   } catch {
@@ -22,8 +28,11 @@ export async function initAuth(): Promise<void> {
     loading = false;
   }
 
+  // Clean up previous listener (e.g., HMR reload)
+  unlistenAuthChange?.();
+
   // Listen for auth state changes from backend
-  await listen<boolean>("auth-state-changed", (event) => {
+  unlistenAuthChange = await listen<boolean>("auth-state-changed", (event) => {
     authenticated = event.payload;
     if (!event.payload) {
       user = null;
@@ -33,12 +42,12 @@ export async function initAuth(): Promise<void> {
 
 /** Start the device flow — returns device code info for the UI. */
 export async function startDeviceFlow(): Promise<DeviceCodeResponse> {
-  return invoke<DeviceCodeResponse>("authenticate");
+  return authenticate();
 }
 
 /** Poll once for the OAuth token. Returns user on success. */
 export async function pollAuthToken(deviceCode: string): Promise<GitHubUser> {
-  const ghUser = await invoke<GitHubUser>("poll_auth_token", { deviceCode });
+  const ghUser = await pollAuthTokenCmd(deviceCode);
   authenticated = true;
   user = ghUser;
   return ghUser;
@@ -46,7 +55,7 @@ export async function pollAuthToken(deviceCode: string): Promise<GitHubUser> {
 
 /** Sign out. */
 export async function logout(): Promise<void> {
-  await invoke("logout");
+  await doLogout();
   authenticated = false;
   user = null;
 }

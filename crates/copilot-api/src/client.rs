@@ -2,12 +2,10 @@
 
 use crate::auth::{AuthError, DeviceFlowAuth};
 use crate::types::{ChatRequest, Model, ModelsResponse, StreamingChatResponse};
+use crate::{user_agent, APP_VERSION};
 use reqwest_eventsource::{Event, EventSource};
 use thiserror::Error;
 use tokio::sync::mpsc;
-
-/// Application version derived from Cargo.toml at compile time.
-const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// Errors from the Copilot chat client.
 #[derive(Debug, Error)]
@@ -26,11 +24,6 @@ pub enum ClientError {
     Api { status: u16, body: String },
 }
 
-/// Build the User-Agent header value.
-fn user_agent() -> String {
-    format!("Chuck/{APP_VERSION} (GitHub Copilot Desktop Client)")
-}
-
 /// A streaming event emitted token-by-token during chat.
 #[derive(Debug, Clone)]
 pub enum StreamEvent {
@@ -45,8 +38,28 @@ pub enum StreamEvent {
 }
 
 /// Client for the GitHub Copilot chat completions and models endpoints.
+/// Allowed domain suffixes for the Copilot API base URL.
+const ALLOWED_API_DOMAINS: &[&str] = &[".githubcopilot.com", ".github.com"];
+
+/// Validate that an API base URL points to a trusted GitHub domain.
+fn validate_api_base(api_base: &str) -> Result<(), ClientError> {
+    let parsed = url::Url::parse(api_base).map_err(|e| ClientError::Stream(e.to_string()))?;
+    if parsed.scheme() != "https" {
+        return Err(ClientError::Stream("API base URL must use HTTPS".into()));
+    }
+    let host = parsed.host_str().unwrap_or("");
+    if !ALLOWED_API_DOMAINS.iter().any(|d| host.ends_with(d)) {
+        return Err(ClientError::Stream(format!(
+            "API base URL host '{host}' is not a trusted GitHub domain"
+        )));
+    }
+    Ok(())
+}
+
+/// The main Copilot API client.
 pub struct CopilotClient {
     auth: DeviceFlowAuth,
+    http: reqwest::Client,
 }
 
 impl CopilotClient {
@@ -54,12 +67,16 @@ impl CopilotClient {
     pub fn new() -> Self {
         Self {
             auth: DeviceFlowAuth::new(),
+            http: reqwest::Client::new(),
         }
     }
 
     /// Create with a custom auth handler (useful for testing).
     pub fn with_auth(auth: DeviceFlowAuth) -> Self {
-        Self { auth }
+        Self {
+            auth,
+            http: reqwest::Client::new(),
+        }
     }
 
     /// Get a reference to the auth handler.
@@ -77,12 +94,13 @@ impl CopilotClient {
         request: ChatRequest,
     ) -> Result<mpsc::UnboundedReceiver<StreamEvent>, ClientError> {
         let (copilot_token, api_base) = self.auth.ensure_copilot_token().await?;
+        validate_api_base(&api_base)?;
 
         let url = format!("{api_base}/chat/completions");
         let ua = user_agent();
 
-        let http = reqwest::Client::new();
-        let req = http
+        let req = self
+            .http
             .post(&url)
             .header("Authorization", format!("Bearer {copilot_token}"))
             .header("Content-Type", "application/json")
@@ -164,10 +182,12 @@ impl CopilotClient {
     /// Fetch available Copilot models.
     pub async fn get_models(&self) -> Result<Vec<Model>, ClientError> {
         let (copilot_token, api_base) = self.auth.ensure_copilot_token().await?;
+        validate_api_base(&api_base)?;
 
         let url = format!("{api_base}/models");
 
-        let resp = reqwest::Client::new()
+        let resp = self
+            .http
             .get(&url)
             .header("Authorization", format!("Bearer {copilot_token}"))
             .header("Accept", "application/json")

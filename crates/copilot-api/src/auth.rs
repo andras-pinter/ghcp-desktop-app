@@ -10,13 +10,11 @@ use crate::keychain;
 use crate::types::{
     CopilotTokenResponse, DeviceCodeResponse, GitHubUser, OAuthErrorResponse, OAuthTokenResponse,
 };
+use crate::user_agent;
 use thiserror::Error;
 
 /// GitHub OAuth app client ID for Copilot (same as VS Code uses).
 pub const GITHUB_CLIENT_ID: &str = "Iv1.b507a08c87ecfe98";
-
-/// Application version derived from Cargo.toml at compile time.
-const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// Refresh the Copilot JWT this many seconds before it actually expires,
 /// so requests don't fail due to clock skew or network latency.
@@ -35,11 +33,6 @@ const KEY_GITHUB_TOKEN: &str = "github_oauth_token";
 const KEY_COPILOT_TOKEN: &str = "copilot_token";
 const KEY_COPILOT_EXPIRES: &str = "copilot_token_expires_at";
 const KEY_COPILOT_API_BASE: &str = "copilot_api_base";
-
-/// Build the User-Agent header value.
-fn user_agent() -> String {
-    format!("Chuck/{APP_VERSION} (GitHub Copilot Desktop Client)")
-}
 
 /// Errors that can occur during authentication.
 #[derive(Debug, Error)]

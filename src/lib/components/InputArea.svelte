@@ -15,7 +15,7 @@
 
   let inputText = $state("");
   let textareaEl: HTMLTextAreaElement | undefined = $state();
-  let availableModels = $state<Model[]>([{ id: "gpt-4o", name: "GPT-4o" }]);
+  let availableModels = $state<Model[]>([]);
 
   onMount(async () => {
     try {

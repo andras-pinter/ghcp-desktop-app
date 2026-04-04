@@ -9,6 +9,14 @@ pub mod client;
 pub mod keychain;
 pub mod types;
 
+/// Application version derived from Cargo.toml at compile time.
+pub const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
+
+/// Build the User-Agent header value used in all API requests.
+pub fn user_agent() -> String {
+    format!("Chuck/{APP_VERSION} (GitHub Copilot Desktop Client)")
+}
+
 pub use auth::{AuthError, DeviceFlowAuth, GITHUB_CLIENT_ID};
 pub use client::{ClientError, CopilotClient, StreamEvent};
 pub use keychain::KeychainError;

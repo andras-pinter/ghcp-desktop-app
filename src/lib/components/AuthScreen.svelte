@@ -17,7 +17,10 @@
       await writeText(deviceCode.user_code);
       copied = true;
       setTimeout(() => (copied = false), 2000);
-      // Open verification URL in browser
+      // Validate and open verification URL in browser
+      if (!deviceCode.verification_uri.startsWith("https://github.com/")) {
+        throw new Error("Unexpected verification URL");
+      }
       await open(deviceCode.verification_uri);
       // Start polling
       startPolling();
@@ -44,12 +47,12 @@
         return;
       } catch (e) {
         const msg = String(e).toLowerCase();
-        if (msg.includes("authorization pending") || msg.includes("authorization_pending")) {
-          continue; // Keep polling
-        } else if (msg.includes("slow down") || msg.includes("slow_down")) {
-          await new Promise((r) => setTimeout(r, 5000)); // Extra wait
+        if (msg.includes("authorization pending")) {
           continue;
-        } else if (msg.includes("expired") || msg.includes("expired_token")) {
+        } else if (msg.includes("slow down")) {
+          await new Promise((r) => setTimeout(r, 5000));
+          continue;
+        } else if (msg.includes("expired")) {
           error = "Device code expired. Please try again.";
           polling = false;
           deviceCode = null;

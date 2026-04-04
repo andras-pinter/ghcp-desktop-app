@@ -30,12 +30,11 @@
 
   onMount(async () => {
     unlistenToken = await onStreamingToken((token) => {
-      // Append token to the last assistant message
+      // Append token to the last assistant message (mutate in place for perf)
       const last = messages[messages.length - 1];
       if (last && last.role === "assistant") {
-        messages = messages.map((m, i) =>
-          i === messages.length - 1 ? { ...m, content: m.content + token } : m,
-        );
+        last.content += token;
+        messages = messages; // trigger Svelte 5 reactivity
         requestAnimationFrame(() => {
           chatContainer?.scrollTo({ top: chatContainer.scrollHeight, behavior: "smooth" });
         });
@@ -90,10 +89,9 @@
       chatContainer?.scrollTo({ top: chatContainer.scrollHeight, behavior: "smooth" });
     });
 
-    // Build API message array from conversation history
+    // Build API message array — include all user + non-empty assistant messages
     const apiMessages: ChatMessage[] = messages
       .filter((m) => m.role === "user" || (m.role === "assistant" && m.content))
-      .slice(0, -1) // Exclude the empty assistant placeholder
       .map((m) => ({ role: m.role, content: m.content }));
 
     try {
@@ -102,11 +100,8 @@
       streaming = false;
       const last = messages[messages.length - 1];
       if (last && last.role === "assistant" && !last.content) {
-        messages = messages.map((m, i) =>
-          i === messages.length - 1
-            ? { ...m, content: `⚠️ Error: ${e instanceof Error ? e.message : String(e)}` }
-            : m,
-        );
+        last.content = `⚠️ Error: ${e instanceof Error ? e.message : String(e)}`;
+        messages = messages;
       }
     }
   }

@@ -32,7 +32,13 @@ pub async fn send_message(
         stream: true,
     };
 
-    // Set up cancellation
+    // Set up cancellation — reject concurrent sends
+    {
+        let lock = state.cancel_stream.lock().await;
+        if lock.is_some() {
+            return Err("A streaming response is already in progress".to_string());
+        }
+    }
     let (cancel_tx, mut cancel_rx) = tokio::sync::watch::channel(false);
     {
         let mut lock = state.cancel_stream.lock().await;
