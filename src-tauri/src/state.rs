@@ -1,14 +1,21 @@
 //! Application-level managed state.
 
+use copilot_api::CopilotClient;
 use rusqlite::Connection;
 use std::sync::Mutex;
 use tauri::{AppHandle, Manager};
+use tokio::sync::Mutex as TokioMutex;
 
 /// Shared application state managed by Tauri.
-#[allow(dead_code)]
 pub struct AppState {
     /// SQLite database connection (wrapped in Mutex for thread safety).
+    /// Used by Phase 3+ for conversation persistence, settings, etc.
+    #[allow(dead_code)]
     pub db: Mutex<Connection>,
+    /// Copilot API client (handles auth + streaming + models).
+    pub copilot: CopilotClient,
+    /// Flag to cancel an in-flight streaming response.
+    pub cancel_stream: TokioMutex<Option<tokio::sync::watch::Sender<bool>>>,
 }
 
 impl AppState {
@@ -30,6 +37,8 @@ impl AppState {
 
         Ok(Self {
             db: Mutex::new(conn),
+            copilot: CopilotClient::new(),
+            cancel_stream: TokioMutex::new(None),
         })
     }
 }

@@ -1,26 +1,71 @@
 <script lang="ts">
   import InputArea from "./InputArea.svelte";
   import MessageBubble from "./MessageBubble.svelte";
-  import type { Message } from "$lib/types/message";
+  import type { Message, ChatMessage } from "$lib/types/message";
+  import { sendMessage, stopStreaming } from "$lib/utils/commands";
+  import { onStreamingToken, onStreamingComplete, onStreamingError } from "$lib/utils/events";
+  import { onMount, onDestroy } from "svelte";
+  import type { UnlistenFn } from "@tauri-apps/api/event";
 
   const greetings = [
-    "Break through.",
+    "Your co-pilot is ready. Where to?",
     "Let's break some barriers.",
-    "Ready to break the barrier?",
-    "Past the barrier, into the unknown.",
+    "Ready to break the sound barrier?",
     "What barrier are we breaking today?",
     "The sky was never the limit.",
-    "Let's punch through.",
+    "Cleared for takeoff. What's the mission?",
+    "Strapped in and ready. Let's punch through.",
+    "Co-pilot on deck. Say the word.",
   ];
 
   let messages: Message[] = $state([]);
   let chatContainer: HTMLElement | undefined = $state();
+  let streaming = $state(false);
+  let selectedModel = $state("gpt-4o");
   const greeting = greetings[Math.floor(Math.random() * greetings.length)];
 
-  function handleSend(text: string) {
+  let unlistenToken: UnlistenFn | undefined;
+  let unlistenComplete: UnlistenFn | undefined;
+  let unlistenError: UnlistenFn | undefined;
+
+  onMount(async () => {
+    unlistenToken = await onStreamingToken((token) => {
+      // Append token to the last assistant message (mutate in place for perf)
+      const last = messages[messages.length - 1];
+      if (last && last.role === "assistant") {
+        last.content += token;
+        messages = messages; // trigger Svelte 5 reactivity
+        requestAnimationFrame(() => {
+          chatContainer?.scrollTo({ top: chatContainer.scrollHeight, behavior: "smooth" });
+        });
+      }
+    });
+
+    unlistenComplete = await onStreamingComplete(() => {
+      streaming = false;
+    });
+
+    unlistenError = await onStreamingError((error) => {
+      streaming = false;
+      const last = messages[messages.length - 1];
+      if (last && last.role === "assistant" && !last.content) {
+        messages = messages.map((m, i) =>
+          i === messages.length - 1 ? { ...m, content: `⚠️ Error: ${error}` } : m,
+        );
+      }
+    });
+  });
+
+  onDestroy(() => {
+    unlistenToken?.();
+    unlistenComplete?.();
+    unlistenError?.();
+  });
+
+  async function handleSend(text: string) {
     const userMessage: Message = {
       id: crypto.randomUUID(),
-      conversationId: "demo",
+      conversationId: "current",
       role: "user",
       content: text,
       createdAt: new Date().toISOString(),
@@ -28,25 +73,49 @@
     };
     messages = [...messages, userMessage];
 
+    // Create a placeholder assistant message for streaming into
+    const assistantMessage: Message = {
+      id: crypto.randomUUID(),
+      conversationId: "current",
+      role: "assistant",
+      content: "",
+      createdAt: new Date().toISOString(),
+      sortOrder: messages.length + 1,
+    };
+    messages = [...messages, assistantMessage];
+    streaming = true;
+
     requestAnimationFrame(() => {
       chatContainer?.scrollTo({ top: chatContainer.scrollHeight, behavior: "smooth" });
     });
 
-    setTimeout(() => {
-      const assistantMessage: Message = {
-        id: crypto.randomUUID(),
-        conversationId: "demo",
-        role: "assistant",
-        content:
-          "I'm **Chuck** — a native desktop client for GitHub Copilot. I can help you with coding questions, research, brainstorming, and more.\n\nThis is a demo response. The streaming API integration is coming in Phase 2.",
-        createdAt: new Date().toISOString(),
-        sortOrder: messages.length,
-      };
-      messages = [...messages, assistantMessage];
-      requestAnimationFrame(() => {
-        chatContainer?.scrollTo({ top: chatContainer.scrollHeight, behavior: "smooth" });
-      });
-    }, 600);
+    // Build API message array — include all user + non-empty assistant messages
+    const apiMessages: ChatMessage[] = messages
+      .filter((m) => m.role === "user" || (m.role === "assistant" && m.content))
+      .map((m) => ({ role: m.role, content: m.content }));
+
+    try {
+      await sendMessage(apiMessages, selectedModel);
+    } catch (e) {
+      streaming = false;
+      const last = messages[messages.length - 1];
+      if (last && last.role === "assistant" && !last.content) {
+        last.content = `⚠️ Error: ${e instanceof Error ? e.message : String(e)}`;
+        messages = messages;
+      }
+    }
+  }
+
+  async function handleStop() {
+    try {
+      await stopStreaming();
+    } catch {
+      // Ignore
+    }
+  }
+
+  function handleModelChange(model: string) {
+    selectedModel = model;
   }
 </script>
 
@@ -57,7 +126,13 @@
         <p class="welcome-greeting">{greeting}</p>
       </div>
       <div class="welcome-input">
-        <InputArea onSend={handleSend} />
+        <InputArea
+          onSend={handleSend}
+          {streaming}
+          onStop={handleStop}
+          model={selectedModel}
+          onModelChange={handleModelChange}
+        />
       </div>
     </div>
   {:else}
@@ -65,13 +140,22 @@
       <div class="messages-inner">
         {#each messages as message, i (message.id)}
           <div class="message-entry" style="animation-delay: {Math.min(i * 40, 200)}ms">
-            <MessageBubble {message} />
+            <MessageBubble
+              {message}
+              isStreaming={streaming && i === messages.length - 1 && message.role === "assistant"}
+            />
           </div>
         {/each}
       </div>
     </div>
     <div class="chat-input-container">
-      <InputArea onSend={handleSend} />
+      <InputArea
+        onSend={handleSend}
+        {streaming}
+        onStop={handleStop}
+        model={selectedModel}
+        onModelChange={handleModelChange}
+      />
     </div>
   {/if}
 </div>

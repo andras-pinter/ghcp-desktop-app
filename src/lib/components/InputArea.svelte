@@ -1,18 +1,40 @@
 <script lang="ts">
+  import type { Model } from "$lib/types/message";
+  import { getModels } from "$lib/utils/commands";
+  import { onMount } from "svelte";
+
   interface Props {
     onSend: (text: string) => void;
+    onStop?: () => void;
+    streaming?: boolean;
+    model?: string;
+    onModelChange?: (model: string) => void;
   }
 
-  let { onSend }: Props = $props();
+  let { onSend, onStop, streaming = false, model = "gpt-4o", onModelChange }: Props = $props();
 
   let inputText = $state("");
   let textareaEl: HTMLTextAreaElement | undefined = $state();
-  let selectedModel = $state("GPT-4o");
-  const availableModels = ["GPT-4o", "GPT-4o mini", "Claude 3.5 Sonnet", "o1-preview"];
+  let availableModels = $state<Model[]>([]);
+
+  onMount(async () => {
+    try {
+      const models = await getModels();
+      if (models.length > 0) {
+        availableModels = models;
+        // If current model isn't in the list, switch to first available
+        if (!models.some((m) => m.id === model)) {
+          onModelChange?.(models[0].id);
+        }
+      }
+    } catch {
+      // Keep fallback
+    }
+  });
 
   function handleSend() {
     const trimmed = inputText.trim();
-    if (!trimmed) return;
+    if (!trimmed || streaming) return;
     onSend(trimmed);
     inputText = "";
     if (textareaEl) {
@@ -31,6 +53,11 @@
     if (!textareaEl) return;
     textareaEl.style.height = "auto";
     textareaEl.style.height = Math.min(textareaEl.scrollHeight, 200) + "px";
+  }
+
+  function handleModelSelect(event: Event) {
+    const target = event.target as HTMLSelectElement;
+    onModelChange?.(target.value);
   }
 </script>
 
@@ -62,24 +89,32 @@
           </svg>
         </button>
         <div class="model-selector">
-          <select bind:value={selectedModel} aria-label="Select model">
-            {#each availableModels as model (model)}
-              <option value={model}>{model}</option>
+          <select value={model} onchange={handleModelSelect} aria-label="Select model">
+            {#each availableModels as m (m.id)}
+              <option value={m.id}>{m.name ?? m.id}</option>
             {/each}
           </select>
         </div>
       </div>
-      <button
-        class="send-btn"
-        class:active={!!inputText.trim()}
-        onclick={handleSend}
-        disabled={!inputText.trim()}
-        aria-label="Send message"
-      >
-        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-          <path d="M8 2.5l-4.5 4.5h3V13h3V7h3L8 2.5z" />
-        </svg>
-      </button>
+      {#if streaming}
+        <button class="stop-btn" onclick={() => onStop?.()} aria-label="Stop streaming">
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+            <rect x="3" y="3" width="10" height="10" rx="1.5" />
+          </svg>
+        </button>
+      {:else}
+        <button
+          class="send-btn"
+          class:active={!!inputText.trim()}
+          onclick={handleSend}
+          disabled={!inputText.trim()}
+          aria-label="Send message"
+        >
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M8 2.5l-4.5 4.5h3V13h3V7h3L8 2.5z" />
+          </svg>
+        </button>
+      {/if}
     </div>
   </div>
 </div>
@@ -201,5 +236,25 @@
 
   .send-btn:hover:not(:disabled) {
     transform: scale(1.05);
+  }
+
+  .stop-btn {
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-bg-tertiary);
+    border: 1px solid var(--color-border-primary);
+    border-radius: var(--radius-full);
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+  }
+
+  .stop-btn:hover {
+    background: var(--color-bg-hover);
+    border-color: var(--color-accent-copper);
+    color: var(--color-accent-copper);
   }
 </style>
