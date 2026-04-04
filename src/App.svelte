@@ -4,7 +4,6 @@
   import AuthScreen from "$lib/components/AuthScreen.svelte";
 
   let sidebarCollapsed = $state(false);
-  // TODO: Replace with actual auth state from store
   let isAuthenticated = $state(true);
 
   function toggleSidebar() {
@@ -39,14 +38,15 @@
     display: flex;
     height: 100vh;
     overflow: hidden;
+    animation: fadeIn 400ms ease both;
   }
 
   .sidebar-container {
     width: var(--sidebar-width);
     flex-shrink: 0;
     background: var(--color-bg-sidebar);
-    border-right: 1px solid var(--color-border-primary);
-    transition: width var(--transition-normal);
+    border-right: 1px solid var(--color-border-secondary);
+    transition: width var(--transition-slow);
     overflow: hidden;
   }
 
@@ -61,5 +61,6 @@
     flex-direction: column;
     overflow: hidden;
     min-width: 0;
+    background: var(--color-bg-primary);
   }
 </style>

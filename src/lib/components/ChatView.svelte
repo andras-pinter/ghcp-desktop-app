@@ -28,7 +28,6 @@
       chatContainer?.scrollTo({ top: chatContainer.scrollHeight, behavior: "smooth" });
     });
 
-    // Simulate assistant response
     setTimeout(() => {
       const assistantMessage: Message = {
         id: crypto.randomUUID(),
@@ -48,7 +47,6 @@
 </script>
 
 <div class="chat-view">
-  <!-- Sidebar toggle: always visible when sidebar is collapsed -->
   {#if sidebarCollapsed}
     <button
       class="sidebar-toggle"
@@ -82,22 +80,23 @@
   {/if}
 
   {#if messages.length === 0}
-    <!-- Empty state: centered welcome -->
     <div class="welcome-container">
       <div class="welcome">
+        <p class="welcome-eyebrow">Welcome to</p>
         <h1 class="welcome-title">Copilot Desktop</h1>
-        <p class="welcome-subtitle">How can I help you today?</p>
+        <p class="welcome-subtitle">What are you working on?</p>
       </div>
       <div class="welcome-input">
         <InputArea onSend={handleSend} />
       </div>
     </div>
   {:else}
-    <!-- Conversation view -->
     <div class="chat-messages" bind:this={chatContainer} role="log" aria-label="Chat messages">
       <div class="messages-inner">
-        {#each messages as message (message.id)}
-          <MessageBubble {message} />
+        {#each messages as message, i (message.id)}
+          <div class="message-entry" style="animation-delay: {Math.min(i * 40, 200)}ms">
+            <MessageBubble {message} />
+          </div>
         {/each}
       </div>
     </div>
@@ -116,7 +115,7 @@
     position: relative;
   }
 
-  /* ── Welcome / empty state ── */
+  /* ── Welcome ── */
 
   .welcome-container {
     flex: 1;
@@ -125,19 +124,34 @@
     align-items: center;
     justify-content: center;
     padding: var(--spacing-xl);
-    gap: var(--spacing-2xl);
+    gap: var(--spacing-3xl);
+    animation: fadeIn 600ms ease both;
   }
 
   .welcome {
     text-align: center;
+    animation: fadeInUp 600ms ease both;
+    animation-delay: 100ms;
+  }
+
+  .welcome-eyebrow {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: var(--spacing-sm);
   }
 
   .welcome-title {
-    font-size: 28px;
-    font-weight: 600;
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: var(--font-size-2xl);
+    font-weight: 400;
     color: var(--color-text-primary);
-    letter-spacing: -0.02em;
-    margin-bottom: var(--spacing-sm);
+    letter-spacing: var(--letter-spacing-tight);
+    line-height: var(--line-height-tight);
+    margin-bottom: var(--spacing-md);
   }
 
   .welcome-subtitle {
@@ -147,15 +161,17 @@
 
   .welcome-input {
     width: 100%;
-    max-width: 680px;
+    max-width: var(--content-max-width);
+    animation: fadeInUp 600ms ease both;
+    animation-delay: 250ms;
   }
 
-  /* ── Sidebar toggle (when collapsed) ── */
+  /* ── Sidebar toggle ── */
 
   .sidebar-toggle {
     position: absolute;
-    top: 12px;
-    left: 12px;
+    top: 14px;
+    left: 14px;
     z-index: 10;
     width: 32px;
     height: 32px;
@@ -175,29 +191,33 @@
     color: var(--color-text-secondary);
   }
 
-  /* ── Messages area ── */
+  /* ── Messages ── */
 
   .chat-messages {
     flex: 1;
     overflow-y: auto;
-    padding: var(--spacing-xl) 0;
+    padding: var(--spacing-2xl) 0 var(--spacing-lg);
   }
 
   .messages-inner {
-    max-width: 680px;
+    max-width: var(--content-max-width);
     margin: 0 auto;
     padding: 0 var(--spacing-xl);
     display: flex;
     flex-direction: column;
   }
 
-  /* ── Input container at bottom ── */
+  .message-entry {
+    animation: fadeInUp 300ms ease both;
+  }
+
+  /* ── Bottom input ── */
 
   .chat-input-container {
     flex-shrink: 0;
-    max-width: 680px;
+    max-width: var(--content-max-width);
     width: 100%;
     margin: 0 auto;
-    padding: 0 var(--spacing-xl) var(--spacing-xl);
+    padding: var(--spacing-sm) var(--spacing-xl) var(--spacing-xl);
   }
 </style>

@@ -7,7 +7,6 @@
 
   let inputText = $state("");
   let textareaEl: HTMLTextAreaElement | undefined = $state();
-  // TODO: populate from API in Phase 2
   let selectedModel = $state("GPT-4o");
   const availableModels = ["GPT-4o", "GPT-4o mini", "Claude 3.5 Sonnet", "o1-preview"];
 
@@ -77,7 +76,7 @@
         disabled={!inputText.trim()}
         aria-label="Send message"
       >
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
           <path d="M8 2.5l-4.5 4.5h3V13h3V7h3L8 2.5z" />
         </svg>
       </button>
@@ -93,22 +92,23 @@
   .input-box {
     border: 1px solid var(--color-border-primary);
     border-radius: var(--radius-lg);
-    background: var(--color-bg-primary);
+    background: var(--color-bg-input);
     display: flex;
     flex-direction: column;
+    box-shadow: var(--shadow-input);
     transition:
       border-color var(--transition-fast),
-      box-shadow var(--transition-fast);
+      box-shadow var(--transition-normal);
   }
 
   .input-box:focus-within {
     border-color: var(--color-border-focus);
-    box-shadow: 0 0 0 1px var(--color-border-focus);
+    box-shadow: var(--shadow-input-focus);
   }
 
   textarea {
     width: 100%;
-    padding: 12px 16px 4px;
+    padding: var(--spacing-md) var(--spacing-lg) var(--spacing-xs);
     border: none;
     background: transparent;
     color: var(--color-text-primary);
@@ -117,7 +117,7 @@
     line-height: var(--line-height-normal);
     resize: none;
     outline: none;
-    min-height: 40px;
+    min-height: var(--input-min-height);
   }
 
   textarea::placeholder {
@@ -128,7 +128,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 4px 8px 8px;
+    padding: var(--spacing-xs) var(--spacing-sm) var(--spacing-sm);
   }
 
   .actions-left {
@@ -138,8 +138,8 @@
   }
 
   .action-btn {
-    width: 32px;
-    height: 32px;
+    width: 30px;
+    height: 30px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -162,12 +162,13 @@
     border: none;
     color: var(--color-text-tertiary);
     font-family: var(--font-sans);
-    font-size: var(--font-size-sm);
-    padding: 4px 8px;
+    font-size: var(--font-size-xs);
+    padding: var(--spacing-xs) var(--spacing-sm);
     border-radius: var(--radius-sm);
     cursor: pointer;
     transition: all var(--transition-fast);
     outline: none;
+    letter-spacing: var(--letter-spacing-normal);
   }
 
   .model-selector select:hover {
@@ -176,8 +177,8 @@
   }
 
   .send-btn {
-    width: 32px;
-    height: 32px;
+    width: 30px;
+    height: 30px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -186,12 +187,12 @@
     border-radius: var(--radius-full);
     color: var(--color-text-tertiary);
     cursor: pointer;
-    transition: all var(--transition-fast);
+    transition: all var(--transition-normal);
   }
 
   .send-btn.active {
-    background: var(--color-text-primary);
-    color: var(--color-bg-primary);
+    background: var(--color-accent);
+    color: var(--color-text-inverse);
   }
 
   .send-btn:disabled {
@@ -199,6 +200,6 @@
   }
 
   .send-btn:hover:not(:disabled) {
-    opacity: 0.85;
+    transform: scale(1.05);
   }
 </style>

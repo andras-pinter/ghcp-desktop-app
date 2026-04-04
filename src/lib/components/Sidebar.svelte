@@ -57,8 +57,8 @@
   <div class="sidebar-search">
     <svg
       class="search-icon"
-      width="14"
-      height="14"
+      width="13"
+      height="13"
       viewBox="0 0 16 16"
       fill="none"
       stroke="currentColor"
@@ -73,15 +73,15 @@
   <div class="sidebar-content">
     <section class="sidebar-section">
       <h3 class="section-label">Today</h3>
-      <p class="section-empty">No conversations</p>
+      <p class="section-empty">No conversations yet</p>
     </section>
   </div>
 
   <div class="sidebar-footer">
     <button class="footer-btn" aria-label="Settings">
       <svg
-        width="16"
-        height="16"
+        width="15"
+        height="15"
         viewBox="0 0 16 16"
         fill="none"
         stroke="currentColor"
@@ -103,10 +103,11 @@
     flex-direction: column;
     height: 100%;
     overflow: hidden;
+    animation: fadeIn 300ms ease both;
   }
 
   .sidebar-header {
-    padding: 10px 12px;
+    padding: var(--spacing-md);
     flex-shrink: 0;
     display: flex;
     align-items: center;
@@ -114,8 +115,8 @@
   }
 
   .sidebar-icon-btn {
-    width: 32px;
-    height: 32px;
+    width: 30px;
+    height: 30px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -130,10 +131,11 @@
   .sidebar-icon-btn:hover {
     background: var(--color-bg-hover);
     color: var(--color-text-primary);
+    transform: translateX(1px);
   }
 
   .sidebar-search {
-    padding: 0 12px 8px;
+    padding: 0 var(--spacing-md) var(--spacing-sm);
     flex-shrink: 0;
     position: relative;
   }
@@ -150,19 +152,22 @@
 
   .sidebar-search input {
     width: 100%;
-    padding: 6px 8px 6px 30px;
+    padding: 7px var(--spacing-sm) 7px 30px;
     background: var(--color-bg-primary);
     color: var(--color-text-primary);
     border: 1px solid var(--color-border-secondary);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-md);
     font-size: var(--font-size-sm);
     font-family: var(--font-sans);
     outline: none;
-    transition: border-color var(--transition-fast);
+    transition:
+      border-color var(--transition-fast),
+      box-shadow var(--transition-fast);
   }
 
   .sidebar-search input:focus {
     border-color: var(--color-border-focus);
+    box-shadow: 0 0 0 2px rgba(180, 83, 9, 0.08);
   }
 
   .sidebar-search input::placeholder {
@@ -172,30 +177,31 @@
   .sidebar-content {
     flex: 1;
     overflow-y: auto;
-    padding: 0 8px;
+    padding: 0 var(--spacing-sm);
   }
 
   .sidebar-section {
-    padding: 4px 0;
+    padding: var(--spacing-xs) 0;
   }
 
   .section-label {
-    font-size: 11px;
-    font-weight: 500;
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-medium);
     color: var(--color-text-tertiary);
-    padding: 4px 8px;
+    padding: var(--spacing-xs) var(--spacing-sm);
     text-transform: uppercase;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.06em;
   }
 
   .section-empty {
     font-size: var(--font-size-sm);
     color: var(--color-text-tertiary);
-    padding: 4px 8px;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    font-style: italic;
   }
 
   .sidebar-footer {
-    padding: 8px 12px;
+    padding: var(--spacing-sm) var(--spacing-md);
     border-top: 1px solid var(--color-border-secondary);
     flex-shrink: 0;
   }
@@ -203,9 +209,9 @@
   .footer-btn {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--spacing-sm);
     width: 100%;
-    padding: 6px 8px;
+    padding: 7px var(--spacing-sm);
     background: transparent;
     color: var(--color-text-secondary);
     border: none;
@@ -219,5 +225,6 @@
   .footer-btn:hover {
     background: var(--color-bg-hover);
     color: var(--color-text-primary);
+    transform: translateX(2px);
   }
 </style>
