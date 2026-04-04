@@ -260,7 +260,8 @@ custom agent personas, and streaming responses.
 │  │  └──────────────┘  └────────────────────────────────────────┘  │ │
 │  │                                                                 │ │
 │  │  Svelte Stores:                                                 │ │
-│  │  conversations │ agents │ skills │ mcp │ settings │ theme       │ │
+│  │  conversations │ auth │ agents │ skills │ projects │ mcp │       │ │
+│  │  settings │ theme │ network                                     │ │
 │  └─────────────────────────┬───────────────────────────────────────┘ │
 │                            │ Tauri IPC (invoke / listen)             │
 │  ┌─────────────────────────┴───────────────────────────────────────┐ │
@@ -1157,6 +1158,9 @@ pnpm test
 
 # Frontend: production build
 pnpm build
+
+# Frontend: security audit
+pnpm audit
 
 # Update dependencies
 cargo update && pnpm update
