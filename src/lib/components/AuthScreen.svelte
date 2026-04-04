@@ -14,7 +14,7 @@
 
     <div class="auth-header">
       <p class="auth-eyebrow">Welcome to</p>
-      <h1 class="auth-title">Copilot Desktop</h1>
+      <h1 class="auth-title">Chuck</h1>
     </div>
 
     <p class="auth-subtitle">Sign in with your GitHub account to start chatting.</p>

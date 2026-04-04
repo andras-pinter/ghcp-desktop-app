@@ -18,7 +18,7 @@ impl AppState {
 
         std::fs::create_dir_all(&app_data_dir)?;
 
-        let db_path = app_data_dir.join("copilot-desktop.db");
+        let db_path = app_data_dir.join("chuck.db");
         let conn = Connection::open(&db_path)?;
 
         // Enable WAL mode for better concurrent read performance

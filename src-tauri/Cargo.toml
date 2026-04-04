@@ -1,12 +1,12 @@
 [package]
-name = "copilot-desktop"
+name = "chuck"
 version = "0.1.0"
 description = "A native desktop chat client for GitHub Copilot"
 edition.workspace = true
 license.workspace = true
 
 [lib]
-name = "copilot_desktop_lib"
+name = "chuck_lib"
 crate-type = ["lib", "cdylib", "staticlib"]
 
 [build-dependencies]

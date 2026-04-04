@@ -1,13 +1,13 @@
-/** Centralized English strings for Copilot Desktop. */
+/** Centralized English strings for Chuck. */
 
 export const strings = {
   app: {
-    name: "Copilot Desktop",
-    tagline: "Your AI assistant powered by GitHub Copilot",
+    name: "Chuck",
+    tagline: "Break the barrier.",
   },
 
   auth: {
-    title: "Copilot Desktop",
+    title: "Chuck",
     subtitle: "Sign in with GitHub to get started.",
     signIn: "Sign in with GitHub →",
     orEnterCode: "or enter code",

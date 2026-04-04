@@ -27,7 +27,7 @@
         conversationId: "demo",
         role: "assistant",
         content:
-          "I'm **Copilot Desktop** — a native desktop client for GitHub Copilot. I can help you with coding questions, research, brainstorming, and more.\n\nThis is a demo response. The streaming API integration is coming in Phase 2.",
+          "I'm **Chuck** — a native desktop client for GitHub Copilot. I can help you with coding questions, research, brainstorming, and more.\n\nThis is a demo response. The streaming API integration is coming in Phase 2.",
         createdAt: new Date().toISOString(),
         sortOrder: messages.length,
       };
@@ -43,9 +43,8 @@
   {#if messages.length === 0}
     <div class="welcome-container">
       <div class="welcome">
-        <p class="welcome-eyebrow">Welcome to</p>
-        <h1 class="welcome-title">Copilot Desktop</h1>
-        <p class="welcome-subtitle">What are you working on?</p>
+        <h1 class="welcome-title">Chuck</h1>
+        <p class="welcome-subtitle">Let's punch through.</p>
       </div>
       <div class="welcome-input">
         <InputArea onSend={handleSend} />
@@ -93,15 +92,6 @@
     text-align: center;
     animation: fadeInUp 600ms ease both;
     animation-delay: 100ms;
-  }
-
-  .welcome-eyebrow {
-    font-size: var(--font-size-sm);
-    font-weight: var(--font-weight-medium);
-    color: var(--color-text-tertiary);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    margin-bottom: var(--spacing-sm);
   }
 
   .welcome-title {

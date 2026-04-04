@@ -1,8 +1,8 @@
 {
   "$schema": "https://raw.githubusercontent.com/nicegui/tauri-v2-schema/main/schema.json",
-  "productName": "Copilot Desktop",
+  "productName": "Chuck",
   "version": "0.1.0",
-  "identifier": "com.copilot-desktop.app",
+  "identifier": "com.chuck-app.dev",
   "build": {
     "beforeDevCommand": "pnpm dev",
     "devUrl": "http://localhost:1420",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Copilot Desktop",
+        "title": "Chuck",
         "width": 1200,
         "height": 800,
         "minWidth": 700,
@@ -30,7 +30,7 @@
     "trayIcon": {
       "iconPath": "icons/32x32.png",
       "iconAsTemplate": true,
-      "tooltip": "Copilot Desktop"
+      "tooltip": "Chuck"
     }
   },
   "bundle": {

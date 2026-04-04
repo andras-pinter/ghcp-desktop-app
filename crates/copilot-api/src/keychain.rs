@@ -2,7 +2,7 @@
 
 use thiserror::Error;
 
-const SERVICE_NAME: &str = "copilot-desktop";
+const SERVICE_NAME: &str = "chuck";
 
 /// Errors that can occur during keychain operations.
 #[derive(Debug, Error)]

@@ -57,7 +57,7 @@
           </svg>
         </button>
       </div>
-      <span class="titlebar-title" data-tauri-drag-region>Copilot Desktop</span>
+      <span class="titlebar-title" data-tauri-drag-region>Chuck</span>
       <div class="titlebar-right"></div>
     </header>
 

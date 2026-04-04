@@ -545,6 +545,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "chuck"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "copilot-api",
+ "env_logger",
+ "log",
+ "mcp-client",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-clipboard-manager",
+ "tauri-plugin-dialog",
+ "tauri-plugin-global-shortcut",
+ "tauri-plugin-notification",
+ "tauri-plugin-shell",
+ "tauri-plugin-store",
+ "tauri-plugin-updater",
+ "thiserror 2.0.18",
+ "tokio",
+ "uuid",
+ "web-research",
+]
+
+[[package]]
 name = "clipboard-win"
 version = "5.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -609,34 +637,6 @@ dependencies = [
  "tokio",
  "url",
  "uuid",
-]
-
-[[package]]
-name = "copilot-desktop"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "chrono",
- "copilot-api",
- "env_logger",
- "log",
- "mcp-client",
- "rusqlite",
- "serde",
- "serde_json",
- "tauri",
- "tauri-build",
- "tauri-plugin-clipboard-manager",
- "tauri-plugin-dialog",
- "tauri-plugin-global-shortcut",
- "tauri-plugin-notification",
- "tauri-plugin-shell",
- "tauri-plugin-store",
- "tauri-plugin-updater",
- "thiserror 2.0.18",
- "tokio",
- "uuid",
- "web-research",
 ]
 
 [[package]]
