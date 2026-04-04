@@ -632,15 +632,15 @@ an MCP server binary. This is the **only** exception to the no-subprocess rule:
 | `reqwest` | HTTP client (enable `stream` feature for SSE) |
 | `serde` / `serde_json` | JSON serialization (shared types Rust ↔ frontend) |
 | `tokio` | Async runtime |
-| `eventsource-stream` | SSE parsing for streaming responses |
+| `reqwest-eventsource` | SSE client for streaming responses (wraps reqwest + eventsource-stream with auto-retry) |
 | `keyring` | Cross-platform keychain (macOS Keychain, Linux Secret Service, Windows Credential Manager) |
 | `rusqlite` | Local persistence (conversations, projects, agents, skills, MCP configs) |
 | `image` / `pdf-extract` | Extract text from PDFs/images for file context |
 | `thiserror` / `anyhow` | Error handling |
 | `log` / `env_logger` | Logging |
-| `scraper` / `readability` | HTML-to-text extraction for URL fetching |
+| `scraper` / `dom_smoothie` | HTML parsing (`scraper`) + readable content extraction (`dom_smoothie`, Readability algorithm) for URL fetching |
 | `url` | URL parsing and validation |
-| `rmcp` or custom | MCP protocol client (target spec version 2025-03-26) |
+| `rmcp` | Official MCP Rust SDK (Model Context Protocol, spec version 2025-03-26+) |
 
 ### Frontend (npm packages)
 
@@ -813,7 +813,7 @@ Uses the **OAuth device flow** — the same flow VS Code uses to authenticate wi
 
 ### URL Fetching
 
-- User pastes a URL → Rust backend fetches the page over HTTPS → extracts readable text via `readability` algorithm
+- User pastes a URL → Rust backend fetches the page over HTTPS → extracts readable text via `dom_smoothie` (Readability algorithm)
 - **Security:** only public HTTPS URLs allowed. Block private IPs, localhost, metadata endpoints (see Security section)
 - Extracted content is truncated to a reasonable size (e.g., 50KB of text) before inclusion in context
 - Show a URL preview card in the input area (title, domain, favicon if available)
@@ -1080,7 +1080,7 @@ INSERT INTO config (key, value) VALUES ('schema_version', '1');
 
 ### Phase 6: Web Research
 18. **web-search** — `web-research` crate: Bing Web Search API integration. Tauri command `web_search`. `WebResultCard.svelte` for displaying results as cited cards. API key stored in keychain.
-19. **url-fetcher** — Tauri command `fetch_url`. HTTPS only, public IPs only. Extract readable text via `readability`. URL preview card in input area. Max 50KB extracted text.
+19. **url-fetcher** — Tauri command `fetch_url`. HTTPS only, public IPs only. Extract readable text via `dom_smoothie`. URL preview card in input area. Max 50KB extracted text.
 
 ### Phase 7: MCP Integration
 20. **mcp-client** — `mcp-client` crate: MCP protocol client (spec 2025-03-26). Connect, discover tools, invoke, handle responses. HTTP and stdio transports.
