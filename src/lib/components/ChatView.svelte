@@ -3,13 +3,6 @@
   import MessageBubble from "./MessageBubble.svelte";
   import type { Message } from "$lib/types/message";
 
-  interface Props {
-    onToggleSidebar: () => void;
-    sidebarCollapsed: boolean;
-  }
-
-  let { onToggleSidebar, sidebarCollapsed }: Props = $props();
-
   let messages: Message[] = $state([]);
   let chatContainer: HTMLElement | undefined = $state();
 
@@ -47,38 +40,6 @@
 </script>
 
 <div class="chat-view">
-  {#if sidebarCollapsed}
-    <button
-      class="sidebar-toggle"
-      onclick={onToggleSidebar}
-      aria-label="Open sidebar"
-      title="Open sidebar (⌘⇧S)"
-    >
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-        <rect
-          x="1"
-          y="2"
-          width="4"
-          height="12"
-          rx="1"
-          stroke="currentColor"
-          stroke-width="1.5"
-          fill="none"
-        />
-        <rect
-          x="6"
-          y="2"
-          width="9"
-          height="12"
-          rx="1"
-          stroke="currentColor"
-          stroke-width="1.5"
-          fill="none"
-        />
-      </svg>
-    </button>
-  {/if}
-
   {#if messages.length === 0}
     <div class="welcome-container">
       <div class="welcome">
@@ -164,32 +125,6 @@
     max-width: var(--content-max-width);
     animation: fadeInUp 600ms ease both;
     animation-delay: 250ms;
-  }
-
-  /* ── Sidebar toggle ── */
-
-  .sidebar-toggle {
-    position: absolute;
-    top: 14px;
-    left: 14px;
-    z-index: 10;
-    width: 32px;
-    height: 32px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: transparent;
-    border: none;
-    border-radius: var(--radius-sm);
-    color: var(--color-text-tertiary);
-    cursor: pointer;
-    transition: all var(--transition-fast);
-    animation: fadeIn 200ms ease both;
-  }
-
-  .sidebar-toggle:hover {
-    background: var(--color-bg-hover);
-    color: var(--color-text-secondary);
   }
 
   /* ── Messages ── */

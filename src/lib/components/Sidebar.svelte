@@ -7,10 +7,11 @@
   let { collapsed, onToggle }: Props = $props();
 </script>
 
-<nav class="sidebar" aria-label="Conversation sidebar" aria-hidden={collapsed}>
-  <div class="sidebar-header">
+<nav class="sidebar" class:collapsed aria-label="Conversation sidebar">
+  <!-- Top actions -->
+  <div class="sidebar-actions">
     <button
-      class="sidebar-icon-btn"
+      class="nav-btn"
       onclick={onToggle}
       aria-label="Toggle sidebar"
       title="Toggle sidebar (⌘⇧S)"
@@ -38,7 +39,19 @@
         />
       </svg>
     </button>
-    <button class="sidebar-icon-btn new-chat" aria-label="New chat" title="New chat">
+    <button class="nav-btn" aria-label="New chat" title="New chat">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <path
+          d="M12.5 2.5l1 1L6 11l-2.5.5L4 9l7.5-7.5z"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linejoin="round"
+        />
+        <path d="M3 13.5h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+      </svg>
+      {#if !collapsed}<span class="nav-label">New Chat</span>{/if}
+    </button>
+    <button class="nav-btn" aria-label="Search" title="Search">
       <svg
         width="16"
         height="16"
@@ -47,38 +60,26 @@
         stroke="currentColor"
         stroke-width="1.5"
       >
-        <path d="M13 3L3 3M13 8L3 8M13 13L8 13" />
-        <circle cx="11" cy="12" r="3" />
-        <path d="M11 10.5v3M9.5 12h3" />
+        <circle cx="7" cy="7" r="5" />
+        <path d="M11 11l3.5 3.5" />
       </svg>
+      {#if !collapsed}<span class="nav-label">Search</span>{/if}
     </button>
   </div>
 
-  <div class="sidebar-search">
-    <svg
-      class="search-icon"
-      width="13"
-      height="13"
-      viewBox="0 0 16 16"
-      fill="none"
-      stroke="currentColor"
-      stroke-width="1.5"
-    >
-      <circle cx="7" cy="7" r="5" />
-      <path d="M11 11l3.5 3.5" />
-    </svg>
-    <input type="search" placeholder="Search" aria-label="Search conversations" />
-  </div>
-
+  <!-- Conversation list (expanded only) -->
   <div class="sidebar-content">
-    <section class="sidebar-section">
-      <h3 class="section-label">Today</h3>
-      <p class="section-empty">No conversations yet</p>
-    </section>
+    {#if !collapsed}
+      <section class="sidebar-section">
+        <h3 class="section-label">Today</h3>
+        <p class="section-empty">No conversations yet</p>
+      </section>
+    {/if}
   </div>
 
+  <!-- Footer -->
   <div class="sidebar-footer">
-    <button class="footer-btn" aria-label="Settings">
+    <button class="nav-btn" aria-label="Settings" title="Settings">
       <svg
         width="15"
         height="15"
@@ -92,7 +93,7 @@
           d="M8 1v2M8 13v2M1 8h2M13 8h2M2.9 2.9l1.4 1.4M11.7 11.7l1.4 1.4M13.1 2.9l-1.4 1.4M4.3 11.7l-1.4 1.4"
         />
       </svg>
-      <span>Settings</span>
+      {#if !collapsed}<span class="nav-label">Settings</span>{/if}
     </button>
   </div>
 </nav>
@@ -103,76 +104,64 @@
     flex-direction: column;
     height: 100%;
     overflow: hidden;
-    animation: fadeIn 300ms ease both;
   }
 
-  .sidebar-header {
-    padding: var(--spacing-md);
+  /* ── Action group ── */
+
+  .sidebar-actions {
+    padding: var(--spacing-sm);
     flex-shrink: 0;
     display: flex;
-    align-items: center;
-    justify-content: space-between;
+    flex-direction: column;
+    gap: 2px;
   }
 
-  .sidebar-icon-btn {
-    width: 30px;
-    height: 30px;
+  .collapsed .sidebar-actions {
+    align-items: center;
+  }
+
+  /* ── Shared nav button ── */
+
+  .nav-btn {
     display: flex;
     align-items: center;
-    justify-content: center;
+    gap: var(--spacing-sm);
+    width: 100%;
+    height: 34px;
+    padding: 0 var(--spacing-sm);
     background: transparent;
     border: none;
     cursor: pointer;
     color: var(--color-text-secondary);
     border-radius: var(--radius-sm);
+    font-family: var(--font-sans);
+    font-size: var(--font-size-sm);
     transition: all var(--transition-fast);
+    white-space: nowrap;
+    flex-shrink: 0;
   }
 
-  .sidebar-icon-btn:hover {
+  .collapsed .nav-btn {
+    width: 36px;
+    justify-content: center;
+    padding: 0;
+  }
+
+  .nav-btn:hover {
     background: var(--color-bg-hover);
     color: var(--color-text-primary);
-    transform: translateX(1px);
   }
 
-  .sidebar-search {
-    padding: 0 var(--spacing-md) var(--spacing-sm);
+  .nav-btn svg {
     flex-shrink: 0;
-    position: relative;
   }
 
-  .search-icon {
-    position: absolute;
-    left: 20px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: var(--color-text-tertiary);
-    pointer-events: none;
-    margin-top: -4px;
+  .nav-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
-  .sidebar-search input {
-    width: 100%;
-    padding: 7px var(--spacing-sm) 7px 30px;
-    background: var(--color-bg-primary);
-    color: var(--color-text-primary);
-    border: 1px solid var(--color-border-secondary);
-    border-radius: var(--radius-md);
-    font-size: var(--font-size-sm);
-    font-family: var(--font-sans);
-    outline: none;
-    transition:
-      border-color var(--transition-fast),
-      box-shadow var(--transition-fast);
-  }
-
-  .sidebar-search input:focus {
-    border-color: var(--color-border-focus);
-    box-shadow: var(--shadow-input-focus);
-  }
-
-  .sidebar-search input::placeholder {
-    color: var(--color-text-tertiary);
-  }
+  /* ── Content ── */
 
   .sidebar-content {
     flex: 1;
@@ -200,31 +189,16 @@
     font-style: italic;
   }
 
+  /* ── Footer ── */
+
   .sidebar-footer {
-    padding: var(--spacing-sm) var(--spacing-md);
+    padding: var(--spacing-sm);
     border-top: 1px solid var(--color-border-secondary);
     flex-shrink: 0;
   }
 
-  .footer-btn {
+  .collapsed .sidebar-footer {
     display: flex;
-    align-items: center;
-    gap: var(--spacing-sm);
-    width: 100%;
-    padding: 7px var(--spacing-sm);
-    background: transparent;
-    color: var(--color-text-secondary);
-    border: none;
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    font-size: var(--font-size-sm);
-    font-family: var(--font-sans);
-    transition: all var(--transition-fast);
-  }
-
-  .footer-btn:hover {
-    background: var(--color-bg-hover);
-    color: var(--color-text-primary);
-    transform: translateX(2px);
+    justify-content: center;
   }
 </style>

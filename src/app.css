@@ -104,6 +104,7 @@
 
   /* ── Layout ── */
   --sidebar-width: 260px;
+  --sidebar-collapsed-width: 52px;
   --content-max-width: 680px;
   --input-min-height: 44px;
 
