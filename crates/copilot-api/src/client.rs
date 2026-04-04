@@ -6,6 +6,9 @@ use reqwest_eventsource::{Event, EventSource};
 use thiserror::Error;
 use tokio::sync::mpsc;
 
+/// Application version derived from Cargo.toml at compile time.
+const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
+
 /// Errors from the Copilot chat client.
 #[derive(Debug, Error)]
 pub enum ClientError {
@@ -21,6 +24,11 @@ pub enum ClientError {
     RateLimited { retry_after_secs: u64 },
     #[error("API error: {status} {body}")]
     Api { status: u16, body: String },
+}
+
+/// Build the User-Agent header value.
+fn user_agent() -> String {
+    format!("Chuck/{APP_VERSION} (GitHub Copilot Desktop Client)")
 }
 
 /// A streaming event emitted token-by-token during chat.
@@ -62,7 +70,8 @@ impl CopilotClient {
     /// Send a streaming chat completions request.
     ///
     /// Returns a channel receiver that yields [`StreamEvent`]s as they arrive.
-    /// The caller should read from the receiver until it closes.
+    /// The caller should read from the receiver until it closes or a
+    /// [`StreamEvent::Done`] / [`StreamEvent::Error`] is received.
     pub async fn send_message_stream(
         &self,
         request: ChatRequest,
@@ -70,6 +79,7 @@ impl CopilotClient {
         let (copilot_token, api_base) = self.auth.ensure_copilot_token().await?;
 
         let url = format!("{api_base}/chat/completions");
+        let ua = user_agent();
 
         let http = reqwest::Client::new();
         let req = http
@@ -77,9 +87,9 @@ impl CopilotClient {
             .header("Authorization", format!("Bearer {copilot_token}"))
             .header("Content-Type", "application/json")
             .header("Accept", "text/event-stream")
-            .header("User-Agent", "Chuck/0.1.0 (GitHub Copilot Desktop Client)")
-            .header("Editor-Version", "Chuck/0.1.0")
-            .header("Editor-Plugin-Version", "copilot/0.1.0")
+            .header("User-Agent", &ua)
+            .header("Editor-Version", format!("Chuck/{APP_VERSION}"))
+            .header("Editor-Plugin-Version", format!("copilot/{APP_VERSION}"))
             .header("Openai-Intent", "conversation-panel")
             .json(&request);
 
@@ -87,7 +97,15 @@ impl CopilotClient {
 
         // Spawn a task to consume the SSE stream
         tokio::spawn(async move {
-            let mut es = EventSource::new(req).expect("failed to create EventSource");
+            let mut es = match EventSource::new(req) {
+                Ok(es) => es,
+                Err(e) => {
+                    let _ = tx.send(StreamEvent::Error(format!(
+                        "Failed to initialize stream: {e}"
+                    )));
+                    return;
+                }
+            };
 
             use futures_util::StreamExt;
             while let Some(event) = es.next().await {
@@ -104,8 +122,12 @@ impl CopilotClient {
                             Ok(resp) => {
                                 for choice in &resp.choices {
                                     if let Some(ref content) = choice.delta.content {
-                                        if !content.is_empty() {
-                                            let _ = tx.send(StreamEvent::Token(content.clone()));
+                                        if !content.is_empty()
+                                            && tx.send(StreamEvent::Token(content.clone())).is_err()
+                                        {
+                                            log::debug!("Stream receiver dropped, stopping SSE");
+                                            es.close();
+                                            return;
                                         }
                                     }
                                     if choice.delta.role.is_some() {
@@ -149,7 +171,7 @@ impl CopilotClient {
             .get(&url)
             .header("Authorization", format!("Bearer {copilot_token}"))
             .header("Accept", "application/json")
-            .header("User-Agent", "Chuck/0.1.0 (GitHub Copilot Desktop Client)")
+            .header("User-Agent", user_agent())
             .send()
             .await?;
 

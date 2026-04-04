@@ -1552,11 +1552,11 @@ INSERT INTO config (key, value) VALUES ('schema_version', '1');
 3. ✅ **design-system** — "Warm Ink" design system applied: Instrument Serif + Plus Jakarta Sans typography, warm paper/ink palette with copper accent, grain texture overlay, entrance animations, editorial welcome screen, refined auth screen with GitHub SVG mark, copper focus glow inputs, hover micro-interactions throughout. All components use CSS custom property tokens.
 4. ✅ **ui-polish** — Chat message layout: user messages right-aligned bubbles, assistant messages left-aligned (no avatar). Custom macOS title bar with `titleBarStyle: Overlay`, centered "Chuck" title, sidebar toggle button. Sidebar icon rail: collapses from 260px to 52px with icon-only view (compose, search, settings), jank-free animation via fixed-width inner wrapper + overflow clipping. Labels fade with staggered opacity. Dark mode lightened to warm charcoal palette. Random Chuck Yeager-themed welcome greetings. Window drag region with `core:window:allow-start-dragging` + `acceptFirstMouse`.
 
-### Phase 2: Copilot API Client
-4. ⬚ **oauth-device-flow** — GitHub OAuth device flow with token refresh in `copilot-api` crate
-5. ⬚ **keychain-storage** — OS keychain token storage (per-platform, using `keyring` crate)
-6. ⬚ **chat-completions-client** — `/v1/chat/completions` with SSE streaming + file context in `copilot-api` crate
-7. ⬚ **model-discovery** — Query API for available models at startup, cache list, fallback to default
+### Phase 2: Copilot API Client ✅
+4. ✅ **oauth-device-flow** — GitHub OAuth device flow with token refresh in `copilot-api` crate
+5. ✅ **keychain-storage** — OS keychain token storage (per-platform, using `keyring` crate)
+6. ✅ **chat-completions-client** — `/v1/chat/completions` with SSE streaming + file context in `copilot-api` crate
+7. ✅ **model-discovery** — Query API for available models at startup, cache list, fallback to default
 
 ### Phase 3: Persistence & Data Layer
 8. ⬚ **sqlite-setup** — Initialize SQLite database with full schema (see Data Model section). Migrations support. Tauri app data directory via `app.path().app_data_dir()`. *(Note: schema + migrations are already implemented in `src-tauri/src/db/migrations.rs` as part of Phase 1. This task covers query functions in `db/queries.rs` and wiring CRUD operations.)*

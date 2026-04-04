@@ -79,8 +79,9 @@ pub async fn get_auth_state(app: AppHandle) -> Result<AuthState, String> {
                         authenticated: true,
                         user: Some(user),
                     }),
-                    Err(_) => {
+                    Err(e) => {
                         // Token might be valid for Copilot but user fetch failed
+                        log::warn!("Failed to fetch GitHub user profile: {e}");
                         Ok(AuthState {
                             authenticated: true,
                             user: None,
@@ -88,10 +89,13 @@ pub async fn get_auth_state(app: AppHandle) -> Result<AuthState, String> {
                     }
                 }
             }
-            Err(_) => Ok(AuthState {
-                authenticated: false,
-                user: None,
-            }),
+            Err(e) => {
+                log::warn!("GitHub token not found in keychain: {e}");
+                Ok(AuthState {
+                    authenticated: false,
+                    user: None,
+                })
+            }
         }
     } else {
         // Try refreshing
@@ -106,22 +110,31 @@ pub async fn get_auth_state(app: AppHandle) -> Result<AuthState, String> {
                                 authenticated: true,
                                 user: Some(user),
                             }),
-                            Err(_) => Ok(AuthState {
-                                authenticated: true,
-                                user: None,
-                            }),
+                            Err(e) => {
+                                log::warn!("Token refreshed but user fetch failed: {e}");
+                                Ok(AuthState {
+                                    authenticated: true,
+                                    user: None,
+                                })
+                            }
                         }
                     }
-                    Err(_) => Ok(AuthState {
-                        authenticated: false,
-                        user: None,
-                    }),
+                    Err(e) => {
+                        log::warn!("Token refreshed but GitHub token missing: {e}");
+                        Ok(AuthState {
+                            authenticated: false,
+                            user: None,
+                        })
+                    }
                 }
             }
-            Err(_) => Ok(AuthState {
-                authenticated: false,
-                user: None,
-            }),
+            Err(e) => {
+                log::debug!("Copilot token refresh failed, not authenticated: {e}");
+                Ok(AuthState {
+                    authenticated: false,
+                    user: None,
+                })
+            }
         }
     }
 }

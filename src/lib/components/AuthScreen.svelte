@@ -26,7 +26,7 @@
     if (!deviceCode) return;
     polling = true;
 
-    const interval = (deviceCode.interval || 5) * 1000;
+    const interval = Math.max((deviceCode.interval || 5) * 1000, 1000);
     const expiresAt = Date.now() + deviceCode.expires_in * 1000;
 
     while (Date.now() < expiresAt && polling) {

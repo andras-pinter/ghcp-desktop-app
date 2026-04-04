@@ -15,6 +15,13 @@ use thiserror::Error;
 /// GitHub OAuth app client ID for Copilot (same as VS Code uses).
 pub const GITHUB_CLIENT_ID: &str = "Iv1.b507a08c87ecfe98";
 
+/// Application version derived from Cargo.toml at compile time.
+const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
+
+/// Refresh the Copilot JWT this many seconds before it actually expires,
+/// so requests don't fail due to clock skew or network latency.
+const TOKEN_EXPIRY_BUFFER_SECS: i64 = 300;
+
 const GITHUB_DEVICE_CODE_URL: &str = "https://github.com/login/device/code";
 const GITHUB_TOKEN_URL: &str = "https://github.com/login/oauth/access_token";
 const GITHUB_COPILOT_TOKEN_URL: &str = "https://api.github.com/copilot_internal/v2/token";
@@ -28,6 +35,11 @@ const KEY_GITHUB_TOKEN: &str = "github_oauth_token";
 const KEY_COPILOT_TOKEN: &str = "copilot_token";
 const KEY_COPILOT_EXPIRES: &str = "copilot_token_expires_at";
 const KEY_COPILOT_API_BASE: &str = "copilot_api_base";
+
+/// Build the User-Agent header value.
+fn user_agent() -> String {
+    format!("Chuck/{APP_VERSION} (GitHub Copilot Desktop Client)")
+}
 
 /// Errors that can occur during authentication.
 #[derive(Debug, Error)]
@@ -143,13 +155,14 @@ impl DeviceFlowAuth {
             .get(GITHUB_COPILOT_TOKEN_URL)
             .header("Authorization", format!("token {github_token}"))
             .header("Accept", "application/json")
-            .header("User-Agent", "Chuck/0.1.0 (GitHub Copilot Desktop Client)")
+            .header("User-Agent", user_agent())
             .send()
             .await?;
 
         if !resp.status().is_success() {
             let status = resp.status().as_u16();
             let body = resp.text().await.unwrap_or_default();
+            log::error!("Copilot token exchange failed: {status}");
             return Err(AuthError::CopilotTokenExchange { status, body });
         }
 
@@ -164,7 +177,7 @@ impl DeviceFlowAuth {
             .get(GITHUB_USER_URL)
             .header("Authorization", format!("token {github_token}"))
             .header("Accept", "application/json")
-            .header("User-Agent", "Chuck/0.1.0 (GitHub Copilot Desktop Client)")
+            .header("User-Agent", user_agent())
             .send()
             .await?
             .error_for_status()?
@@ -204,19 +217,23 @@ impl DeviceFlowAuth {
     pub fn load_copilot_token() -> Result<(String, i64, String), AuthError> {
         let token = keychain::retrieve(KEY_COPILOT_TOKEN)?;
         let expires_str = keychain::retrieve(KEY_COPILOT_EXPIRES)?;
-        let expires_at = expires_str.parse::<i64>().unwrap_or(0);
+        let expires_at = expires_str.parse::<i64>().unwrap_or_else(|_| {
+            log::warn!("Corrupted copilot token expiration in keychain, treating as expired");
+            0
+        });
         let api_base = keychain::retrieve(KEY_COPILOT_API_BASE)
             .unwrap_or_else(|_| DEFAULT_COPILOT_API_BASE.to_string());
 
         Ok((token, expires_at, api_base))
     }
 
-    /// Check if the stored Copilot token is still valid (with 5-minute buffer).
+    /// Check if the stored Copilot token is still valid
+    /// (with [`TOKEN_EXPIRY_BUFFER_SECS`] before actual expiry).
     pub fn is_copilot_token_valid() -> bool {
         match Self::load_copilot_token() {
             Ok((_, expires_at, _)) => {
                 let now = chrono::Utc::now().timestamp();
-                expires_at > now + 300 // 5-minute buffer
+                expires_at > now + TOKEN_EXPIRY_BUFFER_SECS
             }
             Err(_) => false,
         }

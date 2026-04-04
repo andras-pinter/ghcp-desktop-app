@@ -15,6 +15,13 @@ pub async fn send_message(
     messages: Vec<ChatMessage>,
     model: String,
 ) -> Result<(), String> {
+    if messages.is_empty() {
+        return Err("At least one message is required".to_string());
+    }
+    if model.is_empty() {
+        return Err("Model selection is required".to_string());
+    }
+
     let state = app.state::<AppState>();
 
     let request = ChatRequest {
