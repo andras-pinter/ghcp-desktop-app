@@ -214,23 +214,22 @@
   }
 
   .auth-tagline {
-    font-family: var(--font-display);
-    font-style: italic;
-    font-size: var(--font-size-lg);
-    color: var(--color-text-primary);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
     text-align: center;
-    line-height: var(--line-height-tight);
-    margin-bottom: var(--spacing-xs);
-    letter-spacing: -0.01em;
+    line-height: var(--line-height-relaxed);
+    margin-bottom: var(--spacing-sm);
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
   }
 
   .auth-subtitle {
     font-family: var(--font-display);
     font-style: italic;
-    font-size: var(--font-size-base);
+    font-size: var(--font-size-xl);
     color: var(--color-accent);
     text-align: center;
-    line-height: var(--line-height-relaxed);
+    line-height: var(--line-height-tight);
   }
 
   .auth-btn {
