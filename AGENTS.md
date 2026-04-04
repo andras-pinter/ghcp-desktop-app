@@ -1149,6 +1149,8 @@ an MCP server binary. This is the **only** exception to the no-subprocess rule:
 | `@tauri-apps/plugin-shell` | Frontend bindings for shell plugin |
 | `@tauri-apps/plugin-clipboard-manager` | Frontend bindings for clipboard plugin |
 | `@tauri-apps/plugin-store` | Frontend bindings for store plugin (ephemeral UI state only) |
+| `@fontsource-variable/plus-jakarta-sans` | Plus Jakarta Sans variable font (body text, UI) |
+| `@fontsource/instrument-serif` | Instrument Serif font (display titles, editorial headings) |
 | `marked` | Markdown parsing (fast, CommonMark-compliant) |
 | `shiki` | Syntax highlighting (VS Code quality, WASM-based) |
 | `dompurify` | HTML sanitization for rendered markdown |
@@ -1542,65 +1544,68 @@ INSERT INTO config (key, value) VALUES ('schema_version', '1');
 
 ## Implementation Plan
 
-### Phase 1: Project Scaffolding & Hello World
-1. **project-setup** — Initialize Tauri v2 + Svelte 5 + TypeScript project via `create-tauri-app`. Configure Rust workspace with `src-tauri/` + 3 library crates (`copilot-api`, `mcp-client`, `web-research`). Set up ESLint, Prettier, Vitest. Configure `tauri.conf.json` with minimal capabilities.
-2. **hello-world** — Basic Tauri window with Svelte sidebar + main area layout. Verify hot-reload works (`cargo tauri dev`). Light/dark theme via CSS custom properties.
+> **Legend:** ✅ = complete, 🔧 = in progress, ⬚ = not started
+
+### Phase 1: Project Scaffolding & Hello World ✅
+1. ✅ **project-setup** — Initialize Tauri v2 + Svelte 5 + TypeScript project via `create-tauri-app`. Configure Rust workspace with `src-tauri/` + 3 library crates (`copilot-api`, `mcp-client`, `web-research`). Set up ESLint, Prettier, Vitest. Configure `tauri.conf.json` with minimal capabilities.
+2. ✅ **hello-world** — Basic Tauri window with Svelte sidebar + main area layout. Verify hot-reload works (`cargo tauri dev`). Light/dark theme via CSS custom properties.
+3. ✅ **design-system** — "Warm Ink" design system applied: Instrument Serif + Plus Jakarta Sans typography, warm paper/ink palette with copper accent, grain texture overlay, entrance animations, editorial welcome screen, refined auth screen with GitHub SVG mark, copper focus glow inputs, hover micro-interactions throughout. All components use CSS custom property tokens.
 
 ### Phase 2: Copilot API Client
-3. **oauth-device-flow** — GitHub OAuth device flow with token refresh in `copilot-api` crate
-4. **keychain-storage** — OS keychain token storage (per-platform, using `keyring` crate)
-5. **chat-completions-client** — `/v1/chat/completions` with SSE streaming + file context in `copilot-api` crate
-6. **model-discovery** — Query API for available models at startup, cache list, fallback to default
+4. ⬚ **oauth-device-flow** — GitHub OAuth device flow with token refresh in `copilot-api` crate
+5. ⬚ **keychain-storage** — OS keychain token storage (per-platform, using `keyring` crate)
+6. ⬚ **chat-completions-client** — `/v1/chat/completions` with SSE streaming + file context in `copilot-api` crate
+7. ⬚ **model-discovery** — Query API for available models at startup, cache list, fallback to default
 
 ### Phase 3: Persistence & Data Layer
-7. **sqlite-setup** — Initialize SQLite database with full schema (see Data Model section). Migrations support. Tauri app data directory via `app.path().app_data_dir()`.
-8. **conversation-persistence** — CRUD for conversations + messages via Tauri commands. Load on startup, lazy-load older messages. Auto-generate conversation titles via lightweight API call after first response.
-9. **draft-auto-save** — Persist input text to `drafts` table every few seconds. Restore on launch. Clear on successful send.
+8. ⬚ **sqlite-setup** — Initialize SQLite database with full schema (see Data Model section). Migrations support. Tauri app data directory via `app.path().app_data_dir()`. *(Note: schema + migrations are already implemented in `src-tauri/src/db/migrations.rs` as part of Phase 1. This task covers query functions in `db/queries.rs` and wiring CRUD operations.)*
+9. ⬚ **conversation-persistence** — CRUD for conversations + messages via Tauri commands. Load on startup, lazy-load older messages. Auto-generate conversation titles via lightweight API call after first response.
+10. ⬚ **draft-auto-save** — Persist input text to `drafts` table every few seconds. Restore on launch. Clear on successful send.
 
 ### Phase 4: Core Chat UI
-10. **sidebar** — `Sidebar.svelte`: conversation list grouped by date, new chat, favourites (pinned), projects, agents, search, collapsible sections
-11. **chat-view** — `ChatView.svelte` + `MessageBubble.svelte` + `ThinkingSection.svelte`: message list with avatars, timestamps, collapsible reasoning/thinking sections, context summarization banner
-12. **input-area** — `InputArea.svelte`: multi-line `<textarea>`, file drop zone, attachment pills, agent selector, model selector, loading state
-13. **streaming-display** — Token-by-token rendering via Tauri events, typing cursor animation, stop button. Save partial response on interruption.
-14. **message-actions** — Edit sent messages (discard + re-send), regenerate last response, copy individual messages
-15. **in-conversation-search** — `SearchOverlay.svelte`: Cmd+F / Ctrl+F to find text, highlight matches, navigate with arrows
+11. ⬚ **sidebar** — `Sidebar.svelte`: conversation list grouped by date, new chat, favourites (pinned), projects, agents, search, collapsible sections *(Note: basic sidebar skeleton with search + settings is already implemented. This task adds real data binding, grouped conversation list, favourites, and collapsible sections.)*
+12. ⬚ **chat-view** — `ChatView.svelte` + `MessageBubble.svelte` + `ThinkingSection.svelte`: message list with avatars, timestamps, collapsible reasoning/thinking sections, context summarization banner *(Note: basic chat view with demo responses exists. This task replaces demo with real API streaming, adds ThinkingSection and summarization banner.)*
+13. ⬚ **input-area** — `InputArea.svelte`: multi-line `<textarea>`, file drop zone, attachment pills, agent selector, model selector, loading state *(Note: basic input with textarea and model selector exists. This task adds file drop zone, attachment pills, agent selector, and loading state.)*
+14. ⬚ **streaming-display** — Token-by-token rendering via Tauri events, typing cursor animation, stop button. Save partial response on interruption.
+15. ⬚ **message-actions** — Edit sent messages (discard + re-send), regenerate last response, copy individual messages
+16. ⬚ **in-conversation-search** — `SearchOverlay.svelte`: Cmd+F / Ctrl+F to find text, highlight matches, navigate with arrows
 
 ### Phase 5: Markdown & Code Rendering
-16. **markdown-rendering** — Render assistant messages with `marked` + `DOMPurify`. Bold, italic, headers, lists, links, blockquotes, tables.
-17. **code-blocks** — `CodeBlock.svelte`: syntax-highlighted fenced blocks via `shiki`, copy button, language label
+17. ⬚ **markdown-rendering** — Render assistant messages with `marked` + `DOMPurify`. Bold, italic, headers, lists, links, blockquotes, tables.
+18. ⬚ **code-blocks** — `CodeBlock.svelte`: syntax-highlighted fenced blocks via `shiki`, copy button, language label
 
 ### Phase 6: Web Research
-18. **web-search** — `web-research` crate: Bing Web Search API integration. Tauri command `web_search`. `WebResultCard.svelte` for displaying results as cited cards. API key stored in keychain.
-19. **url-fetcher** — Tauri command `fetch_url`. HTTPS only, public IPs only. Extract readable text via `dom_smoothie`. URL preview card in input area. Max 50KB extracted text.
+19. ⬚ **web-search** — `web-research` crate: Bing Web Search API integration. Tauri command `web_search`. `WebResultCard.svelte` for displaying results as cited cards. API key stored in keychain.
+20. ⬚ **url-fetcher** — Tauri command `fetch_url`. HTTPS only, public IPs only. Extract readable text via `dom_smoothie`. URL preview card in input area. Max 50KB extracted text.
 
 ### Phase 7: MCP Integration
-20. **mcp-client** — `mcp-client` crate: MCP protocol client (spec 2025-03-26). Connect, discover tools, invoke, handle responses. HTTP and stdio transports.
-21. **mcp-catalog** — Built-in catalog of popular MCP servers. One-click enable. Show descriptions, required config fields. Persist enabled state to SQLite.
-22. **mcp-settings** — `McpSettings.svelte`: manage MCP connections. Add custom servers (URL + auth or binary path), enable/disable, test connectivity, browse discovered tools.
+21. ⬚ **mcp-client** — `mcp-client` crate: MCP protocol client (spec 2025-03-26). Connect, discover tools, invoke, handle responses. HTTP and stdio transports.
+22. ⬚ **mcp-catalog** — Built-in catalog of popular MCP servers. One-click enable. Show descriptions, required config fields. Persist enabled state to SQLite.
+23. ⬚ **mcp-settings** — `McpSettings.svelte`: manage MCP connections. Add custom servers (URL + auth or binary path), enable/disable, test connectivity, browse discovered tools.
 
 ### Phase 8: Skills & Agents
-23. **skills-manager** — `SkillsPanel.svelte`: browse Copilot Extensions + MCP tools as unified skill list. Toggle on/off, configure per-skill settings. Persist to SQLite.
-24. **agents-manager** — `AgentsPanel.svelte`: create/edit/delete custom agent personas. Each agent has name, avatar, system prompt, assigned skills, MCP connections. Default agent is built-in and undeletable.
-25. **agent-selector** — Agent picker in `InputArea.svelte`. Conversations tied to an agent. Agent config maps to API request structure.
+24. ⬚ **skills-manager** — `SkillsPanel.svelte`: browse Copilot Extensions + MCP tools as unified skill list. Toggle on/off, configure per-skill settings. Persist to SQLite.
+25. ⬚ **agents-manager** — `AgentsPanel.svelte`: create/edit/delete custom agent personas. Each agent has name, avatar, system prompt, assigned skills, MCP connections. Default agent is built-in and undeletable.
+26. ⬚ **agent-selector** — Agent picker in `InputArea.svelte`. Conversations tied to an agent. Agent config maps to API request structure.
 
 ### Phase 9: Projects & File Context
-26. **projects** — `ProjectView.svelte`: named project containers with custom instructions, pinned files (stored as BLOBs in SQLite), grouped conversations. Project selector in sidebar.
-27. **file-context** — User-initiated only: read file contents into memory via drag-and-drop or `tauri-plugin-dialog` file picker. Preview in input. Never retain paths or re-read from disk.
-28. **context-window** — Implement conversation summarization for long chats. Older messages summarized into condensed recap. Visual indicator when summarization has occurred.
+27. ⬚ **projects** — `ProjectView.svelte`: named project containers with custom instructions, pinned files (stored as BLOBs in SQLite), grouped conversations. Project selector in sidebar.
+28. ⬚ **file-context** — User-initiated only: read file contents into memory via drag-and-drop or `tauri-plugin-dialog` file picker. Preview in input. Never retain paths or re-read from disk.
+29. ⬚ **context-window** — Implement conversation summarization for long chats. Older messages summarized into condensed recap. Visual indicator when summarization has occurred.
 
 ### Phase 10: Polish & Platform Features
-29. **settings-panel** — `SettingsPanel.svelte`: account, theme, font size, default model, keyboard shortcuts, MCP management, conversation export (JSON + Markdown), database size display + cleanup, clear history
-30. **global-hotkey** — System-wide app summon via `tauri-plugin-global-shortcut` (Cmd+Shift+Space or configurable)
-31. **system-tray** — Tauri core `tray-icon` feature: minimize to tray instead of closing. Streaming continues when window is hidden. Right-click menu: New Chat, Show, Quit. Status indicator.
-32. **keyboard-shortcuts** — Cmd+N (new chat), Cmd+K (search conversations), Cmd+F (search in conversation), Cmd+, (settings), Cmd+Shift+S (toggle sidebar), Escape (cancel streaming). Send shortcut configuration (Enter vs Cmd+Enter / Ctrl+Enter) persisted via `send_shortcut` config key.
-33. **offline-mode** — Detect network status. Full read access when offline, sending disabled with clear indicator. Auto-reconnect with "Back online" toast.
-34. **accessibility** — Semantic HTML, ARIA roles/labels, keyboard navigation, focus management, visible focus indicators, screen reader testing
+30. ⬚ **settings-panel** — `SettingsPanel.svelte`: account, theme, font size, default model, keyboard shortcuts, MCP management, conversation export (JSON + Markdown), database size display + cleanup, clear history
+31. ⬚ **global-hotkey** — System-wide app summon via `tauri-plugin-global-shortcut` (Cmd+Shift+Space or configurable)
+32. ⬚ **system-tray** — Tauri core `tray-icon` feature: minimize to tray instead of closing. Streaming continues when window is hidden. Right-click menu: New Chat, Show, Quit. Status indicator.
+33. ⬚ **keyboard-shortcuts** — Cmd+N (new chat), Cmd+K (search conversations), Cmd+F (search in conversation), Cmd+, (settings), Cmd+Shift+S (toggle sidebar), Escape (cancel streaming). Send shortcut configuration (Enter vs Cmd+Enter / Ctrl+Enter) persisted via `send_shortcut` config key.
+34. ⬚ **offline-mode** — Detect network status. Full read access when offline, sending disabled with clear indicator. Auto-reconnect with "Back online" toast.
+35. ⬚ **accessibility** — Semantic HTML, ARIA roles/labels, keyboard navigation, focus management, visible focus indicators, screen reader testing
 
 ### Phase 11: Auto-Update
-35. **auto-update** — Configure `tauri-plugin-updater` with GitHub Releases endpoint. `UpdateBanner.svelte` for notifications. Show changelog/release notes. Allow "skip this version" and "remind me later". Settings toggle to disable auto-update. Ed25519 signature verification.
+36. ⬚ **auto-update** — Configure `tauri-plugin-updater` with GitHub Releases endpoint. `UpdateBanner.svelte` for notifications. Show changelog/release notes. Allow "skip this version" and "remind me later". Settings toggle to disable auto-update. Ed25519 signature verification.
 
 ### Phase 12: Distribution
-36. **app-packaging** — `cargo tauri build` for all platforms. `.dmg` (macOS with code signing + App Sandbox + notarization), `.AppImage`/`.deb` (Linux), `.msi`/`.nsis` (Windows). GitHub Actions CI/CD for automated builds. Publish releases to GitHub Releases for auto-update consumption.
+37. ⬚ **app-packaging** — `cargo tauri build` for all platforms. `.dmg` (macOS with code signing + App Sandbox + notarization), `.AppImage`/`.deb` (Linux), `.msi`/`.nsis` (Windows). GitHub Actions CI/CD for automated builds. Publish releases to GitHub Releases for auto-update consumption.
 
 ---
 
@@ -1689,3 +1694,31 @@ The UX is modeled after **Claude Desktop** (Anthropic's desktop app):
 **Key difference:** This app has **no access to the user's machine** — no filesystem browsing, no shell execution, no screen capture. All external capabilities come through explicit user actions (file attach, URL paste) or user-configured connections (MCP servers, web search). It includes seamless auto-updates from GitHub Releases. It's a powerful but sandboxed chat client for GitHub Copilot with extensibility via MCP and custom agents.
 
 **Why Tauri + Svelte:** Tauri v2 provides a production-ready, security-first desktop framework with built-in system tray, global shortcuts, auto-updater, and native dialogs. Svelte 5 delivers a lightweight, reactive frontend with minimal bundle size and excellent developer experience. Together they produce a fast, small (~5-10MB), cross-platform app with world-class UI capabilities and strong security guarantees.
+
+### Visual Design System: "Warm Ink"
+
+The app uses a distinctive **"Warm Ink"** aesthetic — warm paper/ink neutrals with a copper accent. This avoids generic "AI slop" aesthetics (Inter font, purple gradients, etc.) and gives the app an editorial, tactile personality.
+
+**Typography:**
+- **Display:** Instrument Serif (italic) — used for welcome titles, auth screen, section headers
+- **Body:** Plus Jakarta Sans Variable — used for all UI text
+- **Monospace:** JetBrains Mono — used for code blocks, device codes
+- Font packages: `@fontsource-variable/plus-jakarta-sans`, `@fontsource/instrument-serif`
+
+**Color Palette:**
+- Light: warm paper backgrounds (`#faf9f7`, `#f3f1ed`, `#eae7e1`), ink-dark text (`#1c1917`), copper accent (`#b45309`)
+- Dark: deep warm charcoal (`#0f0e0d`, `#171615`), warm light text (`#e7e5e4`), amber accent (`#d97706`)
+- Accent buttons use ink-dark (same as text); focus rings and highlights use copper
+
+**Visual Details:**
+- Subtle SVG-based grain texture overlay on `body::after` at 2.5% opacity
+- Copper glow focus ring on input (`--shadow-input-focus`)
+- Entry animations: `fadeIn`, `fadeInUp`, `scaleIn` with staggered delays
+- Hover micro-interactions: `translateX` on sidebar items, `scale` on send button
+- Spring easing for playful transitions: `cubic-bezier(0.34, 1.56, 0.64, 1)`
+
+**CSS Architecture:**
+- All design tokens as CSS custom properties in `src/app.css` (70+ variables)
+- Three theme modes: `:root` (light default), `[data-theme="dark"]`, `[data-theme="system"]`
+- Components must use `var(--token-name)` — no hardcoded colors, font sizes, or spacing values
+- Global reset, scrollbar styling, focus-visible, selection colors defined in `app.css`
