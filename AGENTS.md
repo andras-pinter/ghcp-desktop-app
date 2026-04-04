@@ -319,7 +319,7 @@ Drag-and-drop zone covers entire input area (visual highlight on drag-over)
 
 **Key behaviors:**
 - Input auto-grows up to ~6 lines, then scrolls internally
-- Enter sends; Shift+Enter for newline
+- Enter sends (default); Shift+Enter for newline. Configurable in Settings to use Cmd+Enter (Ctrl+Enter) to send instead (Enter always inserts newline in that mode)
 - Attachment pills show filename + size + ✕ remove button
 - URL pills show favicon + domain + ✕ remove; content fetched on paste
 - 📎 opens native file picker (`tauri-plugin-dialog`)
@@ -399,6 +399,9 @@ Slides over from the right or opens as a modal. Tabbed navigation.
 │  Default Model                  [ GPT-4o ▾ ]                     │
 │                                                                  │
 │  Default Agent                  [ Default ▾ ]                    │
+│                                                                  │
+│  Send Message With              ( ● ) Enter                      │
+│                                 (   ) Cmd+Enter (Ctrl+Enter)     │
 │                                                                  │
 │  ── Auto-Update ──────────────────────────────────────────────   │
 │                                                                  │
