@@ -3,8 +3,19 @@
   import MessageBubble from "./MessageBubble.svelte";
   import type { Message } from "$lib/types/message";
 
+  const greetings = [
+    "Break through.",
+    "Let's break some barriers.",
+    "Ready to break the barrier?",
+    "Past the barrier, into the unknown.",
+    "What barrier are we breaking today?",
+    "The sky was never the limit.",
+    "Let's punch through.",
+  ];
+
   let messages: Message[] = $state([]);
   let chatContainer: HTMLElement | undefined = $state();
+  const greeting = greetings[Math.floor(Math.random() * greetings.length)];
 
   function handleSend(text: string) {
     const userMessage: Message = {
@@ -43,8 +54,7 @@
   {#if messages.length === 0}
     <div class="welcome-container">
       <div class="welcome">
-        <h1 class="welcome-title">Chuck</h1>
-        <p class="welcome-subtitle">Let's punch through.</p>
+        <p class="welcome-greeting">{greeting}</p>
       </div>
       <div class="welcome-input">
         <InputArea onSend={handleSend} />
@@ -94,20 +104,14 @@
     animation-delay: 100ms;
   }
 
-  .welcome-title {
+  .welcome-greeting {
     font-family: var(--font-display);
     font-style: italic;
-    font-size: var(--font-size-2xl);
+    font-size: var(--font-size-xl);
     font-weight: 400;
-    color: var(--color-text-primary);
+    color: var(--color-text-secondary);
     letter-spacing: var(--letter-spacing-tight);
     line-height: var(--line-height-tight);
-    margin-bottom: var(--spacing-md);
-  }
-
-  .welcome-subtitle {
-    font-size: var(--font-size-md);
-    color: var(--color-text-secondary);
   }
 
   .welcome-input {
