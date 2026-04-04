@@ -99,7 +99,8 @@
       <h1 class="auth-title">Chuck</h1>
     </div>
 
-    <p class="auth-subtitle">Your best co-pilot buddy. Always cleared for takeoff.</p>
+    <p class="auth-tagline">Your best co-pilot buddy.</p>
+    <p class="auth-subtitle">Always cleared for takeoff.</p>
 
     <button
       class="auth-btn"
@@ -210,6 +211,17 @@
     color: var(--color-text-primary);
     letter-spacing: var(--letter-spacing-tight);
     line-height: var(--line-height-tight);
+  }
+
+  .auth-tagline {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: var(--font-size-lg);
+    color: var(--color-text-primary);
+    text-align: center;
+    line-height: var(--line-height-tight);
+    margin-bottom: var(--spacing-xs);
+    letter-spacing: -0.01em;
   }
 
   .auth-subtitle {
