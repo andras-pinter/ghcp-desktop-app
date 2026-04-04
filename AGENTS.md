@@ -107,7 +107,7 @@ When an agent completes a task, it **MUST** update **all** affected artifacts:
 - **Documentation** — doc comments, JSDoc, README.md, AGENTS.md (if architecture/scope/phases changed)
 - **Dependencies** — Cargo.toml and/or package.json updated, lock files committed
 - **Types** — all type definitions updated consistently across Rust types AND TypeScript types
-- **State** — Svelte stores, Tauri managed state, SQLite schemas, config structures updated
+- **State** — Svelte runes (`$state`, `$derived`), Tauri managed state, SQLite schemas, config structures updated
 - **Components** — any Svelte component that references changed state/types must be updated
 - **Sibling crates** — if a change in `copilot-api` affects `src-tauri`, update `src-tauri` too
 - **Tauri commands** — if Rust types change, update corresponding Tauri command signatures AND frontend `invoke()` calls
@@ -242,7 +242,7 @@ The primary app surface. Sidebar is collapsible (Cmd+Shift+S). Chat fills remain
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │ ● ● ●                     Copilot Desktop                        ─ □ ✕    │
 ├────────────────────┬────────────────────────────────────────────────────────┤
-│                    │  Model: GPT-4o ▾            ⟳ Regenerate   ⋮ Menu    │
+│                    │  📝 API Design Q              ⟳ Regenerate   ⋮ Menu    │
 │  [+ New Chat]      ├────────────────────────────────────────────────────────┤
 │                    │                                                        │
 │  🔍 Search...      │  ┌─ Earlier messages summarized ──────────────────┐   │
@@ -293,8 +293,13 @@ The primary app surface. Sidebar is collapsible (Cmd+Shift+S). Chat fills remain
 **Key behaviors:**
 - Sidebar width: ~260px, resizable, collapsible
 - Favourites pinned at top, then Projects, then Agents, then date-grouped history
+- Right-click sidebar conversation → context menu: Rename, Export (JSON/Markdown), Toggle Favourite ★, Delete
+- ★ icon appears on hover of conversation items; click to toggle favourite
+- Header shows conversation title (click to inline-edit); auto-generated title can be overridden
 - Chat scrolls independently; auto-scroll on new tokens, pauses if user scrolled up
 - Message actions appear on hover: ✏️ edit (user msgs), 📋 copy, ⟳ regenerate (last assistant msg)
+- Code block [Copy] button always visible; message-level 📋 copy appears on hover
+- Cmd+F activates `SearchOverlay.svelte`: floating search bar at top of chat with match count, ↑/↓ arrows, Escape to dismiss
 - Context summarization banner is dismissible but not deletable
 - Status bar shows: connection state, DB size, app version
 
@@ -782,15 +787,19 @@ The frontend communicates with the Rust backend exclusively through **Tauri comm
 and **events** (`listen()`/`emit()`). This is the only bridge between the two layers.
 
 **Commands** (frontend → backend, request/response):
-- `send_message` — send a chat message, returns streaming event channel
-- `get_conversations` — list conversations from SQLite
-- `create_conversation` — create new conversation
-- `get_models` — fetch available Copilot models
-- `authenticate` — initiate OAuth device flow
-- `mcp_invoke_tool` — call an MCP tool
-- `web_search` — trigger web search
-- `fetch_url` — fetch and extract URL content
-- etc.
+
+| Module | Commands |
+|---|---|
+| `chat.rs` | `send_message` — send chat message, returns streaming event channel; `stop_streaming` — cancel in-flight SSE stream; `regenerate` — re-send last user message for fresh response |
+| `auth.rs` | `authenticate` — initiate OAuth device flow; `logout` — clear token from keychain; `get_auth_state` — check current auth status |
+| `conversations.rs` | `get_conversations` — list from SQLite; `create_conversation` — new conversation; `update_conversation` — rename/update metadata; `delete_conversation` — remove conversation + messages |
+| `agents.rs` | `get_agents` — list agent personas; `create_agent` — new agent; `update_agent` — edit agent; `delete_agent` — remove agent |
+| `skills.rs` | `get_skills` — list all skills (MCP tools + extensions); `toggle_skill` — enable/disable; `configure_skill` — update skill config |
+| `projects.rs` | `get_projects` — list projects; `create_project` — new project; `update_project` — edit instructions/name; `delete_project` — remove project; `add_project_file` — attach file (BLOB); `remove_project_file` — detach file |
+| `mcp.rs` | `get_mcp_servers` — list configured servers; `add_mcp_server` — register new server; `remove_mcp_server` — delete server; `test_mcp_connection` — verify server responds; `mcp_invoke_tool` — call an MCP tool |
+| `web_research.rs` | `web_search` — trigger web search via API; `fetch_url` — fetch + extract URL content |
+| `models.rs` | `get_models` — fetch available Copilot models |
+| `settings.rs` | `get_settings` — read config table; `update_settings` — write config key-value; `export_conversations` — export as JSON/Markdown to user-chosen path; `delete_old_conversations` — cleanup by age; `get_db_size` — return database file size |
 
 **Events** (backend → frontend, push):
 - `streaming-token` — individual SSE tokens during chat
@@ -1107,7 +1116,7 @@ an MCP server binary. This is the **only** exception to the no-subprocess rule:
 | `tauri-plugin-dialog` | Native file picker + save dialog |
 | `tauri-plugin-global-shortcut` | System-wide keyboard shortcuts |
 | `tauri-plugin-updater` | Auto-update from GitHub Releases |
-| `tauri-plugin-notification` | System notifications |
+| `tauri-plugin-notification` | System notifications (used when app is minimized to tray — e.g., streaming complete, update available) |
 | `tauri-plugin-shell` | Limited shell access (MCP stdio only, scoped) |
 | `tauri-plugin-clipboard-manager` | Copy to clipboard from code blocks |
 | `tauri-plugin-store` | Lightweight key-value persistence for non-sensitive UI preferences (e.g., window position, sidebar width). SQLite `config` table handles all app settings; `tauri-plugin-store` is for ephemeral/UI-state that doesn't warrant a SQL write. |
@@ -1509,7 +1518,7 @@ INSERT INTO config (key, value) VALUES ('schema_version', '1');
 
 - **Conversations, messages, projects, agents, skills, MCP configs** → SQLite (managed by Rust backend)
 - **OAuth tokens, API keys** → OS keychain via `keyring` crate (never in SQLite or localStorage)
-- **User preferences** (theme, font size, hotkey, auto-update) → SQLite `config` table
+- **User preferences** (theme, font size, hotkey, send shortcut, auto-update) → SQLite `config` table (e.g., keys: `theme`, `font_size`, `global_hotkey`, `send_shortcut`, `auto_update_enabled`, `auto_update_frequency`)
 - **File contents** for project pinned files → SQLite `project_files.content` as BLOB
 - **Attached file contents** in chat → stored in `messages.attachments` as metadata only; full content is ephemeral (in-memory during conversation, not persisted)
 - **No localStorage/sessionStorage** for sensitive data — all persistence goes through Tauri commands to Rust backend
@@ -1550,7 +1559,7 @@ INSERT INTO config (key, value) VALUES ('schema_version', '1');
 
 ### Phase 4: Core Chat UI
 10. **sidebar** — `Sidebar.svelte`: conversation list grouped by date, new chat, favourites (pinned), projects, agents, search, collapsible sections
-11. **chat-view** — `ChatView.svelte` + `MessageBubble.svelte`: message list with avatars, timestamps, thinking indicator, collapsible reasoning sections
+11. **chat-view** — `ChatView.svelte` + `MessageBubble.svelte` + `ThinkingSection.svelte`: message list with avatars, timestamps, collapsible reasoning/thinking sections, context summarization banner
 12. **input-area** — `InputArea.svelte`: multi-line `<textarea>`, file drop zone, attachment pills, agent selector, model selector, loading state
 13. **streaming-display** — Token-by-token rendering via Tauri events, typing cursor animation, stop button. Save partial response on interruption.
 14. **message-actions** — Edit sent messages (discard + re-send), regenerate last response, copy individual messages
@@ -1583,7 +1592,7 @@ INSERT INTO config (key, value) VALUES ('schema_version', '1');
 29. **settings-panel** — `SettingsPanel.svelte`: account, theme, font size, default model, keyboard shortcuts, MCP management, conversation export (JSON + Markdown), database size display + cleanup, clear history
 30. **global-hotkey** — System-wide app summon via `tauri-plugin-global-shortcut` (Cmd+Shift+Space or configurable)
 31. **system-tray** — Tauri core `tray-icon` feature: minimize to tray instead of closing. Streaming continues when window is hidden. Right-click menu: New Chat, Show, Quit. Status indicator.
-32. **keyboard-shortcuts** — Cmd+N (new chat), Cmd+K (search conversations), Cmd+F (search in conversation), Cmd+, (settings), Cmd+Shift+S (toggle sidebar), Escape (cancel streaming)
+32. **keyboard-shortcuts** — Cmd+N (new chat), Cmd+K (search conversations), Cmd+F (search in conversation), Cmd+, (settings), Cmd+Shift+S (toggle sidebar), Escape (cancel streaming). Send shortcut configuration (Enter vs Cmd+Enter / Ctrl+Enter) persisted via `send_shortcut` config key.
 33. **offline-mode** — Detect network status. Full read access when offline, sending disabled with clear indicator. Auto-reconnect with "Back online" toast.
 34. **accessibility** — Semantic HTML, ARIA roles/labels, keyboard navigation, focus management, visible focus indicators, screen reader testing
 
