@@ -3,27 +3,27 @@
 :root,
 [data-theme="light"] {
   --color-bg-primary: #ffffff;
-  --color-bg-secondary: #f5f5f5;
-  --color-bg-tertiary: #e8e8e8;
-  --color-bg-hover: #f0f0f0;
-  --color-bg-active: #e0e0e0;
+  --color-bg-secondary: #f9f9f9;
+  --color-bg-tertiary: #f0f0f0;
+  --color-bg-hover: rgba(0, 0, 0, 0.04);
+  --color-bg-active: rgba(0, 0, 0, 0.08);
   --color-bg-code: #f6f8fa;
   --color-bg-thinking: #fafafa;
   --color-bg-input: #ffffff;
-  --color-bg-sidebar: #f8f9fa;
+  --color-bg-sidebar: #f7f7f8;
   --color-bg-banner: #fff3cd;
 
-  --color-text-primary: #1a1a1a;
-  --color-text-secondary: #666666;
-  --color-text-tertiary: #999999;
+  --color-text-primary: #2d2d2d;
+  --color-text-secondary: #6b6b6b;
+  --color-text-tertiary: #a0a0a0;
   --color-text-inverse: #ffffff;
   --color-text-link: #0969da;
   --color-text-code: #1f2328;
 
-  --color-border-primary: #d0d7de;
-  --color-border-secondary: #e8e8e8;
+  --color-border-primary: #e5e5e5;
+  --color-border-secondary: #efefef;
   --color-border-focus: #0969da;
-  --color-border-thinking: #d0d0d0;
+  --color-border-thinking: #e0e0e0;
 
   --color-accent: #0969da;
   --color-accent-hover: #0757b5;
@@ -70,11 +70,8 @@
   --spacing-2xl: 32px;
 
   --sidebar-width: 260px;
-  --sidebar-min-width: 200px;
-  --sidebar-max-width: 400px;
   --titlebar-height: 38px;
-  --statusbar-height: 28px;
-  --input-min-height: 44px;
+  --input-min-height: 40px;
 
   --transition-fast: 150ms ease;
   --transition-normal: 250ms ease;
@@ -82,28 +79,28 @@
 }
 
 [data-theme="dark"] {
-  --color-bg-primary: #1e1e1e;
-  --color-bg-secondary: #252526;
-  --color-bg-tertiary: #2d2d2d;
-  --color-bg-hover: #2a2d2e;
-  --color-bg-active: #37373d;
-  --color-bg-code: #2d2d2d;
-  --color-bg-thinking: #252526;
-  --color-bg-input: #1e1e1e;
-  --color-bg-sidebar: #181818;
+  --color-bg-primary: #1a1a1a;
+  --color-bg-secondary: #212121;
+  --color-bg-tertiary: #2a2a2a;
+  --color-bg-hover: rgba(255, 255, 255, 0.06);
+  --color-bg-active: rgba(255, 255, 255, 0.1);
+  --color-bg-code: #2a2a2a;
+  --color-bg-thinking: #212121;
+  --color-bg-input: #1a1a1a;
+  --color-bg-sidebar: #161616;
   --color-bg-banner: #3d3100;
 
-  --color-text-primary: #cccccc;
-  --color-text-secondary: #999999;
-  --color-text-tertiary: #666666;
-  --color-text-inverse: #1e1e1e;
+  --color-text-primary: #e0e0e0;
+  --color-text-secondary: #9a9a9a;
+  --color-text-tertiary: #606060;
+  --color-text-inverse: #1a1a1a;
   --color-text-link: #58a6ff;
   --color-text-code: #d4d4d4;
 
-  --color-border-primary: #3e3e3e;
-  --color-border-secondary: #2d2d2d;
+  --color-border-primary: #2e2e2e;
+  --color-border-secondary: #252525;
   --color-border-focus: #58a6ff;
-  --color-border-thinking: #404040;
+  --color-border-thinking: #383838;
 
   --color-accent: #58a6ff;
   --color-accent-hover: #79b8ff;
@@ -127,28 +124,28 @@
 /* ── System theme: follow prefers-color-scheme ── */
 @media (prefers-color-scheme: dark) {
   [data-theme="system"] {
-    --color-bg-primary: #1e1e1e;
-    --color-bg-secondary: #252526;
-    --color-bg-tertiary: #2d2d2d;
-    --color-bg-hover: #2a2d2e;
-    --color-bg-active: #37373d;
-    --color-bg-code: #2d2d2d;
-    --color-bg-thinking: #252526;
-    --color-bg-input: #1e1e1e;
-    --color-bg-sidebar: #181818;
+    --color-bg-primary: #1a1a1a;
+    --color-bg-secondary: #212121;
+    --color-bg-tertiary: #2a2a2a;
+    --color-bg-hover: rgba(255, 255, 255, 0.06);
+    --color-bg-active: rgba(255, 255, 255, 0.1);
+    --color-bg-code: #2a2a2a;
+    --color-bg-thinking: #212121;
+    --color-bg-input: #1a1a1a;
+    --color-bg-sidebar: #161616;
     --color-bg-banner: #3d3100;
 
-    --color-text-primary: #cccccc;
-    --color-text-secondary: #999999;
-    --color-text-tertiary: #666666;
-    --color-text-inverse: #1e1e1e;
+    --color-text-primary: #e0e0e0;
+    --color-text-secondary: #9a9a9a;
+    --color-text-tertiary: #606060;
+    --color-text-inverse: #1a1a1a;
     --color-text-link: #58a6ff;
     --color-text-code: #d4d4d4;
 
-    --color-border-primary: #3e3e3e;
-    --color-border-secondary: #2d2d2d;
+    --color-border-primary: #2e2e2e;
+    --color-border-secondary: #252525;
     --color-border-focus: #58a6ff;
-    --color-border-thinking: #404040;
+    --color-border-thinking: #383838;
 
     --color-accent: #58a6ff;
     --color-accent-hover: #79b8ff;

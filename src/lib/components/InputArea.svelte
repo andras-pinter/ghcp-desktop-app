@@ -13,14 +13,12 @@
     if (!trimmed) return;
     onSend(trimmed);
     inputText = "";
-    // Reset textarea height
     if (textareaEl) {
       textareaEl.style.height = "auto";
     }
   }
 
   function handleKeydown(event: KeyboardEvent) {
-    // Enter to send (default), Shift+Enter for newline
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
       handleSend();
@@ -35,7 +33,7 @@
 </script>
 
 <div class="input-area">
-  <div class="input-wrapper">
+  <div class="input-box">
     <textarea
       bind:this={textareaEl}
       bind:value={inputText}
@@ -45,49 +43,60 @@
       rows="1"
       aria-label="Message input"
     ></textarea>
-    <div class="input-toolbar">
-      <div class="input-actions-left">
-        <button class="toolbar-btn" aria-label="Attach file" title="Attach file">📎</button>
-        <button class="toolbar-btn" aria-label="Web search" title="Web search">🌐</button>
-      </div>
-      <div class="input-actions-right">
-        <button
-          class="send-btn"
-          onclick={handleSend}
-          disabled={!inputText.trim()}
-          aria-label="Send message"
+    <div class="input-actions">
+      <button class="action-btn" aria-label="Attach file" title="Attach file">
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 16 16"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
         >
-          Send ➤
-        </button>
-      </div>
+          <path
+            d="M14 8.5l-5.5 5.5a3.5 3.5 0 0 1-5-5L9 3.5a2.5 2.5 0 0 1 3.5 3.5L7 12.5a1.5 1.5 0 0 1-2-2L10.5 5"
+          />
+        </svg>
+      </button>
+      <button
+        class="send-btn"
+        class:active={!!inputText.trim()}
+        onclick={handleSend}
+        disabled={!inputText.trim()}
+        aria-label="Send message"
+      >
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+          <path d="M8 2.5l-4.5 4.5h3V13h3V7h3L8 2.5z" />
+        </svg>
+      </button>
     </div>
   </div>
 </div>
 
 <style>
   .input-area {
-    padding: var(--spacing-md) var(--spacing-xl);
-    border-top: 1px solid var(--color-border-secondary);
-    flex-shrink: 0;
+    width: 100%;
   }
 
-  .input-wrapper {
-    max-width: 800px;
-    margin: 0 auto;
+  .input-box {
     border: 1px solid var(--color-border-primary);
-    border-radius: var(--radius-md);
-    background: var(--color-bg-input);
-    overflow: hidden;
-    transition: border-color var(--transition-fast);
+    border-radius: var(--radius-lg);
+    background: var(--color-bg-primary);
+    display: flex;
+    flex-direction: column;
+    transition:
+      border-color var(--transition-fast),
+      box-shadow var(--transition-fast);
   }
 
-  .input-wrapper:focus-within {
+  .input-box:focus-within {
     border-color: var(--color-border-focus);
+    box-shadow: 0 0 0 1px var(--color-border-focus);
   }
 
   textarea {
     width: 100%;
-    padding: var(--spacing-md);
+    padding: 12px 16px 4px;
     border: none;
     background: transparent;
     color: var(--color-text-primary);
@@ -96,62 +105,63 @@
     line-height: var(--line-height-normal);
     resize: none;
     outline: none;
-    min-height: var(--input-min-height);
+    min-height: 40px;
   }
 
   textarea::placeholder {
     color: var(--color-text-tertiary);
   }
 
-  .input-toolbar {
+  .input-actions {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: var(--spacing-xs) var(--spacing-sm);
-    border-top: 1px solid var(--color-border-secondary);
+    padding: 4px 8px 8px;
   }
 
-  .input-actions-left,
-  .input-actions-right {
+  .action-btn {
+    width: 32px;
+    height: 32px;
     display: flex;
     align-items: center;
-    gap: var(--spacing-xs);
-  }
-
-  .toolbar-btn {
-    padding: var(--spacing-xs) var(--spacing-sm);
+    justify-content: center;
     background: transparent;
     border: none;
-    cursor: pointer;
-    font-size: var(--font-size-sm);
-    color: var(--color-text-secondary);
     border-radius: var(--radius-sm);
+    color: var(--color-text-tertiary);
+    cursor: pointer;
     transition: all var(--transition-fast);
   }
 
-  .toolbar-btn:hover {
+  .action-btn:hover {
     background: var(--color-bg-hover);
-    color: var(--color-text-primary);
+    color: var(--color-text-secondary);
   }
 
   .send-btn {
-    padding: var(--spacing-xs) var(--spacing-md);
-    background: var(--color-accent);
-    color: var(--color-text-inverse);
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-bg-tertiary);
     border: none;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-full);
+    color: var(--color-text-tertiary);
     cursor: pointer;
-    font-size: var(--font-size-sm);
-    font-weight: 500;
     transition: all var(--transition-fast);
   }
 
-  .send-btn:hover:not(:disabled) {
-    background: var(--color-accent-hover);
+  .send-btn.active {
+    background: var(--color-text-primary);
+    color: var(--color-bg-primary);
   }
 
   .send-btn:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
+    cursor: default;
+  }
+
+  .send-btn:hover:not(:disabled) {
+    opacity: 0.85;
   }
 </style>

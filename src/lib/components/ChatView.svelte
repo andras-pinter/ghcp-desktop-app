@@ -3,27 +3,14 @@
   import MessageBubble from "./MessageBubble.svelte";
   import type { Message } from "$lib/types/message";
 
-  // Placeholder messages for demonstration
-  let messages: Message[] = $state([
-    {
-      id: "1",
-      conversationId: "demo",
-      role: "user",
-      content: "Hello! What can you help me with?",
-      createdAt: new Date().toISOString(),
-      sortOrder: 0,
-    },
-    {
-      id: "2",
-      conversationId: "demo",
-      role: "assistant",
-      content:
-        "I'm **Copilot Desktop** — your AI assistant. I can help with coding questions, research, brainstorming, and much more. Try asking me anything!",
-      createdAt: new Date().toISOString(),
-      sortOrder: 1,
-    },
-  ]);
+  interface Props {
+    onToggleSidebar: () => void;
+    sidebarCollapsed: boolean;
+  }
 
+  let { onToggleSidebar, sidebarCollapsed }: Props = $props();
+
+  let messages: Message[] = $state([]);
   let chatContainer: HTMLElement | undefined = $state();
 
   function handleSend(text: string) {
@@ -37,32 +24,85 @@
     };
     messages = [...messages, userMessage];
 
-    // Auto-scroll to bottom
     requestAnimationFrame(() => {
       chatContainer?.scrollTo({ top: chatContainer.scrollHeight, behavior: "smooth" });
     });
+
+    // Simulate assistant response
+    setTimeout(() => {
+      const assistantMessage: Message = {
+        id: crypto.randomUUID(),
+        conversationId: "demo",
+        role: "assistant",
+        content:
+          "I'm **Copilot Desktop** — a native desktop client for GitHub Copilot. I can help you with coding questions, research, brainstorming, and more.\n\nThis is a demo response. The streaming API integration is coming in Phase 2.",
+        createdAt: new Date().toISOString(),
+        sortOrder: messages.length,
+      };
+      messages = [...messages, assistantMessage];
+      requestAnimationFrame(() => {
+        chatContainer?.scrollTo({ top: chatContainer.scrollHeight, behavior: "smooth" });
+      });
+    }, 600);
   }
 </script>
 
 <div class="chat-view">
-  <header class="chat-header">
-    <h1 class="chat-title">New Conversation</h1>
-  </header>
-
-  <div class="chat-messages" bind:this={chatContainer} role="log" aria-label="Chat messages">
-    {#each messages as message (message.id)}
-      <MessageBubble {message} />
-    {/each}
-
-    {#if messages.length === 0}
-      <div class="empty-state">
-        <p class="empty-title">Start a conversation</p>
-        <p class="empty-hint">Ask anything — coding, research, brainstorming.</p>
+  {#if messages.length === 0}
+    <!-- Empty state: centered welcome -->
+    <div class="welcome-container">
+      <div class="welcome">
+        <h1 class="welcome-title">Copilot Desktop</h1>
+        <p class="welcome-subtitle">How can I help you today?</p>
       </div>
+      <div class="welcome-input">
+        <InputArea onSend={handleSend} />
+      </div>
+    </div>
+  {:else}
+    <!-- Conversation view -->
+    {#if sidebarCollapsed}
+      <button
+        class="sidebar-toggle"
+        onclick={onToggleSidebar}
+        aria-label="Open sidebar"
+        title="Open sidebar (⌘⇧S)"
+      >
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <rect
+            x="1"
+            y="2"
+            width="4"
+            height="12"
+            rx="1"
+            stroke="currentColor"
+            stroke-width="1.5"
+            fill="none"
+          />
+          <rect
+            x="6"
+            y="2"
+            width="9"
+            height="12"
+            rx="1"
+            stroke="currentColor"
+            stroke-width="1.5"
+            fill="none"
+          />
+        </svg>
+      </button>
     {/if}
-  </div>
-
-  <InputArea onSend={handleSend} />
+    <div class="chat-messages" bind:this={chatContainer} role="log" aria-label="Chat messages">
+      <div class="messages-inner">
+        {#each messages as message (message.id)}
+          <MessageBubble {message} />
+        {/each}
+      </div>
+    </div>
+    <div class="chat-input-container">
+      <InputArea onSend={handleSend} />
+    </div>
+  {/if}
 </div>
 
 <style>
@@ -71,48 +111,91 @@
     flex-direction: column;
     height: 100%;
     overflow: hidden;
+    position: relative;
   }
 
-  .chat-header {
-    padding: var(--spacing-md) var(--spacing-xl);
-    border-bottom: 1px solid var(--color-border-secondary);
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-  }
+  /* ── Welcome / empty state ── */
 
-  .chat-title {
-    font-size: var(--font-size-md);
-    font-weight: 600;
-    color: var(--color-text-primary);
-  }
-
-  .chat-messages {
+  .welcome-container {
     flex: 1;
-    overflow-y: auto;
-    padding: var(--spacing-xl);
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-lg);
-  }
-
-  .empty-state {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    flex: 1;
-    gap: var(--spacing-sm);
+    padding: var(--spacing-xl);
+    gap: var(--spacing-2xl);
   }
 
-  .empty-title {
-    font-size: var(--font-size-lg);
+  .welcome {
+    text-align: center;
+  }
+
+  .welcome-title {
+    font-size: 28px;
     font-weight: 600;
     color: var(--color-text-primary);
+    letter-spacing: -0.02em;
+    margin-bottom: var(--spacing-sm);
   }
 
-  .empty-hint {
-    font-size: var(--font-size-sm);
+  .welcome-subtitle {
+    font-size: var(--font-size-md);
     color: var(--color-text-secondary);
+  }
+
+  .welcome-input {
+    width: 100%;
+    max-width: 680px;
+  }
+
+  /* ── Sidebar toggle (when collapsed) ── */
+
+  .sidebar-toggle {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    z-index: 10;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-sm);
+    color: var(--color-text-tertiary);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+  }
+
+  .sidebar-toggle:hover {
+    background: var(--color-bg-hover);
+    color: var(--color-text-secondary);
+  }
+
+  /* ── Messages area ── */
+
+  .chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--spacing-xl) 0;
+  }
+
+  .messages-inner {
+    max-width: 680px;
+    margin: 0 auto;
+    padding: 0 var(--spacing-xl);
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── Input container at bottom ── */
+
+  .chat-input-container {
+    flex-shrink: 0;
+    max-width: 680px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 0 var(--spacing-xl) var(--spacing-xl);
   }
 </style>
