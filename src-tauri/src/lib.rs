@@ -1,4 +1,4 @@
-//! Copilot Desktop — Tauri application setup and plugin registration.
+//! Chuck — Tauri application setup and plugin registration.
 
 mod commands;
 mod db;
@@ -21,7 +21,7 @@ pub fn run() {
         .setup(|app| {
             let app_state = AppState::new(app.handle())?;
             app.manage(app_state);
-            log::info!("Copilot Desktop initialized");
+            log::info!("Chuck initialized");
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -29,5 +29,5 @@ pub fn run() {
             commands::get_app_info,
         ])
         .run(tauri::generate_context!())
-        .expect("error while running Copilot Desktop");
+        .expect("error while running Chuck");
 }

@@ -1,4 +1,4 @@
-# GHCP Desktop
+# Chuck
 
 A native cross-platform desktop chat application for GitHub Copilot, built with **Tauri v2 + Svelte 5 + TypeScript**.
 
@@ -7,7 +7,7 @@ A native cross-platform desktop chat application for GitHub Copilot, built with 
 
 ## About
 
-GHCP Desktop provides a dedicated chat interface for GitHub Copilot — inspired by standalone AI assistant apps like Claude Desktop. It focuses on **conversations**, not code editing, giving you a distraction-free environment for research, brainstorming, and general-purpose AI assistance powered by your existing Copilot subscription.
+Chuck provides a dedicated chat interface for GitHub Copilot — inspired by standalone AI assistant apps like Claude Desktop. It focuses on **conversations**, not code editing, giving you a distraction-free environment for research, brainstorming, and general-purpose AI assistance powered by your existing Copilot subscription. Named after Chuck Yeager, who broke the sound barrier.
 
 ### Key Features
 
@@ -41,7 +41,7 @@ GHCP Desktop provides a dedicated chat interface for GitHub Copilot — inspired
 ## Architecture
 
 ```
-copilot-desktop/
+chuck/
 ├── src/                  # Svelte 5 + TypeScript frontend
 │   ├── lib/components/   # Svelte components (Sidebar, ChatView, InputArea, etc.)
 │   ├── lib/stores/       # Svelte 5 runes-based stores

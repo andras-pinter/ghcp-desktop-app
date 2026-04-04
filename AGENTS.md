@@ -1,6 +1,6 @@
-# Copilot Desktop — Agent Instructions
+# Chuck — Agent Instructions
 
-> A native, cross-platform desktop chat GUI for GitHub Copilot, built with **Tauri v2 + Svelte 5 + TypeScript**.
+> **Chuck** (named after Chuck Yeager) is a native, cross-platform desktop chat GUI for GitHub Copilot, built with **Tauri v2 + Svelte 5 + TypeScript**.
 > Inspired by Claude Desktop's chat experience — with web research, MCP tools, custom agents, and a strict no-machine-access security model.
 
 ---
@@ -137,7 +137,7 @@ before the task is considered complete. Then the full review cycle runs again.
 
 ## Project Overview
 
-Copilot Desktop is a standalone desktop application that provides a conversational chat interface
+Chuck is a standalone desktop application that provides a conversational chat interface
 for GitHub Copilot. Think of it as "Claude Desktop, but for Copilot" — a polished, native desktop
 app with conversation management, file attachments, projects, web research, MCP tool integration,
 custom agent personas, and streaming responses.
@@ -240,7 +240,7 @@ The primary app surface. Sidebar is collapsible (Cmd+Shift+S). Chat fills remain
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│ ● ● ●                     Copilot Desktop                        ─ □ ✕    │
+│ ● ● ●                        Chuck                              ─ □ ✕    │
 ├────────────────────┬────────────────────────────────────────────────────────┤
 │                    │  📝 API Design Q              ⟳ Regenerate   ⋮ Menu    │
 │  [+ New Chat]      ├────────────────────────────────────────────────────────┤
@@ -416,7 +416,7 @@ Slides over from the right or opens as a modal. Tabbed navigation.
 │                                                                  │
 │  ── Global Hotkey ────────────────────────────────────────────   │
 │                                                                  │
-│  Summon Copilot Desktop         [ Cmd+Shift+Space ]              │
+│  Summon Chuck                    [ Cmd+Shift+Space ]              │
 │                                  (click to rebind)               │
 │                                                                  │
 │  ── Web Research ─────────────────────────────────────────────   │
@@ -1550,6 +1550,7 @@ INSERT INTO config (key, value) VALUES ('schema_version', '1');
 1. ✅ **project-setup** — Initialize Tauri v2 + Svelte 5 + TypeScript project via `create-tauri-app`. Configure Rust workspace with `src-tauri/` + 3 library crates (`copilot-api`, `mcp-client`, `web-research`). Set up ESLint, Prettier, Vitest. Configure `tauri.conf.json` with minimal capabilities.
 2. ✅ **hello-world** — Basic Tauri window with Svelte sidebar + main area layout. Verify hot-reload works (`cargo tauri dev`). Light/dark theme via CSS custom properties.
 3. ✅ **design-system** — "Warm Ink" design system applied: Instrument Serif + Plus Jakarta Sans typography, warm paper/ink palette with copper accent, grain texture overlay, entrance animations, editorial welcome screen, refined auth screen with GitHub SVG mark, copper focus glow inputs, hover micro-interactions throughout. All components use CSS custom property tokens.
+4. ✅ **ui-polish** — Chat message layout: user messages right-aligned bubbles, assistant messages left-aligned (no avatar). Custom macOS title bar with `titleBarStyle: Overlay`, centered "Chuck" title, sidebar toggle button. Sidebar icon rail: collapses from 260px to 52px with icon-only view (compose, search, settings), jank-free animation via fixed-width inner wrapper + overflow clipping. Labels fade with staggered opacity. Dark mode lightened to warm charcoal palette. Random Chuck Yeager-themed welcome greetings. Window drag region with `core:window:allow-start-dragging` + `acceptFirstMouse`.
 
 ### Phase 2: Copilot API Client
 4. ⬚ **oauth-device-flow** — GitHub OAuth device flow with token refresh in `copilot-api` crate
