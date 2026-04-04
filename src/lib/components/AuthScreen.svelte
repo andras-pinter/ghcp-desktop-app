@@ -39,14 +39,19 @@
         polling = false;
         return;
       } catch (e) {
-        const msg = String(e);
-        if (msg.includes("authorization_pending") || msg.includes("AuthorizationPending")) {
+        const msg = String(e).toLowerCase();
+        if (msg.includes("authorization pending") || msg.includes("authorization_pending")) {
           continue; // Keep polling
-        } else if (msg.includes("slow_down") || msg.includes("SlowDown")) {
+        } else if (msg.includes("slow down") || msg.includes("slow_down")) {
           await new Promise((r) => setTimeout(r, 5000)); // Extra wait
           continue;
+        } else if (msg.includes("expired") || msg.includes("expired_token")) {
+          error = "Device code expired. Please try again.";
+          polling = false;
+          deviceCode = null;
+          return;
         } else {
-          error = msg;
+          error = String(e);
           polling = false;
           return;
         }
@@ -94,7 +99,7 @@
       <h1 class="auth-title">Chuck</h1>
     </div>
 
-    <p class="auth-subtitle">Sign in with your GitHub account to start chatting.</p>
+    <p class="auth-subtitle">Your best co-pilot buddy. Always cleared for takeoff.</p>
 
     <button
       class="auth-btn"

@@ -8,13 +8,14 @@
   import type { UnlistenFn } from "@tauri-apps/api/event";
 
   const greetings = [
-    "Break through.",
+    "Your co-pilot is ready. Where to?",
     "Let's break some barriers.",
-    "Ready to break the barrier?",
-    "Past the barrier, into the unknown.",
+    "Ready to break the sound barrier?",
     "What barrier are we breaking today?",
     "The sky was never the limit.",
-    "Let's punch through.",
+    "Cleared for takeoff. What's the mission?",
+    "Strapped in and ready. Let's punch through.",
+    "Co-pilot on deck. Say the word.",
   ];
 
   let messages: Message[] = $state([]);
