@@ -21,7 +21,8 @@
         "decorations": true,
         "resizable": true,
         "titleBarStyle": "Overlay",
-        "hiddenTitle": true
+        "hiddenTitle": true,
+        "acceptFirstMouse": true
       }
     ],
     "security": {

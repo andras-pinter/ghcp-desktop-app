@@ -26,7 +26,7 @@
   <div class="app-root">
     <!-- Custom title bar (overlays native on macOS) -->
     <header class="titlebar" data-tauri-drag-region>
-      <div class="titlebar-left">
+      <div class="titlebar-left" data-tauri-drag-region>
         <button
           class="titlebar-btn"
           onclick={toggleSidebar}
@@ -58,7 +58,7 @@
         </button>
       </div>
       <span class="titlebar-title" data-tauri-drag-region>Chuck</span>
-      <div class="titlebar-right"></div>
+      <div class="titlebar-right" data-tauri-drag-region></div>
     </header>
 
     <!-- Body: sidebar + chat -->
@@ -128,7 +128,6 @@
     font-size: var(--font-size-sm);
     font-weight: var(--font-weight-medium);
     color: var(--color-text-secondary);
-    pointer-events: none;
   }
 
   .titlebar-right {
