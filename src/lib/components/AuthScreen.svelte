@@ -225,8 +225,10 @@
   }
 
   .auth-subtitle {
-    font-size: var(--font-size-sm);
-    color: var(--color-text-secondary);
+    font-family: var(--font-display);
+    font-style: italic;
+    font-size: var(--font-size-base);
+    color: var(--color-accent);
     text-align: center;
     line-height: var(--line-height-relaxed);
   }
