@@ -184,6 +184,7 @@
     color: var(--color-text-tertiary);
     cursor: pointer;
     transition: all var(--transition-fast);
+    animation: fadeIn 200ms ease both;
   }
 
   .sidebar-toggle:hover {

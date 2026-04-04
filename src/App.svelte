@@ -4,10 +4,20 @@
   import AuthScreen from "$lib/components/AuthScreen.svelte";
 
   let sidebarCollapsed = $state(false);
+  let showToggle = $state(false);
   let isAuthenticated = $state(true);
 
   function toggleSidebar() {
     sidebarCollapsed = !sidebarCollapsed;
+    if (sidebarCollapsed) {
+      // Delay toggle button until sidebar slide finishes
+      setTimeout(() => {
+        showToggle = true;
+      }, 280);
+    } else {
+      // Hide toggle immediately when expanding
+      showToggle = false;
+    }
   }
 
   function handleKeydown(event: KeyboardEvent) {
@@ -28,7 +38,7 @@
       <Sidebar collapsed={sidebarCollapsed} onToggle={toggleSidebar} />
     </aside>
     <main class="main-container">
-      <ChatView onToggleSidebar={toggleSidebar} {sidebarCollapsed} />
+      <ChatView onToggleSidebar={toggleSidebar} sidebarCollapsed={showToggle} />
     </main>
   </div>
 {/if}

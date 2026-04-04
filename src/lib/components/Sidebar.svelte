@@ -167,7 +167,7 @@
 
   .sidebar-search input:focus {
     border-color: var(--color-border-focus);
-    box-shadow: 0 0 0 2px rgba(180, 83, 9, 0.08);
+    box-shadow: var(--shadow-input-focus);
   }
 
   .sidebar-search input::placeholder {
