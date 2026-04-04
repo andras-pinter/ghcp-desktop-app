@@ -30,7 +30,7 @@ After completing **any** task — no matter how small — the agent **MUST** run
 │                                 │
 │   Rust backend:                 │
 │   - cargo build --workspace     │
-│   - cargo clippy -- -D warnings │
+│   - cargo clippy --workspace -- -D warnings │
 │   - cargo test --workspace      │
 │   - cargo fmt --all -- --check  │
 │   - cargo audit                 │
@@ -87,6 +87,7 @@ another reviews tests, another reviews docs).
 - [ ] `pnpm lint` — ESLint + Prettier pass with zero issues
 - [ ] `pnpm test` — all Vitest tests pass
 - [ ] `pnpm build` — Vite production build succeeds
+- [ ] `pnpm audit` — no known vulnerabilities in npm dependencies
 
 **Manual:**
 
@@ -184,7 +185,7 @@ custom agent personas, and streaming responses.
 - **Message editing** — edit a sent message (discards everything after it, re-sends); regenerate last assistant response
 - **Favourites** — pin important conversations to the top of the sidebar
 - **In-conversation search** — Cmd+F / Ctrl+F to find text within the current conversation
-- **System tray / menu bar** — minimize to tray instead of closing via `tauri-plugin-tray-icon`; streaming continues when window is hidden; right-click menu (New Chat, Show, Quit)
+- **System tray / menu bar** — minimize to tray instead of closing (Tauri core `tray-icon` feature); streaming continues when window is hidden; right-click menu (New Chat, Show, Quit)
 - **Thinking/reasoning display** — show model thinking tokens in a collapsible section, collapsed by default
 - **Context window management** — automatic summarization of older messages to stay within model limits; visual indicator when summarization has occurred
 - **Conversation title generation** — auto-generate titles via lightweight API call after first exchange; user can edit
@@ -199,7 +200,7 @@ custom agent personas, and streaming responses.
 **This app must NEVER access the user's machine beyond what the user explicitly provides.**
 
 - The app has **zero access** to the filesystem — it cannot read, write, browse, or scan any files or directories on its own
-- The **only** way files enter the app is through explicit user action: drag-and-drop or `tauri-plugin-dialog` file picker
+- The **only** way files enter the app is through explicit user action: drag-and-drop (HTML5 drag events, file read via `FileReader` API in the webview) or native file picker (`tauri-plugin-dialog`)
 - File contents are read **once** into memory at the moment the user attaches them — the app does not retain file paths or re-read from disk
 - The app stores **only** its own data: conversations (SQLite in app data dir), auth tokens (OS keychain), and user preferences (app config dir)
 - No shell execution, no subprocess spawning, no system command access — **with one exception:** MCP stdio transport may spawn user-approved MCP server binaries (see MCP Security below)
@@ -222,6 +223,7 @@ custom agent personas, and streaming responses.
 - Voice input (possible future phase)
 - Conversation sharing as a cloud-hosted shareable link (possible future phase)
 - Data portability / DB import-export (possible future phase)
+- Drag-and-drop reordering of sidebar items (possible future phase)
 - Localization / i18n — English only for v1 (possible future phase; string centralization makes this easier later)
 
 ---
@@ -279,8 +281,9 @@ custom agent personas, and streaming responses.
 │  │  │  └──────┬──────┘  └──────┬───────┘  └──────┬───────────┘  ││ │
 │  │  └─────────┼────────────────┼──────────────────┼──────────────┘│ │
 │  └────────────┼────────────────┼──────────────────┼───────────────┘ │
-│  Tauri Plugins: updater │ global-shortcut │ tray-icon │ dialog       │
-│                notification │ clipboard-manager │ store              │
+│  Tauri Plugins: updater │ global-shortcut │ dialog │ notification   │
+│                clipboard-manager │ shell │ store                    │
+│  Tauri Core Features: tray-icon │ protocol-asset                   │
 └───────────────┼────────────────┼──────────────────┼──────────────────┘
                 │                │                  │
          ┌──────┴──────┐  ┌─────┴──────────┐  ┌───┴────────────────┐
@@ -367,6 +370,8 @@ copilot-desktop/
 │   │   │   ├── skill.ts
 │   │   │   ├── project.ts
 │   │   │   └── mcp.ts
+│   │   ├── strings/               # Centralized user-facing strings (i18n prep)
+│   │   │   └── en.ts              # English strings (default)
 │   │   └── utils/
 │   │       ├── markdown.ts              # Markdown rendering (marked + DOMPurify)
 │   │       ├── syntax.ts               # Syntax highlighting (Shiki)
@@ -622,7 +627,7 @@ an MCP server binary. This is the **only** exception to the no-subprocess rule:
 | `tauri-plugin-notification` | System notifications |
 | `tauri-plugin-shell` | Limited shell access (MCP stdio only, scoped) |
 | `tauri-plugin-clipboard-manager` | Copy to clipboard from code blocks |
-| `tauri-plugin-store` | Simple key-value persistence (lightweight config) |
+| `tauri-plugin-store` | Lightweight key-value persistence for non-sensitive UI preferences (e.g., window position, sidebar width). SQLite `config` table handles all app settings; `tauri-plugin-store` is for ephemeral/UI-state that doesn't warrant a SQL write. |
 | `reqwest` | HTTP client (enable `stream` feature for SSE) |
 | `serde` / `serde_json` | JSON serialization (shared types Rust ↔ frontend) |
 | `tokio` | Async runtime |
@@ -651,7 +656,7 @@ an MCP server binary. This is the **only** exception to the no-subprocess rule:
 | `@tauri-apps/plugin-notification` | Frontend bindings for notification plugin |
 | `@tauri-apps/plugin-shell` | Frontend bindings for shell plugin |
 | `@tauri-apps/plugin-clipboard-manager` | Frontend bindings for clipboard plugin |
-| `@tauri-apps/plugin-store` | Frontend bindings for store plugin |
+| `@tauri-apps/plugin-store` | Frontend bindings for store plugin (ephemeral UI state only) |
 | `marked` | Markdown parsing (fast, CommonMark-compliant) |
 | `shiki` | Syntax highlighting (VS Code quality, WASM-based) |
 | `dompurify` | HTML sanitization for rendered markdown |
@@ -659,7 +664,9 @@ an MCP server binary. This is the **only** exception to the no-subprocess rule:
 | `eslint` | Code linting |
 | `prettier` | Code formatting |
 | `prettier-plugin-svelte` | Prettier support for `.svelte` files |
+| `eslint-plugin-svelte` | ESLint rules for `.svelte` files |
 | `@testing-library/svelte` | Component testing utilities |
+| `@types/dompurify` | TypeScript definitions for DOMPurify |
 
 ---
 
@@ -998,6 +1005,21 @@ CREATE TABLE drafts (
     content TEXT NOT NULL,         -- Draft input text
     updated_at TEXT NOT NULL
 );
+
+-- ── Indexes (performance-critical queries) ──
+
+CREATE INDEX idx_messages_conversation ON messages(conversation_id, sort_order);
+CREATE INDEX idx_conversations_updated ON conversations(updated_at DESC);
+CREATE INDEX idx_conversations_project ON conversations(project_id);
+CREATE INDEX idx_conversations_agent ON conversations(agent_id);
+CREATE INDEX idx_conversations_favourite ON conversations(is_favourite) WHERE is_favourite = 1;
+CREATE INDEX idx_project_files_project ON project_files(project_id);
+CREATE INDEX idx_agent_skills_agent ON agent_skills(agent_id);
+CREATE INDEX idx_skills_source ON skills(source);
+
+-- ── Initial seed data ──
+
+INSERT INTO config (key, value) VALUES ('schema_version', '1');
 ```
 
 ### Persistence Rules
@@ -1077,7 +1099,7 @@ CREATE TABLE drafts (
 ### Phase 10: Polish & Platform Features
 29. **settings-panel** — `SettingsPanel.svelte`: account, theme, font size, default model, keyboard shortcuts, MCP management, conversation export (JSON + Markdown), database size display + cleanup, clear history
 30. **global-hotkey** — System-wide app summon via `tauri-plugin-global-shortcut` (Cmd+Shift+Space or configurable)
-31. **system-tray** — `tauri-plugin-tray-icon`: minimize to tray instead of closing. Streaming continues when window is hidden. Right-click menu: New Chat, Show, Quit. Status indicator.
+31. **system-tray** — Tauri core `tray-icon` feature: minimize to tray instead of closing. Streaming continues when window is hidden. Right-click menu: New Chat, Show, Quit. Status indicator.
 32. **keyboard-shortcuts** — Cmd+N (new chat), Cmd+K (search conversations), Cmd+F (search in conversation), Cmd+, (settings), Cmd+Shift+S (toggle sidebar), Escape (cancel streaming)
 33. **offline-mode** — Detect network status. Full read access when offline, sending disabled with clear indicator. Auto-reconnect with "Back online" toast.
 34. **accessibility** — Semantic HTML, ARIA roles/labels, keyboard navigation, focus management, visible focus indicators, screen reader testing
