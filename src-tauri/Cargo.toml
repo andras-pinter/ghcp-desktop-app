@@ -1,0 +1,44 @@
+[package]
+name = "copilot-desktop"
+version = "0.1.0"
+description = "A native desktop chat client for GitHub Copilot"
+edition.workspace = true
+license.workspace = true
+
+[lib]
+name = "copilot_desktop_lib"
+crate-type = ["lib", "cdylib", "staticlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon"] }
+tauri-plugin-dialog = "2"
+tauri-plugin-global-shortcut = "2"
+tauri-plugin-updater = "2"
+tauri-plugin-notification = "2"
+tauri-plugin-shell = "2"
+tauri-plugin-clipboard-manager = "2"
+tauri-plugin-store = "2"
+
+# Workspace crates
+copilot-api = { path = "../crates/copilot-api" }
+mcp-client = { path = "../crates/mcp-client" }
+web-research = { path = "../crates/web-research" }
+
+# Core dependencies
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+thiserror.workspace = true
+anyhow.workspace = true
+log.workspace = true
+uuid.workspace = true
+chrono.workspace = true
+
+# Database
+rusqlite = { version = "0.33", features = ["bundled"] }
+
+# Logging
+env_logger = "0.11"

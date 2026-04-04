@@ -1,6 +1,6 @@
 # GHCP Desktop
 
-A native cross-platform desktop chat application for GitHub Copilot, built with **Rust** and **GPUI**.
+A native cross-platform desktop chat application for GitHub Copilot, built with **Tauri v2 + Svelte 5 + TypeScript**.
 
 > [!IMPORTANT]
 > This is an **unofficial, independent project**. It is not made by, endorsed by, or affiliated with GitHub, Microsoft, or OpenAI. "GitHub Copilot" is a trademark of GitHub, Inc. This application requires your own active [GitHub Copilot subscription](https://github.com/features/copilot).
@@ -26,7 +26,7 @@ GHCP Desktop provides a dedicated chat interface for GitHub Copilot — inspired
 - 🖥️ **System tray** — minimize to tray; streaming continues when window is hidden
 - 🔒 **Privacy-first** — zero filesystem access; files enter only via drag-and-drop/picker, read once into memory
 - ⌨️ **Keyboard shortcuts** — global hotkey to summon from anywhere + full app navigation
-- 🖥️ **Native performance** — Rust + GPUI, no Electron, no web views
+- 🖥️ **Native performance** — Rust backend + system webview, ~5-10MB bundle
 - 🔄 **Auto-update** — seamless updates from GitHub Releases
 - 💾 **Crash recovery** — auto-saved drafts and interrupted stream preservation
 
@@ -34,45 +34,69 @@ GHCP Desktop provides a dedicated chat interface for GitHub Copilot — inspired
 
 | Platform | Status |
 |----------|--------|
-| macOS | Primary (App Sandbox) |
-| Linux | Supported |
-| Windows | Supported (maturing) |
+| macOS | Primary (WebKit, App Sandbox) |
+| Linux | Supported (WebKitGTK) |
+| Windows | Supported (WebView2) |
 
 ## Architecture
 
-A 5-crate Rust workspace:
-
 ```
-crates/
-├── app/              # GPUI desktop application (UI, views, state)
-├── copilot-api/      # GitHub Copilot API client (standalone, no GPUI dep)
-├── mcp-client/       # MCP protocol client (standalone, no GPUI dep)
-├── web-research/     # AI search & URL fetching (standalone, no GPUI dep)
-└── markdown-render/  # Markdown → GPUI element rendering
+copilot-desktop/
+├── src/                  # Svelte 5 + TypeScript frontend
+│   ├── lib/components/   # Svelte components (Sidebar, ChatView, InputArea, etc.)
+│   ├── lib/stores/       # Svelte 5 runes-based stores
+│   ├── lib/types/        # TypeScript types (mirrors Rust types)
+│   └── lib/utils/        # Tauri IPC wrappers, formatting helpers
+├── src-tauri/            # Tauri v2 Rust backend
+│   ├── src/commands/     # Tauri IPC command handlers
+│   └── src/db/           # SQLite persistence + migrations
+└── crates/               # Standalone Rust library crates
+    ├── copilot-api/      # GitHub Copilot API client (OAuth + SSE streaming)
+    ├── mcp-client/       # MCP protocol client (HTTP + stdio transports)
+    └── web-research/     # Web search API + URL content extraction
 ```
 
-The `copilot-api`, `mcp-client`, and `web-research` crates have **zero GPUI dependency** — they're reusable in CLIs, servers, or other contexts.
+The `copilot-api`, `mcp-client`, and `web-research` crates have **zero Tauri dependency** — they're reusable in CLIs, servers, or other contexts.
 
 ## Getting Started
 
-> 🚧 **This project is in the planning/specification phase.** No runnable code yet.
-
 ### Prerequisites
 
-- Rust stable (latest)
+- Rust stable (latest) + `cargo-tauri` CLI
+- Node.js 20+ and pnpm
 - A valid [GitHub Copilot](https://github.com/features/copilot) subscription
-- Platform-specific dependencies for GPUI (see [GPUI docs](https://github.com/zed-industries/zed/tree/main/crates/gpui))
+- Platform-specific: Xcode CLI tools (macOS), webkit2gtk + libjavascriptcoregtk (Linux), WebView2 (Windows)
 
-### Build
+### Setup
 
 ```bash
-cargo build --release
+# Install Tauri CLI
+cargo install tauri-cli --version "^2"
+
+# Install frontend dependencies
+pnpm install
+
+# Development (hot-reload frontend + Rust backend)
+cargo tauri dev
+
+# Build for production
+cargo tauri build
 ```
 
-### Run
+### Individual Checks
 
 ```bash
-cargo run -p copilot-desktop
+# Rust
+cargo build --workspace
+cargo clippy --workspace -- -D warnings
+cargo fmt --all -- --check
+cargo test --workspace
+
+# Frontend
+pnpm check        # svelte-check
+pnpm lint          # ESLint + Prettier
+pnpm test          # Vitest
+pnpm build         # Vite production build
 ```
 
 ## Security Model
@@ -111,7 +135,8 @@ This project is released into the public domain under the [Unlicense](./LICENSE)
 
 ### Third-Party Notices
 
-- **GPUI** — © Zed Industries, licensed under Apache 2.0
+- **Tauri** — © Tauri Contributors, licensed under Apache 2.0 / MIT
+- **Svelte** — © Svelte Contributors, licensed under MIT
 - **GitHub Copilot** — trademark of GitHub, Inc.
 
-All other dependencies are listed in `Cargo.lock` with their respective licenses.
+All other dependencies are listed in `Cargo.lock` and `pnpm-lock.yaml` with their respective licenses.

@@ -1,0 +1,20 @@
+[workspace]
+members = ["src-tauri", "crates/copilot-api", "crates/mcp-client", "crates/web-research"]
+resolver = "2"
+
+[workspace.package]
+edition = "2021"
+license = "Unlicense"
+repository = "https://github.com/pinter-copilot/ghcp-desktop-app"
+
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+reqwest = { version = "0.12", features = ["json", "stream"] }
+thiserror = "2"
+anyhow = "1"
+log = "0.4"
+url = "2"
+uuid = { version = "1", features = ["v4"] }
+chrono = { version = "0.4", features = ["serde"] }

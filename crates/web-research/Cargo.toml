@@ -1,0 +1,15 @@
+[package]
+name = "web-research"
+version = "0.1.0"
+description = "Web search API client + URL content extraction"
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+reqwest.workspace = true
+thiserror.workspace = true
+log.workspace = true
+url.workspace = true
