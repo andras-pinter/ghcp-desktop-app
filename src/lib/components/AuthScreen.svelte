@@ -13,6 +13,10 @@
     error = null;
     try {
       deviceCode = await startDeviceFlow();
+      // Copy device code to clipboard for easy pasting
+      await writeText(deviceCode.user_code);
+      copied = true;
+      setTimeout(() => (copied = false), 2000);
       // Open verification URL in browser
       await open(deviceCode.verification_uri);
       // Start polling
