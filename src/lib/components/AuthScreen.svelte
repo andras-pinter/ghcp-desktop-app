@@ -99,8 +99,8 @@
       <h1 class="auth-title">Chuck</h1>
     </div>
 
-    <p class="auth-tagline">Your best co-pilot buddy.</p>
-    <p class="auth-subtitle">Always cleared for takeoff.</p>
+    <p class="auth-tagline">First one past the sound barrier.</p>
+    <p class="auth-subtitle">You'd be the second.</p>
 
     <button
       class="auth-btn"
