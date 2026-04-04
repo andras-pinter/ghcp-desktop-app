@@ -9,6 +9,11 @@ pub mod client;
 pub mod keychain;
 pub mod types;
 
-pub use auth::DeviceFlowAuth;
-pub use client::CopilotClient;
-pub use types::{ChatMessage, ChatRequest, ChatResponse, MessageRole, Model};
+pub use auth::{AuthError, DeviceFlowAuth, GITHUB_CLIENT_ID};
+pub use client::{ClientError, CopilotClient, StreamEvent};
+pub use keychain::KeychainError;
+pub use types::{
+    AuthState, ChatMessage, ChatRequest, ChatResponse, CopilotTokenResponse, DeviceCodeResponse,
+    GitHubUser, MessageRole, Model, ModelsResponse, OAuthTokenResponse, StreamingChatResponse,
+    StreamingChoice, StreamingDelta,
+};

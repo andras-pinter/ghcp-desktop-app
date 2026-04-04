@@ -1,15 +1,15 @@
 //! Tauri command handlers — IPC bridge between frontend and backend.
 
-mod agents;
-mod auth;
-mod chat;
-mod conversations;
-mod mcp;
-mod models;
-mod projects;
-mod settings;
-mod skills;
-mod web_research;
+pub mod agents;
+pub mod auth;
+pub mod chat;
+pub mod conversations;
+pub mod mcp;
+pub mod models;
+pub mod projects;
+pub mod settings;
+pub mod skills;
+pub mod web_research;
 
 /// Temporary greeting command for verifying IPC works.
 #[tauri::command]

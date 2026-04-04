@@ -3,9 +3,10 @@
 
   interface Props {
     message: Message;
+    isStreaming?: boolean;
   }
 
-  let { message }: Props = $props();
+  let { message, isStreaming = false }: Props = $props();
 
   let isUser = $derived(message.role === "user");
 </script>
@@ -20,7 +21,11 @@
   {:else}
     <div class="assistant-row">
       <div class="assistant-content">
-        {message.content}
+        {#if message.content}
+          {message.content}{#if isStreaming}<span class="cursor">▊</span>{/if}
+        {:else if isStreaming}
+          <span class="thinking">Thinking<span class="dots">...</span></span>
+        {/if}
       </div>
     </div>
   {/if}
@@ -65,5 +70,40 @@
     color: var(--color-text-primary);
     white-space: pre-wrap;
     word-break: break-word;
+  }
+
+  .cursor {
+    animation: blink 600ms steps(1) infinite;
+    color: var(--color-accent-copper);
+    font-weight: 100;
+  }
+
+  @keyframes blink {
+    50% {
+      opacity: 0;
+    }
+  }
+
+  .thinking {
+    color: var(--color-text-tertiary);
+    font-style: italic;
+  }
+
+  .dots {
+    animation: dots 1.5s steps(4) infinite;
+    display: inline-block;
+    width: 1.5em;
+    text-align: left;
+    overflow: hidden;
+    vertical-align: bottom;
+  }
+
+  @keyframes dots {
+    0% {
+      width: 0;
+    }
+    100% {
+      width: 1.5em;
+    }
   }
 </style>

@@ -627,6 +627,7 @@ name = "copilot-api"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "futures-util",
  "keyring",
  "log",
  "reqwest 0.12.28",

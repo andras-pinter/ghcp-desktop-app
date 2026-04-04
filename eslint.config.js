@@ -24,6 +24,23 @@ export default tseslint.config(
     },
   },
   {
+    files: ["**/*.svelte.ts"],
+    languageOptions: {
+      parserOptions: {
+        parser: tseslint.parser,
+      },
+      globals: {
+        $state: "readonly",
+        $derived: "readonly",
+        $effect: "readonly",
+        $props: "readonly",
+        $inspect: "readonly",
+        $host: "readonly",
+        $bindable: "readonly",
+      },
+    },
+  },
+  {
     ignores: ["build/", ".svelte-kit/", "dist/", "src-tauri/", "target/", "node_modules/"],
   },
 );

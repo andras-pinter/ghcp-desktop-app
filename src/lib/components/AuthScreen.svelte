@@ -1,5 +1,82 @@
 <script lang="ts">
-  // Auth screen — shown when user is not authenticated
+  import { startDeviceFlow, pollAuthToken } from "$lib/stores/auth.svelte";
+  import type { DeviceCodeResponse } from "$lib/types/auth";
+  import { open } from "@tauri-apps/plugin-shell";
+  import { writeText } from "@tauri-apps/plugin-clipboard-manager";
+
+  let deviceCode = $state<DeviceCodeResponse | null>(null);
+  let error = $state<string | null>(null);
+  let polling = $state(false);
+  let copied = $state(false);
+
+  async function handleSignIn() {
+    error = null;
+    try {
+      deviceCode = await startDeviceFlow();
+      // Open verification URL in browser
+      await open(deviceCode.verification_uri);
+      // Start polling
+      startPolling();
+    } catch (e) {
+      error = e instanceof Error ? e.message : String(e);
+    }
+  }
+
+  async function startPolling() {
+    if (!deviceCode) return;
+    polling = true;
+
+    const interval = (deviceCode.interval || 5) * 1000;
+    const expiresAt = Date.now() + deviceCode.expires_in * 1000;
+
+    while (Date.now() < expiresAt && polling) {
+      await new Promise((r) => setTimeout(r, interval));
+      if (!polling) break;
+
+      try {
+        await pollAuthToken(deviceCode.device_code);
+        // Success — auth store will update, App.svelte will transition
+        polling = false;
+        return;
+      } catch (e) {
+        const msg = String(e);
+        if (msg.includes("authorization_pending") || msg.includes("AuthorizationPending")) {
+          continue; // Keep polling
+        } else if (msg.includes("slow_down") || msg.includes("SlowDown")) {
+          await new Promise((r) => setTimeout(r, 5000)); // Extra wait
+          continue;
+        } else {
+          error = msg;
+          polling = false;
+          return;
+        }
+      }
+    }
+
+    if (polling) {
+      error = "Device code expired. Please try again.";
+      polling = false;
+      deviceCode = null;
+    }
+  }
+
+  async function handleCopyCode() {
+    if (!deviceCode) return;
+    try {
+      await writeText(deviceCode.user_code);
+      copied = true;
+      setTimeout(() => (copied = false), 2000);
+    } catch {
+      // Fallback: navigator clipboard (may not work in all webviews)
+      try {
+        await navigator.clipboard.writeText(deviceCode.user_code);
+        copied = true;
+        setTimeout(() => (copied = false), 2000);
+      } catch {
+        // Ignore
+      }
+    }
+  }
 </script>
 
 <div class="auth-screen">
@@ -19,11 +96,18 @@
 
     <p class="auth-subtitle">Sign in with your GitHub account to start chatting.</p>
 
-    <button class="auth-btn" aria-label="Sign in with GitHub">
-      <span>Sign in with GitHub</span>
-      <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-        <path d="M6.5 3.5L11 8l-4.5 4.5" stroke="currentColor" stroke-width="1.5" fill="none" />
-      </svg>
+    <button
+      class="auth-btn"
+      onclick={handleSignIn}
+      disabled={polling}
+      aria-label="Sign in with GitHub"
+    >
+      <span>{polling ? "Waiting for authorization..." : "Sign in with GitHub"}</span>
+      {#if !polling}
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+          <path d="M6.5 3.5L11 8l-4.5 4.5" stroke="currentColor" stroke-width="1.5" fill="none" />
+        </svg>
+      {/if}
     </button>
 
     <div class="auth-divider">
@@ -32,8 +116,13 @@
 
     <div class="device-code">
       <p class="code-label">Your device code</p>
-      <p class="code-value">— — — —</p>
-      <button class="copy-code-btn" aria-label="Copy code">
+      <p class="code-value">{deviceCode ? deviceCode.user_code : "— — — —"}</p>
+      <button
+        class="copy-code-btn"
+        onclick={handleCopyCode}
+        disabled={!deviceCode}
+        aria-label="Copy code"
+      >
         <svg
           width="13"
           height="13"
@@ -45,9 +134,20 @@
           <rect x="5" y="5" width="9" height="9" rx="1.5" />
           <path d="M11 5V3.5A1.5 1.5 0 009.5 2h-6A1.5 1.5 0 002 3.5v6A1.5 1.5 0 003.5 11H5" />
         </svg>
-        <span>Copy Code</span>
+        <span>{copied ? "Copied!" : "Copy Code"}</span>
       </button>
     </div>
+
+    {#if polling}
+      <div class="polling-indicator">
+        <div class="spinner"></div>
+        <span>Waiting for authorization...</span>
+      </div>
+    {/if}
+
+    {#if error}
+      <p class="auth-error">{error}</p>
+    {/if}
 
     <p class="auth-note">Requires an active GitHub Copilot subscription</p>
   </div>
@@ -204,5 +304,42 @@
     color: var(--color-text-tertiary);
     text-align: center;
     margin-top: var(--spacing-xs);
+  }
+
+  .polling-indicator {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+  }
+
+  .spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid var(--color-border-primary);
+    border-top-color: var(--color-accent-copper);
+    border-radius: 50%;
+    animation: spin 800ms linear infinite;
+  }
+
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  .auth-error {
+    font-size: var(--font-size-sm);
+    color: var(--color-error, #dc2626);
+    text-align: center;
+    max-width: 100%;
+    word-break: break-word;
+  }
+
+  .auth-btn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+    transform: none;
   }
 </style>

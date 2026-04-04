@@ -27,6 +27,13 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::greet,
             commands::get_app_info,
+            commands::auth::authenticate,
+            commands::auth::poll_auth_token,
+            commands::auth::logout,
+            commands::auth::get_auth_state,
+            commands::chat::send_message,
+            commands::chat::stop_streaming,
+            commands::models::get_models,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Chuck");

@@ -2,9 +2,15 @@
   import Sidebar from "$lib/components/Sidebar.svelte";
   import ChatView from "$lib/components/ChatView.svelte";
   import AuthScreen from "$lib/components/AuthScreen.svelte";
+  import { initAuth, getAuth } from "$lib/stores/auth.svelte";
+  import { onMount } from "svelte";
 
   let sidebarCollapsed = $state(false);
-  let isAuthenticated = $state(true);
+  const auth = getAuth();
+
+  onMount(() => {
+    initAuth();
+  });
 
   function toggleSidebar() {
     sidebarCollapsed = !sidebarCollapsed;
@@ -20,7 +26,11 @@
 
 <svelte:window onkeydown={handleKeydown} />
 
-{#if !isAuthenticated}
+{#if auth.loading}
+  <div class="loading-screen">
+    <div class="loading-spinner"></div>
+  </div>
+{:else if !auth.authenticated}
   <AuthScreen />
 {:else}
   <div class="app-root">
@@ -162,5 +172,30 @@
     overflow: hidden;
     min-width: 0;
     background: var(--color-bg-primary);
+  }
+
+  /* ── Loading ── */
+
+  .loading-screen {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    background: var(--color-bg-primary);
+  }
+
+  .loading-spinner {
+    width: 24px;
+    height: 24px;
+    border: 2.5px solid var(--color-border-primary);
+    border-top-color: var(--color-accent-copper);
+    border-radius: 50%;
+    animation: spin 800ms linear infinite;
+  }
+
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
   }
 </style>
