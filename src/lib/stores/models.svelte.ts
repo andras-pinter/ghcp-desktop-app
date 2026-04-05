@@ -12,6 +12,7 @@ function isChatModel(model: Model): boolean {
 
 /** Deduplicate models by id — keeps the first occurrence. */
 function deduplicateModels(list: Model[]): Model[] {
+  // eslint-disable-next-line svelte/prefer-svelte-reactivity -- local non-reactive set used only for dedup
   const seen = new Set<string>();
   return list.filter((m) => {
     if (seen.has(m.id)) return false;

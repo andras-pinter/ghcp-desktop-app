@@ -1558,22 +1558,22 @@ INSERT INTO config (key, value) VALUES ('schema_version', '1');
 6. ✅ **chat-completions-client** — `/v1/chat/completions` with SSE streaming + file context in `copilot-api` crate
 7. ✅ **model-discovery** — Query API for available models at startup, cache list, fallback to default
 
-### Phase 3: Persistence & Data Layer
-8. ⬚ **sqlite-setup** — Initialize SQLite database with full schema (see Data Model section). Migrations support. Tauri app data directory via `app.path().app_data_dir()`. *(Note: schema + migrations are already implemented in `src-tauri/src/db/migrations.rs` as part of Phase 1. This task covers query functions in `db/queries.rs` and wiring CRUD operations.)*
-9. ⬚ **conversation-persistence** — CRUD for conversations + messages via Tauri commands. Load on startup, lazy-load older messages. Auto-generate conversation titles via lightweight API call after first response.
-10. ⬚ **draft-auto-save** — Persist input text to `drafts` table every few seconds. Restore on launch. Clear on successful send.
+### Phase 3: Persistence & Data Layer ✅
+8. ✅ **sqlite-setup** — SQLite database with full schema (11 tables), migrations support, 500+ line `queries.rs` with complete CRUD, Tauri app data directory. Unit tests for all query functions.
+9. ✅ **conversation-persistence** — CRUD for conversations + messages via Tauri commands. Reactive Svelte store with `initConversations()`, `switchConversation()`, `newConversation()`, `renameConversation()`, `toggleFavourite()`, `removeConversation()`. Auto-generate titles from first user message.
+10. ✅ **draft-auto-save** — 3-second debounced auto-save to `drafts` table. Restore on conversation switch and app launch. Clear on successful send. Backend commands + frontend store functions.
 
-### Phase 4: Core Chat UI
-11. ⬚ **sidebar** — `Sidebar.svelte`: conversation list grouped by date, new chat, favourites (pinned), projects, agents, search, collapsible sections *(Note: basic sidebar skeleton with search + settings is already implemented. This task adds real data binding, grouped conversation list, favourites, and collapsible sections.)*
-12. ⬚ **chat-view** — `ChatView.svelte` + `MessageBubble.svelte` + `ThinkingSection.svelte`: message list with avatars, timestamps, collapsible reasoning/thinking sections, context summarization banner *(Note: basic chat view with demo responses exists. This task replaces demo with real API streaming, adds ThinkingSection and summarization banner.)*
-13. ⬚ **input-area** — `InputArea.svelte`: multi-line `<textarea>`, file drop zone, attachment pills, agent selector, model selector, loading state *(Note: basic input with textarea and model selector exists. This task adds file drop zone, attachment pills, agent selector, and loading state.)*
-14. ⬚ **streaming-display** — Token-by-token rendering via Tauri events, typing cursor animation, stop button. Save partial response on interruption.
-15. ⬚ **message-actions** — Edit sent messages (discard + re-send), regenerate last response, copy individual messages
+### Phase 4: Core Chat UI 🔧
+11. ✅ **sidebar** — `Sidebar.svelte` (444 lines): conversation list grouped by date, new chat, favourites with star icon, context menu (rename, favourite toggle, delete), inline rename editing, real data binding via conversation store. *(Search button exists but handler not yet wired.)*
+12. 🔧 **chat-view** — `ChatView.svelte` (332 lines) + `MessageBubble.svelte` (109 lines): message list with streaming, welcome screen with random greetings, draft loading/saving, auto-title generation. *(ThinkingSection not yet implemented. No timestamps on messages. No summarization banner yet.)*
+13. 🔧 **input-area** — `InputArea.svelte` (317 lines): multi-line textarea with auto-height, model selector dropdown with API data, send/stop buttons, Enter-to-send. *(File drop zone, attachment pills, and agent selector not yet implemented.)*
+14. ✅ **streaming-display** — Token-by-token rendering via Tauri events (`streaming-token`, `streaming-complete`, `streaming-error`), blinking cursor animation, stop button. Event-driven architecture with proper cleanup on unmount. Messages saved on stream complete.
+15. ⬚ **message-actions** — Edit sent messages (discard + re-send), regenerate last response, copy individual messages. *(Backend infrastructure exists: `delete_messages_after` command. No UI yet.)*
 16. ⬚ **in-conversation-search** — `SearchOverlay.svelte`: Cmd+F / Ctrl+F to find text, highlight matches, navigate with arrows
 
 ### Phase 5: Markdown & Code Rendering
-17. ⬚ **markdown-rendering** — Render assistant messages with `marked` + `DOMPurify`. Bold, italic, headers, lists, links, blockquotes, tables.
-18. ⬚ **code-blocks** — `CodeBlock.svelte`: syntax-highlighted fenced blocks via `shiki`, copy button, language label
+17. ⬚ **markdown-rendering** — Render assistant messages with `marked` + `DOMPurify`. Bold, italic, headers, lists, links, blockquotes, tables. *(Dependencies installed: `marked` v15, `dompurify` v3. Not yet integrated — messages currently render as raw text.)*
+18. ⬚ **code-blocks** — `CodeBlock.svelte`: syntax-highlighted fenced blocks via `shiki`, copy button, language label *(Dependency installed: `shiki` v3. Not yet integrated.)*
 
 ### Phase 6: Web Research
 19. ⬚ **web-search** — `web-research` crate: Bing Web Search API integration. Tauri command `web_search`. `WebResultCard.svelte` for displaying results as cited cards. API key stored in keychain.

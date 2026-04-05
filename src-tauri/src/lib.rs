@@ -37,7 +37,6 @@ pub fn run(force_logout: bool) {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            commands::greet,
             commands::get_app_info,
             commands::log_frontend,
             commands::auth::authenticate,
