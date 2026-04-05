@@ -8,8 +8,13 @@ use state::AppState;
 use tauri::Manager;
 
 /// Run the Tauri application.
-pub fn run() {
+pub fn run(force_logout: bool) {
     env_logger::init();
+
+    if force_logout {
+        log::info!("--logout flag detected, clearing stored tokens");
+        let _ = copilot_api::auth::DeviceFlowAuth::clear_tokens();
+    }
 
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -21,12 +26,20 @@ pub fn run() {
         .setup(|app| {
             let app_state = AppState::new(app.handle())?;
             app.manage(app_state);
+
+            // Open devtools in debug builds
+            #[cfg(debug_assertions)]
+            if let Some(window) = app.get_webview_window("main") {
+                window.open_devtools();
+            }
+
             log::info!("Chuck initialized");
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             commands::greet,
             commands::get_app_info,
+            commands::log_frontend,
             commands::auth::authenticate,
             commands::auth::poll_auth_token,
             commands::auth::logout,

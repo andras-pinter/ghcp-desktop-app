@@ -25,3 +25,14 @@ pub fn get_app_info() -> serde_json::Value {
         "version": env!("CARGO_PKG_VERSION"),
     })
 }
+
+/// Log a message from the frontend to the Rust console.
+#[tauri::command]
+pub fn log_frontend(level: &str, message: &str) {
+    match level {
+        "error" => log::error!("[frontend] {message}"),
+        "warn" => log::warn!("[frontend] {message}"),
+        "debug" => log::debug!("[frontend] {message}"),
+        _ => log::info!("[frontend] {message}"),
+    }
+}

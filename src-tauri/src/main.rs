@@ -2,5 +2,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    chuck_lib::run();
+    let args: Vec<String> = std::env::args().collect();
+    let force_logout = args.iter().any(|a| a == "--logout");
+    chuck_lib::run(force_logout);
 }

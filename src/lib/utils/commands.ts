@@ -5,6 +5,13 @@ import type { AuthState, DeviceCodeResponse, GitHubUser } from "$lib/types/auth"
 import type { Conversation } from "$lib/types/conversation";
 import type { Message, ChatMessage, Model } from "$lib/types/message";
 
+// ── Logging ─────────────────────────────────────────────────────
+
+/** Log a message from the frontend to the Rust console. */
+export function logFrontend(level: "info" | "warn" | "error" | "debug", message: string): void {
+  invoke("log_frontend", { level, message }).catch(() => {});
+}
+
 // ── Auth ────────────────────────────────────────────────────────
 
 /** Check current authentication state. */
