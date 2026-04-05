@@ -34,6 +34,21 @@ pub fn run() {
             commands::chat::send_message,
             commands::chat::stop_streaming,
             commands::models::get_models,
+            commands::conversations::get_conversations,
+            commands::conversations::get_conversation,
+            commands::conversations::create_conversation,
+            commands::conversations::update_conversation,
+            commands::conversations::delete_conversation,
+            commands::conversations::get_messages,
+            commands::conversations::create_message,
+            commands::conversations::update_message_content,
+            commands::conversations::delete_messages_after,
+            commands::settings::get_setting,
+            commands::settings::update_setting,
+            commands::settings::get_db_size,
+            commands::settings::save_draft,
+            commands::settings::get_draft,
+            commands::settings::delete_draft,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Chuck");

@@ -9,13 +9,32 @@
     streaming?: boolean;
     model?: string;
     onModelChange?: (model: string) => void;
+    initialValue?: string;
+    onInput?: (text: string) => void;
   }
 
-  let { onSend, onStop, streaming = false, model = "gpt-4o", onModelChange }: Props = $props();
+  let {
+    onSend,
+    onStop,
+    streaming = false,
+    model = "gpt-4o",
+    onModelChange,
+    initialValue = "",
+    onInput: onInputCallback,
+  }: Props = $props();
 
   let inputText = $state("");
   let textareaEl: HTMLTextAreaElement | undefined = $state();
   let availableModels = $state<Model[]>([]);
+  let initialized = false;
+
+  // Sync initialValue prop on first mount
+  $effect(() => {
+    if (!initialized && initialValue) {
+      inputText = initialValue;
+      initialized = true;
+    }
+  });
 
   onMount(async () => {
     try {
@@ -53,6 +72,7 @@
     if (!textareaEl) return;
     textareaEl.style.height = "auto";
     textareaEl.style.height = Math.min(textareaEl.scrollHeight, 200) + "px";
+    onInputCallback?.(inputText);
   }
 
   function handleModelSelect(event: Event) {

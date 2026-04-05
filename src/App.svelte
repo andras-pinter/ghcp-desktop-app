@@ -3,13 +3,17 @@
   import ChatView from "$lib/components/ChatView.svelte";
   import AuthScreen from "$lib/components/AuthScreen.svelte";
   import { initAuth, getAuth } from "$lib/stores/auth.svelte";
+  import { initConversations } from "$lib/stores/conversations.svelte";
   import { onMount } from "svelte";
 
   let sidebarCollapsed = $state(false);
   const auth = getAuth();
 
-  onMount(() => {
-    initAuth();
+  onMount(async () => {
+    await initAuth();
+    if (auth.authenticated) {
+      await initConversations();
+    }
   });
 
   function toggleSidebar() {
