@@ -13,7 +13,10 @@ pub async fn get_models(app: AppHandle) -> Result<Vec<Model>, String> {
     let state = app.state::<AppState>();
 
     match state.copilot.get_models().await {
-        Ok(models) if !models.is_empty() => Ok(models),
+        Ok(models) if !models.is_empty() => {
+            log::info!("Models API returned {} models", models.len());
+            Ok(models)
+        }
         Ok(_) => {
             log::warn!("Models API returned empty list, using fallback");
             Ok(vec![Model {

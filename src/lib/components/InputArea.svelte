@@ -1,7 +1,5 @@
 <script lang="ts">
   import type { Model } from "$lib/types/message";
-  import { getModels } from "$lib/utils/commands";
-  import { onMount } from "svelte";
 
   interface Props {
     onSend: (text: string) => void;
@@ -9,6 +7,8 @@
     streaming?: boolean;
     model?: string;
     onModelChange?: (model: string) => void;
+    availableModels?: Model[];
+    modelsLoaded?: boolean;
     initialValue?: string;
     onInput?: (text: string) => void;
   }
@@ -19,14 +19,14 @@
     streaming = false,
     model = "gpt-4o",
     onModelChange,
+    availableModels = [],
+    modelsLoaded = false,
     initialValue = "",
     onInput: onInputCallback,
   }: Props = $props();
 
   let inputText = $state("");
   let textareaEl: HTMLTextAreaElement | undefined = $state();
-  let availableModels = $state<Model[]>([]);
-  let modelsLoaded = $state(false);
   let initialized = false;
 
   // Sync initialValue prop on first mount
@@ -34,23 +34,6 @@
     if (!initialized && initialValue) {
       inputText = initialValue;
       initialized = true;
-    }
-  });
-
-  onMount(async () => {
-    try {
-      const models = await getModels();
-      if (models.length > 0) {
-        availableModels = models;
-        // If current model isn't in the list, switch to first available
-        if (!models.some((m) => m.id === model)) {
-          onModelChange?.(models[0].id);
-        }
-      }
-    } catch {
-      // Keep fallback
-    } finally {
-      modelsLoaded = true;
     }
   });
 

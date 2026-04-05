@@ -3,6 +3,7 @@
   import ChatView from "$lib/components/ChatView.svelte";
   import AuthScreen from "$lib/components/AuthScreen.svelte";
   import { initAuth, getAuth } from "$lib/stores/auth.svelte";
+  import { initModels } from "$lib/stores/models.svelte";
   import { initConversations } from "$lib/stores/conversations.svelte";
   import { onMount } from "svelte";
 
@@ -12,7 +13,7 @@
   onMount(async () => {
     await initAuth();
     if (auth.authenticated) {
-      await initConversations();
+      await Promise.all([initConversations(), initModels()]);
     }
   });
 

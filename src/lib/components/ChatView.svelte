@@ -18,6 +18,7 @@
     loadDraft,
     clearDraft,
   } from "$lib/stores/conversations.svelte";
+  import { getModelStore } from "$lib/stores/models.svelte";
 
   const greetings = [
     "Your co-pilot is ready. Where to?",
@@ -31,6 +32,7 @@
   ];
 
   const store = getConversationStore();
+  const modelStore = getModelStore();
   let chatContainer: HTMLElement | undefined = $state();
   let streaming = $state(false);
   let selectedModel = $state("gpt-4o");
@@ -41,6 +43,17 @@
   let unlistenToken: UnlistenFn | undefined;
   let unlistenComplete: UnlistenFn | undefined;
   let unlistenError: UnlistenFn | undefined;
+
+  // Select first available model if the current one isn't in the list
+  $effect(() => {
+    if (
+      modelStore.loaded &&
+      modelStore.models.length > 0 &&
+      !modelStore.models.some((m) => m.id === selectedModel)
+    ) {
+      selectedModel = modelStore.models[0].id;
+    }
+  });
 
   // Track the assistant message ID being streamed so we can persist on complete
   let streamingAssistantId: string | null = $state(null);
@@ -204,6 +217,8 @@
           onStop={handleStop}
           model={selectedModel}
           onModelChange={handleModelChange}
+          availableModels={modelStore.models}
+          modelsLoaded={modelStore.loaded}
           initialValue={draftText}
           onInput={handleDraftChange}
         />
@@ -231,6 +246,8 @@
         onStop={handleStop}
         model={selectedModel}
         onModelChange={handleModelChange}
+        availableModels={modelStore.models}
+        modelsLoaded={modelStore.loaded}
         initialValue={draftText}
         onInput={handleDraftChange}
       />
