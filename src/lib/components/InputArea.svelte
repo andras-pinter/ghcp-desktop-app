@@ -26,6 +26,7 @@
   let inputText = $state("");
   let textareaEl: HTMLTextAreaElement | undefined = $state();
   let availableModels = $state<Model[]>([]);
+  let modelsLoaded = $state(false);
   let initialized = false;
 
   // Sync initialValue prop on first mount
@@ -48,6 +49,8 @@
       }
     } catch {
       // Keep fallback
+    } finally {
+      modelsLoaded = true;
     }
   });
 
@@ -109,11 +112,29 @@
           </svg>
         </button>
         <div class="model-selector">
-          <select value={model} onchange={handleModelSelect} aria-label="Select model">
-            {#each availableModels as m (m.id)}
-              <option value={m.id}>{m.name ?? m.id}</option>
-            {/each}
-          </select>
+          {#if !modelsLoaded}
+            <span class="model-label">{model}</span>
+          {:else if availableModels.length <= 1}
+            <span class="model-label">{availableModels[0]?.name ?? model}</span>
+          {:else}
+            <div class="model-dropdown-wrap">
+              <select value={model} onchange={handleModelSelect} aria-label="Select model">
+                {#each availableModels as m (m.id)}
+                  <option value={m.id}>{m.name ?? m.id}</option>
+                {/each}
+              </select>
+              <svg
+                class="model-chevron"
+                width="10"
+                height="10"
+                viewBox="0 0 16 16"
+                fill="currentColor"
+                aria-hidden="true"
+              >
+                <path d="M4.5 6l3.5 4 3.5-4H4.5z" />
+              </svg>
+            </div>
+          {/if}
         </div>
       </div>
       {#if streaming}
@@ -211,14 +232,33 @@
     color: var(--color-text-secondary);
   }
 
-  .model-selector select {
+  .model-selector {
+    display: flex;
+    align-items: center;
+  }
+
+  .model-label {
+    color: var(--color-text-tertiary);
+    font-family: var(--font-sans);
+    font-size: var(--font-size-xs);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    letter-spacing: var(--letter-spacing-normal);
+  }
+
+  .model-dropdown-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+
+  .model-dropdown-wrap select {
     appearance: none;
     background: transparent;
     border: none;
     color: var(--color-text-tertiary);
     font-family: var(--font-sans);
     font-size: var(--font-size-xs);
-    padding: var(--spacing-xs) var(--spacing-sm);
+    padding: var(--spacing-xs) var(--spacing-lg) var(--spacing-xs) var(--spacing-sm);
     border-radius: var(--radius-sm);
     cursor: pointer;
     transition: all var(--transition-fast);
@@ -226,9 +266,23 @@
     letter-spacing: var(--letter-spacing-normal);
   }
 
-  .model-selector select:hover {
+  .model-dropdown-wrap select:hover {
     background: var(--color-bg-hover);
     color: var(--color-text-secondary);
+  }
+
+  .model-dropdown-wrap select:focus-visible {
+    background: var(--color-bg-hover);
+    color: var(--color-text-secondary);
+    outline: 1px solid var(--color-border-focus);
+  }
+
+  .model-chevron {
+    position: absolute;
+    right: var(--spacing-xs);
+    pointer-events: none;
+    color: var(--color-text-tertiary);
+    opacity: 0.6;
   }
 
   .send-btn {
