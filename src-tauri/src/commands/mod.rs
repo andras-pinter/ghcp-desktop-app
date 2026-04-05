@@ -23,10 +23,16 @@ pub fn get_app_info() -> serde_json::Value {
 /// Log a message from the frontend to the Rust console.
 #[tauri::command]
 pub fn log_frontend(level: &str, message: &str) {
+    // Cap length to prevent log flooding from the frontend
+    let msg = if message.len() > 1024 {
+        &message[..1024]
+    } else {
+        message
+    };
     match level {
-        "error" => log::error!("[frontend] {message}"),
-        "warn" => log::warn!("[frontend] {message}"),
-        "debug" => log::debug!("[frontend] {message}"),
-        _ => log::info!("[frontend] {message}"),
+        "error" => log::error!("[frontend] {}", msg),
+        "warn" => log::warn!("[frontend] {}", msg),
+        "debug" => log::debug!("[frontend] {}", msg),
+        _ => log::info!("[frontend] {}", msg),
     }
 }

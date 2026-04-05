@@ -788,18 +788,19 @@ and **events** (`listen()`/`emit()`). This is the only bridge between the two la
 
 **Commands** (frontend → backend, request/response):
 
-| Module | Commands |
-|---|---|
-| `chat.rs` | `send_message` — send chat message, returns streaming event channel; `stop_streaming` — cancel in-flight SSE stream; `regenerate` — re-send last user message for fresh response |
-| `auth.rs` | `authenticate` — initiate OAuth device flow; `logout` — clear token from keychain; `get_auth_state` — check current auth status |
-| `conversations.rs` | `get_conversations` — list from SQLite; `create_conversation` — new conversation; `update_conversation` — rename/update metadata; `delete_conversation` — remove conversation + messages |
-| `agents.rs` | `get_agents` — list agent personas; `create_agent` — new agent; `update_agent` — edit agent; `delete_agent` — remove agent |
-| `skills.rs` | `get_skills` — list all skills (MCP tools + extensions); `toggle_skill` — enable/disable; `configure_skill` — update skill config |
-| `projects.rs` | `get_projects` — list projects; `create_project` — new project; `update_project` — edit instructions/name; `delete_project` — remove project; `add_project_file` — attach file (BLOB); `remove_project_file` — detach file |
-| `mcp.rs` | `get_mcp_servers` — list configured servers; `add_mcp_server` — register new server; `remove_mcp_server` — delete server; `test_mcp_connection` — verify server responds; `mcp_invoke_tool` — call an MCP tool |
-| `web_research.rs` | `web_search` — trigger web search via API; `fetch_url` — fetch + extract URL content |
-| `models.rs` | `get_models` — fetch available Copilot models |
-| `settings.rs` | `get_settings` — read config table; `update_settings` — write config key-value; `export_conversations` — export as JSON/Markdown to user-chosen path; `delete_old_conversations` — cleanup by age; `get_db_size` — return database file size |
+| Module | Commands | Status |
+|---|---|---|
+| `mod.rs` | `get_app_info` — return app name + version; `log_frontend` — surface frontend log messages to Rust console | ✅ |
+| `chat.rs` | `send_message` — send chat message, starts streaming via events; `stop_streaming` — cancel in-flight SSE stream | ✅ |
+| `auth.rs` | `authenticate` — initiate OAuth device flow; `poll_auth_token` — poll for token after user authorizes; `logout` — clear token from keychain; `get_auth_state` — check current auth status | ✅ |
+| `conversations.rs` | `get_conversations` — list from SQLite; `get_conversation` — single by ID; `create_conversation` — new conversation; `update_conversation` — rename/update metadata; `delete_conversation` — remove conversation + messages; `get_messages` — messages for a conversation; `create_message` — insert message; `update_message_content` — update after streaming/edit; `delete_messages_after` — discard messages after sort order (for editing) | ✅ |
+| `models.rs` | `get_models` — fetch available Copilot models (deduplicates API response) | ✅ |
+| `settings.rs` | `get_setting` — read config key; `update_setting` — write config key-value; `get_db_size` — return database file size; `save_draft` — persist input draft; `get_draft` — retrieve draft for conversation; `delete_draft` — clear draft | ✅ |
+| `agents.rs` | `get_agents` — list agent personas; `create_agent` — new agent; `update_agent` — edit agent; `delete_agent` — remove agent | ⬚ stub |
+| `skills.rs` | `get_skills` — list all skills (MCP tools + extensions); `toggle_skill` — enable/disable; `configure_skill` — update skill config | ⬚ stub |
+| `projects.rs` | `get_projects` — list projects; `create_project` — new project; `update_project` — edit instructions/name; `delete_project` — remove project; `add_project_file` — attach file (BLOB); `remove_project_file` — detach file | ⬚ stub |
+| `mcp.rs` | `get_mcp_servers` — list configured servers; `add_mcp_server` — register new server; `remove_mcp_server` — delete server; `test_mcp_connection` — verify server responds; `mcp_invoke_tool` — call an MCP tool | ⬚ stub |
+| `web_research.rs` | `web_search` — trigger web search via API; `fetch_url` — fetch + extract URL content | ⬚ stub |
 
 **Events** (backend → frontend, push):
 - `streaming-token` — individual SSE tokens during chat
@@ -1623,6 +1624,9 @@ pnpm install
 
 # Development (hot-reload frontend + Rust backend)
 cargo tauri dev
+
+# Development with forced logout (clears stored tokens)
+cargo tauri dev -- -- --logout
 
 # Build for production (current platform)
 cargo tauri build

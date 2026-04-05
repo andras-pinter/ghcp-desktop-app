@@ -78,9 +78,9 @@
         const msg = store.messages.find((m) => m.id === streamingAssistantId);
         if (msg && msg.content) {
           await updateMessageContent(msg.id, msg.content, msg.thinkingContent);
-          // Auto-generate title if this is the first exchange
+          // Auto-generate title if this is the first exchange (best-effort)
           if (store.activeConversationId && store.messages.length <= 2) {
-            generateTitle(store.activeConversationId, store.messages);
+            generateTitle(store.activeConversationId, store.messages).catch(() => {});
           }
         }
         streamingAssistantId = null;

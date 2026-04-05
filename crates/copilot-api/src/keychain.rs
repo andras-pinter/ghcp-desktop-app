@@ -27,14 +27,28 @@ pub enum KeychainError {
 #[cfg(debug_assertions)]
 fn debug_credential_path(key: &str) -> std::path::PathBuf {
     let dir = std::env::temp_dir().join("chuck-dev-credentials");
-    std::fs::create_dir_all(&dir).ok();
+    if std::fs::create_dir_all(&dir).is_ok() {
+        // Restrict directory to owner-only access (0700)
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let _ = std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o700));
+        }
+    }
     dir.join(key)
 }
 
 #[cfg(debug_assertions)]
 pub fn store(key: &str, value: &str) -> Result<(), KeychainError> {
     let path = debug_credential_path(key);
-    std::fs::write(&path, value).map_err(|e| KeychainError::Store(e.to_string()))
+    std::fs::write(&path, value).map_err(|e| KeychainError::Store(e.to_string()))?;
+    // Restrict file to owner-only read/write (0600)
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let _ = std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600));
+    }
+    Ok(())
 }
 
 #[cfg(debug_assertions)]
