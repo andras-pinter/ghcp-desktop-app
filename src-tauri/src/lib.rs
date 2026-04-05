@@ -27,12 +27,6 @@ pub fn run(force_logout: bool) {
             let app_state = AppState::new(app.handle())?;
             app.manage(app_state);
 
-            // Open devtools in debug builds
-            #[cfg(debug_assertions)]
-            if let Some(window) = app.get_webview_window("main") {
-                window.open_devtools();
-            }
-
             log::info!("Chuck initialized");
             Ok(())
         })
