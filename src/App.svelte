@@ -32,6 +32,7 @@
 
 {#if auth.loading}
   <div class="loading-screen">
+    <div class="loading-drag-region" data-tauri-drag-region></div>
     <div class="loading-spinner"></div>
   </div>
 {:else if !auth.authenticated}
@@ -186,6 +187,16 @@
     justify-content: center;
     height: 100vh;
     background: var(--color-bg-primary);
+    position: relative;
+  }
+
+  .loading-drag-region {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: var(--titlebar-height);
+    -webkit-app-region: drag;
   }
 
   .loading-spinner {

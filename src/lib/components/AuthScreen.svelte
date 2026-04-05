@@ -92,6 +92,7 @@
 </script>
 
 <div class="auth-screen">
+  <div class="auth-drag-region" data-tauri-drag-region></div>
   <div class="auth-card">
     <div class="auth-mark" aria-hidden="true">
       <svg width="36" height="36" viewBox="0 0 16 16" fill="currentColor">
@@ -174,6 +175,17 @@
     height: 100vh;
     background: var(--color-bg-primary);
     animation: fadeIn 500ms ease both;
+    position: relative;
+  }
+
+  /* Invisible drag region across the top so the window is always movable */
+  .auth-drag-region {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: var(--titlebar-height);
+    -webkit-app-region: drag;
   }
 
   .auth-card {
