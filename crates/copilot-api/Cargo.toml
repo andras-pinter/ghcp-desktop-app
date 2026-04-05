@@ -16,12 +16,19 @@ url.workspace = true
 uuid.workspace = true
 chrono.workspace = true
 
-# OAuth token storage
-keyring = "3"
-
 # SSE streaming
 reqwest-eventsource = "0.6"
 futures-util = "0.3"
+
+# OAuth token storage (platform-specific backends must be enabled explicitly)
+[target.'cfg(target_os = "macos")'.dependencies]
+keyring = { version = "3", features = ["apple-native"] }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+keyring = { version = "3", features = ["linux-native"] }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+keyring = { version = "3", features = ["windows-native"] }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["test-util"] }
