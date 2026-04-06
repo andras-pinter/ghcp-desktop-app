@@ -211,10 +211,12 @@
               </div>
             {/if}
           </div>
+        {:else if modelsLoaded}
+          <span class="model-label">{displayName(availableModels[0] ?? { id: model })}</span>
         {:else}
-          <span class="model-label"
-            >{modelsLoaded ? displayName(availableModels[0] ?? { id: model }) : model}</span
-          >
+          <span class="model-label model-loading">
+            <span class="model-spinner"></span>
+          </span>
         {/if}
       </div>
       {#if streaming}
@@ -451,6 +453,26 @@
     font-size: var(--font-size-xs);
     padding: var(--spacing-xs) var(--spacing-sm);
     letter-spacing: var(--letter-spacing-normal);
+  }
+
+  .model-loading {
+    display: flex;
+    align-items: center;
+  }
+
+  .model-spinner {
+    width: 10px;
+    height: 10px;
+    border: 1.5px solid var(--color-border-primary);
+    border-top-color: var(--color-text-tertiary);
+    border-radius: 50%;
+    animation: spin 800ms linear infinite;
+  }
+
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
   }
 
   /* ── Send / Stop buttons ────────────────────────── */

@@ -8,12 +8,20 @@
   import { onMount } from "svelte";
 
   let sidebarCollapsed = $state(false);
+  let dataLoaded = $state(false);
   const auth = getAuth();
 
-  onMount(async () => {
-    await initAuth();
-    if (auth.authenticated) {
-      await Promise.all([initConversations(), initModels()]);
+  onMount(() => {
+    initAuth();
+  });
+
+  // Load conversations & models whenever auth becomes true (startup or fresh login)
+  $effect(() => {
+    if (auth.authenticated && !dataLoaded) {
+      dataLoaded = true;
+      Promise.all([initConversations(), initModels()]);
+    } else if (!auth.authenticated) {
+      dataLoaded = false;
     }
   });
 
