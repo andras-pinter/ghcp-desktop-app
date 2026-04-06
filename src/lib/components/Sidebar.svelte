@@ -12,9 +12,10 @@
   interface Props {
     collapsed: boolean;
     onNewChat?: () => void;
+    onNavigate?: (view: string) => void;
   }
 
-  let { collapsed, onNewChat }: Props = $props();
+  let { collapsed, onNewChat, onNavigate }: Props = $props();
 
   const store = getConversationStore();
 
@@ -155,7 +156,33 @@
 
     <!-- Footer -->
     <div class="sidebar-footer">
-      <button class="nav-btn" aria-label="Settings" title="Settings">
+      <button
+        class="nav-btn"
+        aria-label="MCP Servers"
+        title="MCP Servers"
+        onclick={() => onNavigate?.("mcp-settings")}
+      >
+        <svg
+          width="15"
+          height="15"
+          viewBox="0 0 16 16"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+        >
+          <rect x="2" y="2" width="12" height="4" rx="1" />
+          <rect x="2" y="10" width="12" height="4" rx="1" />
+          <circle cx="5" cy="4" r="0.75" fill="currentColor" stroke="none" />
+          <circle cx="5" cy="12" r="0.75" fill="currentColor" stroke="none" />
+        </svg>
+        <span class="nav-label">MCP</span>
+      </button>
+      <button
+        class="nav-btn"
+        aria-label="Settings"
+        title="Settings"
+        onclick={() => onNavigate?.("settings")}
+      >
         <svg
           width="15"
           height="15"

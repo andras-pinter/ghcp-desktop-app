@@ -73,6 +73,7 @@
   --font-display: "Instrument Serif", Georgia, "Times New Roman", serif;
   --font-mono: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
 
+  --font-size-2xs: 10px;
   --font-size-xs: 11px;
   --font-size-sm: 13px;
   --font-size-base: 14.5px;
