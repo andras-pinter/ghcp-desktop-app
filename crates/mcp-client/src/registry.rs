@@ -177,11 +177,16 @@ pub async fn fetch_registry(query: Option<&str>) -> Result<Vec<RegistryServer>, 
         }
     }
 
-    // Sort by display name for consistent ordering
+    // Sort: first-party servers first (heuristic: name prefix is not io.github.* or
+    // ai.smithery/*), then alphabetically by display name within each group.
     all_servers.sort_by(|a, b| {
-        a.display_name
-            .to_lowercase()
-            .cmp(&b.display_name.to_lowercase())
+        let a_first_party = is_first_party(&a.name);
+        let b_first_party = is_first_party(&b.name);
+        b_first_party.cmp(&a_first_party).then_with(|| {
+            a.display_name
+                .to_lowercase()
+                .cmp(&b.display_name.to_lowercase())
+        })
     });
 
     log::info!("Fetched {} servers from MCP registry", all_servers.len());
@@ -257,6 +262,15 @@ fn humanize_name(name: &str) -> String {
         .join(" ")
 }
 
+/// Heuristic: a server is "first-party" if its reverse-DNS name prefix
+/// belongs to the actual company (e.g., `com.microsoft/azure`) rather than
+/// a community namespace (`io.github.user/...`, `ai.smithery/...`).
+fn is_first_party(name: &str) -> bool {
+    !name.starts_with("io.github.")
+        && !name.starts_with("ai.smithery/")
+        && !name.starts_with("ai.smithery.")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -327,5 +341,17 @@ mod tests {
         };
         let result = convert_entry(server).unwrap();
         assert!(result.is_stdio_only);
+    }
+
+    #[test]
+    fn test_first_party_heuristic() {
+        assert!(is_first_party("com.microsoft/azure"));
+        assert!(is_first_party("com.stripe/mcp"));
+        assert!(is_first_party("com.cloudflare.mcp/mcp"));
+        assert!(is_first_party("io.sentry/sentry-mcp"));
+        assert!(!is_first_party("io.github.user/my-server"));
+        assert!(!is_first_party("io.github.getsentry/sentry-mcp"));
+        assert!(!is_first_party("ai.smithery/some-server"));
+        assert!(!is_first_party("ai.smithery.proxy/some-server"));
     }
 }
