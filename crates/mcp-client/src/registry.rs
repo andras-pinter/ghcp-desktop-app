@@ -48,6 +48,15 @@ struct ApiServer {
     website_url: Option<String>,
     remotes: Option<Vec<ApiRemote>>,
     repository: Option<ApiRepository>,
+    packages: Option<Vec<ApiPackage>>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ApiPackage {
+    registry_type: String,
+    identifier: String,
+    version: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -95,6 +104,20 @@ pub struct RegistryServer {
     pub remotes: Vec<RegistryRemote>,
     /// Whether this server is stdio-only (no HTTP remotes).
     pub is_stdio_only: bool,
+    /// Available installation packages (npm, pypi, nuget, etc.).
+    pub packages: Vec<RegistryPackage>,
+}
+
+/// A package/installation option for a registry server.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RegistryPackage {
+    /// Package registry type (e.g. "npm", "pypi", "nuget", "mcpb").
+    pub registry_type: String,
+    /// Package identifier (e.g. "@azure/mcp", "msmcp-azure").
+    pub identifier: String,
+    /// Package version.
+    pub version: Option<String>,
 }
 
 /// A remote connection option for a registry server.
@@ -229,6 +252,19 @@ fn convert_entry(server: ApiServer) -> Option<RegistryServer> {
     // Use title if available, otherwise derive from name
     let display_name = server.title.unwrap_or_else(|| humanize_name(&server.name));
 
+    // Convert packages (filter out mcpb binary bundles — not useful for display)
+    let packages: Vec<RegistryPackage> = server
+        .packages
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|p| p.registry_type != "mcpb")
+        .map(|p| RegistryPackage {
+            registry_type: p.registry_type,
+            identifier: p.identifier,
+            version: p.version,
+        })
+        .collect();
+
     Some(RegistryServer {
         name: server.name,
         display_name,
@@ -238,6 +274,7 @@ fn convert_entry(server: ApiServer) -> Option<RegistryServer> {
         repo_url: server.repository.and_then(|r| r.url),
         remotes,
         is_stdio_only,
+        packages,
     })
 }
 
@@ -297,6 +334,7 @@ mod tests {
             repository: Some(ApiRepository {
                 url: Some("https://github.com/test/server".to_string()),
             }),
+            packages: None,
         };
         let result = convert_entry(server).unwrap();
         assert!(result.is_stdio_only);
@@ -320,6 +358,7 @@ mod tests {
             repository: Some(ApiRepository {
                 url: Some("https://github.com/test/repo".to_string()),
             }),
+            packages: None,
         };
         let result = convert_entry(server).unwrap();
         assert_eq!(result.display_name, "My Server");
@@ -338,6 +377,7 @@ mod tests {
             website_url: None,
             remotes: Some(vec![]),
             repository: None,
+            packages: None,
         };
         let result = convert_entry(server).unwrap();
         assert!(result.is_stdio_only);

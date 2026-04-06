@@ -51,6 +51,7 @@ export interface RegistryServer {
   repoUrl?: string | null;
   isStdioOnly: boolean;
   remotes: RegistryRemote[];
+  packages: RegistryPackage[];
 }
 
 /** A remote connection option for a registry server. */
@@ -59,4 +60,11 @@ export interface RegistryRemote {
   url?: string | null;
   requiresAuth: boolean;
   authDescription?: string | null;
+}
+
+/** A package/installation option for a registry server. */
+export interface RegistryPackage {
+  registryType: string;
+  identifier: string;
+  version?: string | null;
 }

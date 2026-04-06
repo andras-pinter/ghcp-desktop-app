@@ -30,7 +30,8 @@
         kind: "form";
         editInfo?: McpConnectionInfo;
         registryEntry?: RegistryServer;
-      };
+      }
+    | { kind: "detail"; entry: RegistryServer };
 
   let view = $state<ViewState>({ kind: "list" });
 
@@ -75,6 +76,10 @@
 
   function openRegistryForm(entry: RegistryServer) {
     view = { kind: "form", registryEntry: entry };
+  }
+
+  function openDetail(entry: RegistryServer) {
+    view = { kind: "detail", entry };
   }
 
   function returnToList() {
@@ -155,6 +160,102 @@
     registryEntry={view.registryEntry ?? null}
     onBack={returnToList}
   />
+{:else if view.kind === "detail"}
+  <!-- Registry Server Detail View -->
+  <div class="mcp-settings">
+    <header class="mcp-header">
+      <button class="back-btn" onclick={returnToList} aria-label="Back to list">← Back</button>
+      <h2 class="mcp-title">{view.entry.displayName}</h2>
+      {#if !isRegistryAdded(view.entry)}
+        <button
+          class="header-add-btn"
+          onclick={() => {
+            if (view.kind === "detail") openRegistryForm(view.entry);
+          }}
+        >
+          + Add Server
+        </button>
+      {:else}
+        <span class="detail-added-badge">Added ✓</span>
+      {/if}
+    </header>
+
+    <div class="mcp-content">
+      <div class="detail-body">
+        <!-- Description -->
+        {#if view.entry.description}
+          <p class="detail-description">{view.entry.description}</p>
+        {/if}
+
+        <!-- Meta row -->
+        <div class="detail-meta">
+          {#if view.entry.version}
+            <span class="detail-chip">v{view.entry.version}</span>
+          {/if}
+          {#if view.entry.isStdioOnly}
+            <span class="registry-transport stdio">STDIO</span>
+          {:else}
+            <span class="registry-transport http">HTTP</span>
+          {/if}
+          <span class="detail-chip muted">{view.entry.name}</span>
+        </div>
+
+        <!-- Remotes -->
+        {#if view.entry.remotes.length > 0}
+          <section class="detail-section">
+            <h3 class="detail-section-heading">Remote Endpoints</h3>
+            {#each view.entry.remotes as remote (remote.url ?? remote.transportType)}
+              <div class="detail-card">
+                <span class="detail-label">{remote.transportType}</span>
+                {#if remote.url}
+                  <code class="detail-code">{remote.url}</code>
+                {/if}
+                {#if remote.requiresAuth}
+                  <span class="detail-auth-note"
+                    >🔑 {remote.authDescription ?? "Auth required"}</span
+                  >
+                {/if}
+              </div>
+            {/each}
+          </section>
+        {/if}
+
+        <!-- Packages -->
+        {#if view.entry.packages.length > 0}
+          <section class="detail-section">
+            <h3 class="detail-section-heading">Install Packages</h3>
+            {#each view.entry.packages as pkg (pkg.identifier)}
+              <div class="detail-card">
+                <span class="detail-label">{pkg.registryType}</span>
+                <code class="detail-code"
+                  >{pkg.identifier}{pkg.version ? `@${pkg.version}` : ""}</code
+                >
+              </div>
+            {/each}
+          </section>
+        {/if}
+
+        <!-- Links -->
+        {#if view.entry.repoUrl || view.entry.websiteUrl}
+          <section class="detail-section">
+            <h3 class="detail-section-heading">Links</h3>
+            <div class="detail-links">
+              {#if view.entry.repoUrl}
+                <a href={view.entry.repoUrl} target="_blank" rel="noopener" class="detail-link">
+                  📦 Repository
+                </a>
+              {/if}
+              {#if view.entry.websiteUrl}
+                <a href={view.entry.websiteUrl} target="_blank" rel="noopener" class="detail-link">
+                  🌐 Website
+                </a>
+              {/if}
+            </div>
+          </section>
+        {/if}
+      </div>
+    </div>
+  </div>
 {:else}
   <div class="mcp-settings">
     <!-- Header -->
@@ -291,11 +392,13 @@
           </div>
 
           {#if mcp.registryLoading && mcp.registry.length === 0}
-            <div class="registry-loading">Fetching from registry...</div>
+            <div class="registry-loading">
+              <span class="loading-spinner">⟳</span> Fetching from registry...
+            </div>
           {:else if mcp.registry.length > 0}
             <div class="registry-list">
               {#each mcp.registry as entry (entry.name)}
-                <div class="registry-entry">
+                <button class="registry-entry" onclick={() => openDetail(entry)} type="button">
                   <div class="registry-info">
                     <strong class="registry-name">{entry.displayName}</strong>
                     {#if entry.isStdioOnly}
@@ -311,12 +414,10 @@
                     {#if isRegistryAdded(entry)}
                       <span class="registry-added">Added ✓</span>
                     {:else}
-                      <button class="action-btn" onclick={() => openRegistryForm(entry)}>
-                        Add
-                      </button>
+                      <span class="registry-arrow">→</span>
                     {/if}
                   </div>
-                </div>
+                </button>
               {/each}
             </div>
           {:else if registrySearch.trim() && !mcp.registryLoading}
@@ -625,6 +726,15 @@
     font-size: var(--font-size-sm);
     font-style: italic;
     padding: var(--spacing-md) 0;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+  }
+
+  .loading-spinner {
+    display: inline-block;
+    animation: spin 1s linear infinite;
+    color: var(--color-accent-copper);
   }
 
   .registry-list {
@@ -642,6 +752,14 @@
     background: var(--color-bg-secondary);
     border: 1px solid var(--color-border-secondary);
     border-radius: var(--radius-md);
+    cursor: pointer;
+    text-align: left;
+    font-family: var(--font-body);
+    width: 100%;
+    transition: border-color var(--transition-fast);
+  }
+  .registry-entry:hover {
+    border-color: var(--color-accent-copper);
   }
 
   .registry-info {
@@ -693,5 +811,123 @@
     font-size: var(--font-size-xs);
     color: var(--color-text-tertiary);
     font-style: italic;
+  }
+
+  .registry-arrow {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-tertiary);
+    transition: transform var(--transition-fast);
+  }
+  .registry-entry:hover .registry-arrow {
+    transform: translateX(2px);
+    color: var(--color-accent-copper);
+  }
+
+  /* ── Detail View ── */
+
+  .detail-added-badge {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-tertiary);
+    font-style: italic;
+    padding: var(--spacing-xs) var(--spacing-sm);
+  }
+
+  .detail-body {
+    padding: var(--spacing-lg);
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+  }
+
+  .detail-description {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    line-height: 1.6;
+    margin: 0;
+  }
+
+  .detail-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-sm);
+  }
+
+  .detail-chip {
+    font-size: var(--font-size-xs);
+    padding: 2px var(--spacing-sm);
+    border-radius: var(--radius-sm);
+    background: color-mix(in srgb, var(--color-accent-copper) 12%, transparent);
+    color: var(--color-accent-copper);
+    font-weight: var(--font-weight-medium);
+  }
+  .detail-chip.muted {
+    background: var(--color-bg-tertiary);
+    color: var(--color-text-tertiary);
+    font-family: var(--font-mono);
+    font-size: 11px;
+  }
+
+  .detail-section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+  }
+
+  .detail-section-heading {
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-text-tertiary);
+    margin: 0;
+  }
+
+  .detail-card {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border-secondary);
+    border-radius: var(--radius-sm);
+    flex-wrap: wrap;
+  }
+
+  .detail-label {
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    text-transform: uppercase;
+    color: var(--color-text-tertiary);
+    min-width: 50px;
+  }
+
+  .detail-code {
+    font-family: var(--font-mono);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-primary);
+    word-break: break-all;
+  }
+
+  .detail-auth-note {
+    font-size: var(--font-size-xs);
+    color: var(--color-accent-copper);
+    font-style: italic;
+  }
+
+  .detail-links {
+    display: flex;
+    gap: var(--spacing-md);
+  }
+
+  .detail-link {
+    font-size: var(--font-size-sm);
+    color: var(--color-accent-copper);
+    text-decoration: none;
+    transition: opacity var(--transition-fast);
+  }
+  .detail-link:hover {
+    opacity: 0.8;
+    text-decoration: underline;
   }
 </style>
