@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { McpServerConfig, McpConnectionInfo, RegistryServer } from "$lib/types/mcp";
   import { addServer, editServer, testConnection } from "$lib/stores/mcp.svelte";
+  import { untrack } from "svelte";
 
   interface Props {
     /** If set, we're editing this server. */
@@ -12,6 +13,11 @@
   }
 
   let { editInfo = null, registryEntry = null, onBack }: Props = $props();
+
+  // Snapshot props once — they never change after mount.
+  // untrack() suppresses Svelte's "captured initial value" warning.
+  const initialEdit = untrack(() => editInfo);
+  const initialRegistry = untrack(() => registryEntry);
 
   // ── Form fields ──────────────────────────────────────────────
 
@@ -28,24 +34,24 @@
 
   const argsPlaceholder = '["--port", "3000"]';
 
-  const isEditing = editInfo !== null;
+  const isEditing = initialEdit !== null;
 
   // Pre-fill based on source
-  if (editInfo) {
-    formName = editInfo.config.name;
-    formTransport = editInfo.config.transport;
-    formUrl = editInfo.config.url ?? "";
-    formBinaryPath = editInfo.config.binaryPath ?? "";
-    formArgs = editInfo.config.args ?? "";
-    formAuthHeader = editInfo.config.authHeader ?? "";
-  } else if (registryEntry) {
-    formName = registryEntry.displayName;
-    if (registryEntry.isStdioOnly) {
+  if (initialEdit) {
+    formName = initialEdit.config.name;
+    formTransport = initialEdit.config.transport;
+    formUrl = initialEdit.config.url ?? "";
+    formBinaryPath = initialEdit.config.binaryPath ?? "";
+    formArgs = initialEdit.config.args ?? "";
+    formAuthHeader = initialEdit.config.authHeader ?? "";
+  } else if (initialRegistry) {
+    formName = initialRegistry.displayName;
+    if (initialRegistry.isStdioOnly) {
       formTransport = "stdio";
       // Auto-fill npx/uvx/dotnet command from packages
-      const npmPkg = registryEntry.packages.find((p) => p.registryType === "npm");
-      const pypiPkg = registryEntry.packages.find((p) => p.registryType === "pypi");
-      const nugetPkg = registryEntry.packages.find((p) => p.registryType === "nuget");
+      const npmPkg = initialRegistry.packages.find((p) => p.registryType === "npm");
+      const pypiPkg = initialRegistry.packages.find((p) => p.registryType === "pypi");
+      const nugetPkg = initialRegistry.packages.find((p) => p.registryType === "nuget");
       if (npmPkg) {
         formBinaryPath = "npx";
         const pkgRef = npmPkg.version
@@ -64,7 +70,7 @@
       }
     } else {
       formTransport = "http";
-      formUrl = registryEntry.remotes[0]?.url ?? "";
+      formUrl = initialRegistry.remotes[0]?.url ?? "";
     }
     formAuthHeader = "";
   }
@@ -186,16 +192,16 @@
   </header>
 
   <div class="form-content">
-    {#if registryEntry && !isEditing}
+    {#if initialRegistry && !isEditing}
       <div class="prefill-notice">
-        From MCP Registry: <strong>{registryEntry.displayName}</strong>
-        {#if registryEntry.isStdioOnly}
+        From MCP Registry: <strong>{initialRegistry.displayName}</strong>
+        {#if initialRegistry.isStdioOnly && !initialRegistry.packages.length}
           <span class="stdio-notice"
-            >— This is a stdio-only server. You'll need to install and provide the binary path.</span
+            >— This is a stdio-only server. You'll need to provide the binary path.</span
           >
         {/if}
-        {#if registryEntry.description}
-          <p class="prefill-desc">{registryEntry.description}</p>
+        {#if initialRegistry.description}
+          <p class="prefill-desc">{initialRegistry.description}</p>
         {/if}
       </div>
     {/if}
