@@ -42,6 +42,26 @@
     formName = registryEntry.displayName;
     if (registryEntry.isStdioOnly) {
       formTransport = "stdio";
+      // Auto-fill npx/uvx/dotnet command from packages
+      const npmPkg = registryEntry.packages.find((p) => p.registryType === "npm");
+      const pypiPkg = registryEntry.packages.find((p) => p.registryType === "pypi");
+      const nugetPkg = registryEntry.packages.find((p) => p.registryType === "nuget");
+      if (npmPkg) {
+        formBinaryPath = "npx";
+        const pkgRef = npmPkg.version
+          ? `${npmPkg.identifier}@${npmPkg.version}`
+          : npmPkg.identifier;
+        formArgs = JSON.stringify(["-y", pkgRef]);
+      } else if (pypiPkg) {
+        formBinaryPath = "uvx";
+        const pkgRef = pypiPkg.version
+          ? `${pypiPkg.identifier}==${pypiPkg.version}`
+          : pypiPkg.identifier;
+        formArgs = JSON.stringify([pkgRef]);
+      } else if (nugetPkg) {
+        formBinaryPath = "dotnet";
+        formArgs = JSON.stringify(["tool", "run", nugetPkg.identifier]);
+      }
     } else {
       formTransport = "http";
       formUrl = registryEntry.remotes[0]?.url ?? "";
@@ -81,8 +101,11 @@
         formError = "Binary path is required for stdio transport";
         return false;
       }
-      if (!formBinaryPath.startsWith("/")) {
-        formError = "Binary path must be absolute (start with /)";
+      // Allow bare command names (npx, uvx, dotnet) resolved via PATH,
+      // and absolute paths (starting with /)
+      const trimmed = formBinaryPath.trim();
+      if (trimmed.includes("/") && !trimmed.startsWith("/")) {
+        formError = "Binary path must be absolute (start with /) or a command name (e.g., npx)";
         return false;
       }
     }
@@ -216,12 +239,11 @@
           <input
             type="text"
             bind:value={formBinaryPath}
-            placeholder="/usr/local/bin/mcp-server"
+            placeholder="npx or /usr/local/bin/mcp-server"
             required
           />
           <span class="field-hint">
-            The MCP server binary must already be installed on your system. Chuck does not download
-            or install binaries.
+            A command name (e.g., npx, uvx) or absolute path to the MCP server binary.
           </span>
         </label>
         <label class="form-field">

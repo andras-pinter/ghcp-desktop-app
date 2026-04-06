@@ -251,53 +251,44 @@
         <!-- Setup Guide (stdio servers) -->
         {#if view.entry.isStdioOnly && view.entry.packages.length > 0}
           <section class="detail-section">
-            <h3 class="detail-section-heading">Setup Guide</h3>
-            <div class="setup-guide">
-              <p class="setup-step">
-                <span class="step-num">1</span> Install the server binary using one of the packages above:
-              </p>
-              <div class="setup-commands">
-                {#each view.entry.packages as pkg (pkg.identifier + "-guide")}
-                  {#if pkg.registryType === "npm"}
-                    {@const cmd = `npx ${pkg.identifier}${pkg.version ? `@${pkg.version}` : ""}`}
-                    <div class="setup-code-row">
-                      <code class="setup-code">{cmd}</code>
-                      <button
-                        class="copy-cmd-btn"
-                        onclick={() => copyCommand(cmd)}
-                        aria-label="Copy command">{copiedCommand === cmd ? "✓" : "📋"}</button
-                      >
-                    </div>
-                  {:else if pkg.registryType === "pypi"}
-                    {@const cmd = `uvx ${pkg.identifier}${pkg.version ? `==${pkg.version}` : ""}`}
-                    <div class="setup-code-row">
-                      <code class="setup-code">{cmd}</code>
-                      <button
-                        class="copy-cmd-btn"
-                        onclick={() => copyCommand(cmd)}
-                        aria-label="Copy command">{copiedCommand === cmd ? "✓" : "📋"}</button
-                      >
-                    </div>
-                  {:else if pkg.registryType === "nuget"}
-                    {@const cmd = `dotnet tool run ${pkg.identifier}`}
-                    <div class="setup-code-row">
-                      <code class="setup-code">{cmd}</code>
-                      <button
-                        class="copy-cmd-btn"
-                        onclick={() => copyCommand(cmd)}
-                        aria-label="Copy command">{copiedCommand === cmd ? "✓" : "📋"}</button
-                      >
-                    </div>
-                  {/if}
-                {/each}
-              </div>
-              <p class="setup-step">
-                <span class="step-num">2</span> Click <strong>Add Server</strong> below, select
-                <em>Stdio</em> transport, and provide the binary path and arguments.
-              </p>
-              <p class="setup-step">
-                <span class="step-num">3</span> Use <strong>Test Connection</strong> to verify it works.
-              </p>
+            <h3 class="detail-section-heading">Run Command</h3>
+            <p class="setup-hint">
+              Click <strong>Add Server</strong> below — the command will be pre-filled automatically.
+            </p>
+            <div class="setup-commands">
+              {#each view.entry.packages as pkg (pkg.identifier + "-guide")}
+                {#if pkg.registryType === "npm"}
+                  {@const cmd = `npx -y ${pkg.identifier}${pkg.version ? `@${pkg.version}` : ""}`}
+                  <div class="setup-code-block">
+                    <code class="setup-code">{cmd}</code>
+                    <button
+                      class="copy-inline-btn"
+                      onclick={() => copyCommand(cmd)}
+                      aria-label="Copy command">{copiedCommand === cmd ? "Copied!" : "Copy"}</button
+                    >
+                  </div>
+                {:else if pkg.registryType === "pypi"}
+                  {@const cmd = `uvx ${pkg.identifier}${pkg.version ? `==${pkg.version}` : ""}`}
+                  <div class="setup-code-block">
+                    <code class="setup-code">{cmd}</code>
+                    <button
+                      class="copy-inline-btn"
+                      onclick={() => copyCommand(cmd)}
+                      aria-label="Copy command">{copiedCommand === cmd ? "Copied!" : "Copy"}</button
+                    >
+                  </div>
+                {:else if pkg.registryType === "nuget"}
+                  {@const cmd = `dotnet tool run ${pkg.identifier}`}
+                  <div class="setup-code-block">
+                    <code class="setup-code">{cmd}</code>
+                    <button
+                      class="copy-inline-btn"
+                      onclick={() => copyCommand(cmd)}
+                      aria-label="Copy command">{copiedCommand === cmd ? "Copied!" : "Copy"}</button
+                    >
+                  </div>
+                {/if}
+              {/each}
             </div>
           </section>
         {:else if view.entry.isStdioOnly}
@@ -1090,43 +1081,50 @@
     display: flex;
     flex-direction: column;
     gap: var(--spacing-xs);
-    padding-left: calc(20px + var(--spacing-sm));
+  }
+
+  .setup-hint {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    margin: 0 0 var(--spacing-sm);
+    line-height: var(--leading-relaxed);
+  }
+
+  .setup-code-block {
+    display: flex;
+    align-items: center;
+    background: var(--color-bg-tertiary);
+    border: 1px solid var(--color-border-secondary);
+    border-radius: var(--radius-md);
+    overflow: hidden;
   }
 
   .setup-code {
     font-family: var(--font-mono);
     font-size: var(--font-size-xs);
     color: var(--color-text-primary);
-    background: var(--color-bg-tertiary);
-    padding: var(--spacing-xs) var(--spacing-sm);
-    border-radius: var(--radius-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
     flex: 1;
     word-break: break-all;
   }
 
-  .setup-code-row {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-xs);
-  }
-
-  .copy-cmd-btn {
+  .copy-inline-btn {
     background: none;
-    border: 1px solid var(--color-border-secondary);
-    border-radius: var(--radius-sm);
+    border: none;
+    border-left: 1px solid var(--color-border-secondary);
     cursor: pointer;
-    padding: 2px 6px;
+    padding: var(--spacing-sm) var(--spacing-md);
     font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-medium);
     color: var(--color-text-tertiary);
     transition:
       color var(--transition-fast),
-      border-color var(--transition-fast);
-    flex-shrink: 0;
-    line-height: 1;
+      background var(--transition-fast);
+    white-space: nowrap;
   }
-  .copy-cmd-btn:hover {
+  .copy-inline-btn:hover {
     color: var(--color-accent-copper);
-    border-color: var(--color-accent-copper);
+    background: color-mix(in srgb, var(--color-accent-copper) 8%, transparent);
   }
 
   /* ── Detail CTA ── */
