@@ -5,6 +5,13 @@ import type { AuthState, DeviceCodeResponse, GitHubUser } from "$lib/types/auth"
 import type { Conversation } from "$lib/types/conversation";
 import type { Message, ChatMessage, Model } from "$lib/types/message";
 import type { SearchResult, ExtractedContent } from "$lib/types/web-research";
+import type {
+  McpConnectionInfo,
+  McpServerConfig,
+  McpToolInfo,
+  McpToolResult,
+  CatalogEntry,
+} from "$lib/types/mcp";
 
 // ── Logging ─────────────────────────────────────────────────────
 
@@ -182,4 +189,64 @@ export async function webSearch(query: string, count?: number): Promise<SearchRe
 /** Fetch a URL and extract its readable content. */
 export async function fetchUrl(url: string): Promise<ExtractedContent> {
   return invoke<ExtractedContent>("fetch_url", { url });
+}
+
+// ── MCP ─────────────────────────────────────────────────────────
+
+/** List all configured MCP servers with connection status. */
+export async function getMcpServers(): Promise<McpConnectionInfo[]> {
+  return invoke<McpConnectionInfo[]>("get_mcp_servers");
+}
+
+/** Add a new MCP server. */
+export async function addMcpServer(config: McpServerConfig): Promise<McpConnectionInfo> {
+  return invoke<McpConnectionInfo>("add_mcp_server", { config });
+}
+
+/** Update an existing MCP server configuration. */
+export async function updateMcpServer(config: McpServerConfig): Promise<void> {
+  return invoke("update_mcp_server", { config });
+}
+
+/** Remove an MCP server. */
+export async function removeMcpServer(serverId: string): Promise<void> {
+  return invoke("remove_mcp_server", { serverId });
+}
+
+/** Connect to an MCP server. */
+export async function connectMcpServer(serverId: string): Promise<McpConnectionInfo> {
+  return invoke<McpConnectionInfo>("connect_mcp_server", { serverId });
+}
+
+/** Disconnect from an MCP server. */
+export async function disconnectMcpServer(serverId: string): Promise<void> {
+  return invoke("disconnect_mcp_server", { serverId });
+}
+
+/** Test an MCP server connection. Returns the number of tools discovered. */
+export async function testMcpConnection(config: McpServerConfig): Promise<number> {
+  return invoke<number>("test_mcp_connection", { config });
+}
+
+/** Get discovered tools from a connected MCP server. */
+export async function getMcpTools(serverId: string): Promise<McpToolInfo[]> {
+  return invoke<McpToolInfo[]>("get_mcp_tools", { serverId });
+}
+
+/** Invoke a tool on a connected MCP server. */
+export async function invokeMcpTool(
+  serverId: string,
+  toolName: string,
+  arguments_?: Record<string, unknown> | null,
+): Promise<McpToolResult> {
+  return invoke<McpToolResult>("invoke_mcp_tool", {
+    serverId,
+    toolName,
+    arguments: arguments_ ?? null,
+  });
+}
+
+/** Get the built-in MCP server catalog. */
+export async function getMcpCatalog(): Promise<CatalogEntry[]> {
+  return invoke<CatalogEntry[]>("get_mcp_catalog");
 }

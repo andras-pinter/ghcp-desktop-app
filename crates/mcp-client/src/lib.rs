@@ -2,8 +2,17 @@
 //!
 //! Provides MCP server connection management, tool discovery, and tool
 //! invocation over HTTP and stdio transports. Zero Tauri dependency.
+//!
+//! Built on top of the official `rmcp` SDK.
 
 pub mod catalog;
 pub mod client;
-pub mod registry;
+pub mod manager;
 pub mod types;
+
+pub use catalog::{CatalogEntry, CATALOG};
+pub use client::McpConnection;
+pub use manager::McpManager;
+pub use types::{
+    McpClientError, McpConnectionInfo, McpServerConfig, McpServerStatus, McpToolInfo, McpToolResult,
+};

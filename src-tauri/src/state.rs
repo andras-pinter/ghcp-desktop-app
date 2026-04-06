@@ -1,6 +1,7 @@
 //! Application-level managed state.
 
 use copilot_api::CopilotClient;
+use mcp_client::McpManager;
 use rusqlite::Connection;
 use std::sync::Mutex;
 use tauri::{AppHandle, Manager};
@@ -18,6 +19,8 @@ pub struct AppState {
     pub cancel_stream: TokioMutex<Option<tokio::sync::watch::Sender<bool>>>,
     /// Shared HTTP client for web research (hardened with SSRF protection).
     pub http_client: web_research::HttpClient,
+    /// MCP connection manager (handles multiple server connections).
+    pub mcp: McpManager,
 }
 
 impl AppState {
@@ -42,6 +45,7 @@ impl AppState {
             copilot: CopilotClient::new(),
             cancel_stream: TokioMutex::new(None),
             http_client: web_research::new_client()?,
+            mcp: McpManager::new(),
         })
     }
 }

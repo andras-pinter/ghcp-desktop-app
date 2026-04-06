@@ -1589,10 +1589,10 @@ INSERT INTO config (key, value) VALUES ('schema_version', '1');
 19. ✅ **web-search** — `web-research` crate: Bing Web Search API integration. Tauri command `web_search`. `WebResultCard.svelte` for displaying results as cited cards. API key stored in keychain.
 20. ✅ **url-fetcher** — Tauri command `fetch_url`. HTTPS only, public IPs only. Extract readable text via `dom_smoothie`. URL preview card in input area. Max 50KB extracted text.
 
-### Phase 7: MCP Integration
-21. ⬚ **mcp-client** — `mcp-client` crate: MCP protocol client (spec 2025-03-26). Connect, discover tools, invoke, handle responses. HTTP and stdio transports.
-22. ⬚ **mcp-catalog** — Built-in catalog of popular MCP servers. One-click enable. Show descriptions, required config fields. Persist enabled state to SQLite.
-23. ⬚ **mcp-settings** — `McpSettings.svelte`: manage MCP connections. Add custom servers (URL + auth or binary path), enable/disable, test connectivity, browse discovered tools.
+### Phase 7: MCP Integration ✅
+21. ✅ **mcp-client** — `mcp-client` crate: MCP protocol client (spec 2025-03-26) via `rmcp` SDK v1.3. Connect, discover tools, invoke, handle responses. HTTP and stdio transports. SSRF protection, binary path validation, 1MB payload size limits, image MIME validation.
+22. ✅ **mcp-catalog** — Built-in catalog of popular MCP servers (GitHub, Brave Search, Filesystem, PostgreSQL). Static data with required config fields. Catalog entries pre-fill server config.
+23. ✅ **mcp-settings** — `McpSettings.svelte`: manage MCP connections. Add custom servers (URL + auth or binary path), enable/disable, test connectivity, browse discovered tools. Frontend form validation. Server cards with live 🟢/🔴 status indicators.
 
 ### Phase 8: Skills & Agents
 24. ⬚ **skills-manager** — `SkillsPanel.svelte`: browse Copilot Extensions + MCP tools as unified skill list. Toggle on/off, configure per-skill settings. Persist to SQLite.

@@ -335,6 +335,161 @@ pub fn get_db_size(db_path: &std::path::Path) -> Result<u64, std::io::Error> {
     Ok(metadata.len())
 }
 
+// ── MCP Servers ─────────────────────────────────────────────────
+
+/// An MCP server configuration row (matches `mcp_servers` table).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct McpServerRow {
+    pub id: String,
+    pub name: String,
+    pub transport: String,
+    pub url: Option<String>,
+    pub binary_path: Option<String>,
+    pub args: Option<String>,
+    pub auth_header: Option<String>,
+    pub from_catalog: bool,
+    pub enabled: bool,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+/// List all MCP servers.
+pub fn get_mcp_servers(conn: &Connection) -> Result<Vec<McpServerRow>, rusqlite::Error> {
+    let mut stmt = conn.prepare(
+        "SELECT id, name, transport, url, binary_path, args, auth_header,
+                from_catalog, enabled, created_at, updated_at
+         FROM mcp_servers
+         ORDER BY name ASC",
+    )?;
+    let rows = stmt
+        .query_map([], |row| {
+            Ok(McpServerRow {
+                id: row.get(0)?,
+                name: row.get(1)?,
+                transport: row.get(2)?,
+                url: row.get(3)?,
+                binary_path: row.get(4)?,
+                args: row.get(5)?,
+                auth_header: row.get(6)?,
+                from_catalog: row.get::<_, i64>(7)? != 0,
+                enabled: row.get::<_, i64>(8)? != 0,
+                created_at: row.get(9)?,
+                updated_at: row.get(10)?,
+            })
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(rows)
+}
+
+/// Get a single MCP server by ID.
+pub fn get_mcp_server(
+    conn: &Connection,
+    id: &str,
+) -> Result<Option<McpServerRow>, rusqlite::Error> {
+    let mut stmt = conn.prepare(
+        "SELECT id, name, transport, url, binary_path, args, auth_header,
+                from_catalog, enabled, created_at, updated_at
+         FROM mcp_servers WHERE id = ?1",
+    )?;
+    let mut rows = stmt.query_map(params![id], |row| {
+        Ok(McpServerRow {
+            id: row.get(0)?,
+            name: row.get(1)?,
+            transport: row.get(2)?,
+            url: row.get(3)?,
+            binary_path: row.get(4)?,
+            args: row.get(5)?,
+            auth_header: row.get(6)?,
+            from_catalog: row.get::<_, i64>(7)? != 0,
+            enabled: row.get::<_, i64>(8)? != 0,
+            created_at: row.get(9)?,
+            updated_at: row.get(10)?,
+        })
+    })?;
+    rows.next().transpose()
+}
+
+/// Get only enabled MCP servers.
+pub fn get_enabled_mcp_servers(conn: &Connection) -> Result<Vec<McpServerRow>, rusqlite::Error> {
+    let mut stmt = conn.prepare(
+        "SELECT id, name, transport, url, binary_path, args, auth_header,
+                from_catalog, enabled, created_at, updated_at
+         FROM mcp_servers WHERE enabled = 1
+         ORDER BY name ASC",
+    )?;
+    let rows = stmt
+        .query_map([], |row| {
+            Ok(McpServerRow {
+                id: row.get(0)?,
+                name: row.get(1)?,
+                transport: row.get(2)?,
+                url: row.get(3)?,
+                binary_path: row.get(4)?,
+                args: row.get(5)?,
+                auth_header: row.get(6)?,
+                from_catalog: row.get::<_, i64>(7)? != 0,
+                enabled: row.get::<_, i64>(8)? != 0,
+                created_at: row.get(9)?,
+                updated_at: row.get(10)?,
+            })
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(rows)
+}
+
+/// Insert a new MCP server.
+pub fn insert_mcp_server(conn: &Connection, server: &McpServerRow) -> Result<(), rusqlite::Error> {
+    conn.execute(
+        "INSERT INTO mcp_servers (id, name, transport, url, binary_path, args,
+                                  auth_header, from_catalog, enabled, created_at, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+        params![
+            server.id,
+            server.name,
+            server.transport,
+            server.url,
+            server.binary_path,
+            server.args,
+            server.auth_header,
+            server.from_catalog as i64,
+            server.enabled as i64,
+            server.created_at,
+            server.updated_at,
+        ],
+    )?;
+    Ok(())
+}
+
+/// Update an existing MCP server.
+pub fn update_mcp_server(conn: &Connection, server: &McpServerRow) -> Result<(), rusqlite::Error> {
+    conn.execute(
+        "UPDATE mcp_servers SET name = ?2, transport = ?3, url = ?4,
+                binary_path = ?5, args = ?6, auth_header = ?7,
+                from_catalog = ?8, enabled = ?9, updated_at = ?10
+         WHERE id = ?1",
+        params![
+            server.id,
+            server.name,
+            server.transport,
+            server.url,
+            server.binary_path,
+            server.args,
+            server.auth_header,
+            server.from_catalog as i64,
+            server.enabled as i64,
+            server.updated_at,
+        ],
+    )?;
+    Ok(())
+}
+
+/// Delete an MCP server by ID.
+pub fn delete_mcp_server(conn: &Connection, id: &str) -> Result<(), rusqlite::Error> {
+    conn.execute("DELETE FROM mcp_servers WHERE id = ?1", params![id])?;
+    Ok(())
+}
+
 // ── Tests ───────────────────────────────────────────────────────
 
 #[cfg(test)]
@@ -512,5 +667,55 @@ mod tests {
         // Deleting conversation should cascade to drafts
         delete_conversation(&conn, "c1").unwrap();
         assert!(get_draft(&conn, "c1").unwrap().is_none());
+    }
+
+    #[test]
+    fn test_mcp_server_crud() {
+        let conn = setup_db();
+        let now = "2025-01-01T00:00:00Z";
+
+        let server = McpServerRow {
+            id: "s1".to_string(),
+            name: "Test Server".to_string(),
+            transport: "http".to_string(),
+            url: Some("https://example.com/mcp".to_string()),
+            binary_path: None,
+            args: None,
+            auth_header: None,
+            from_catalog: false,
+            enabled: true,
+            created_at: now.to_string(),
+            updated_at: now.to_string(),
+        };
+
+        // Insert
+        insert_mcp_server(&conn, &server).unwrap();
+
+        // Get
+        let found = get_mcp_server(&conn, "s1").unwrap().unwrap();
+        assert_eq!(found.name, "Test Server");
+        assert_eq!(found.transport, "http");
+        assert!(found.enabled);
+
+        // List
+        let all = get_mcp_servers(&conn).unwrap();
+        assert_eq!(all.len(), 1);
+
+        // Update
+        let mut updated = server.clone();
+        updated.name = "Renamed".to_string();
+        updated.enabled = false;
+        update_mcp_server(&conn, &updated).unwrap();
+        let found2 = get_mcp_server(&conn, "s1").unwrap().unwrap();
+        assert_eq!(found2.name, "Renamed");
+        assert!(!found2.enabled);
+
+        // Enabled filter
+        let enabled = get_enabled_mcp_servers(&conn).unwrap();
+        assert!(enabled.is_empty());
+
+        // Delete
+        delete_mcp_server(&conn, "s1").unwrap();
+        assert!(get_mcp_server(&conn, "s1").unwrap().is_none());
     }
 }

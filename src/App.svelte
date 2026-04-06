@@ -2,13 +2,18 @@
   import Sidebar from "$lib/components/Sidebar.svelte";
   import ChatView from "$lib/components/ChatView.svelte";
   import AuthScreen from "$lib/components/AuthScreen.svelte";
+  import McpSettings from "$lib/components/McpSettings.svelte";
   import { initAuth, getAuth } from "$lib/stores/auth.svelte";
   import { initModels } from "$lib/stores/models.svelte";
   import { initConversations } from "$lib/stores/conversations.svelte";
+  import { initMcp } from "$lib/stores/mcp.svelte";
   import { onMount } from "svelte";
+
+  type AppView = "chat" | "mcp-settings";
 
   let sidebarCollapsed = $state(false);
   let dataLoaded = $state(false);
+  let currentView = $state<AppView>("chat");
   const auth = getAuth();
 
   onMount(() => {
@@ -19,7 +24,7 @@
   $effect(() => {
     if (auth.authenticated && !dataLoaded) {
       dataLoaded = true;
-      Promise.all([initConversations(), initModels()]);
+      Promise.all([initConversations(), initModels(), initMcp()]);
     } else if (!auth.authenticated) {
       dataLoaded = false;
     }
@@ -27,6 +32,10 @@
 
   function toggleSidebar() {
     sidebarCollapsed = !sidebarCollapsed;
+  }
+
+  function navigateTo(view: string) {
+    currentView = view as AppView;
   }
 
   function handleKeydown(event: KeyboardEvent) {
@@ -88,10 +97,14 @@
     <!-- Body: sidebar + chat -->
     <div class="app-body">
       <aside class="sidebar-container" class:collapsed={sidebarCollapsed}>
-        <Sidebar collapsed={sidebarCollapsed} />
+        <Sidebar collapsed={sidebarCollapsed} onNavigate={navigateTo} />
       </aside>
       <main class="main-container">
-        <ChatView />
+        {#if currentView === "mcp-settings"}
+          <McpSettings onBack={() => navigateTo("chat")} />
+        {:else}
+          <ChatView />
+        {/if}
       </main>
     </div>
   </div>
