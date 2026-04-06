@@ -172,7 +172,7 @@ custom agent personas, and streaming responses.
 - **File attachments** — drag-and-drop files into chat as context (text, PDF, images)
 - **Projects** — group conversations + attached files under named projects with custom instructions
 - **Web research** — AI-driven web search (via search API) + manual URL fetching/extraction for context
-- **MCP integration** — connect to MCP servers for extended tool capabilities; built-in catalog of popular servers + custom server configuration
+- **MCP integration** — connect to MCP servers for extended tool capabilities; browse the official MCP Registry + custom server configuration
 - **Skills management** — enable/disable/configure Copilot Extensions (tools/plugins) that extend what Copilot can do in conversations
 - **Agents management** — create custom agent personas with specific system prompts, assigned skills, and MCP connections
 - **Model selector** — pick from available Copilot models (implement always; gracefully hide if API returns only one model)
@@ -603,7 +603,7 @@ Manage MCP server connections. Accessed from Settings > MCP tab.
 │  │ 🟢 GitHub MCP Server                [Test] [Edit] [Remove] │  │
 │  │    Transport: HTTP                                         │  │
 │  │    URL: https://api.github.com/mcp                         │  │
-│  │    Tools: 12 discovered │ Source: catalog                  │  │
+│  │    Tools: 12 discovered │ Source: registry                 │  │
 │  └────────────────────────────────────────────────────────────┘  │
 │                                                                  │
 │  ┌────────────────────────────────────────────────────────────┐  │
@@ -617,14 +617,17 @@ Manage MCP server connections. Accessed from Settings > MCP tab.
 │  │ 🔴 Brave Search                     [Test] [Edit] [Remove] │  │
 │  │    Transport: HTTP │ Status: connection failed              │  │
 │  │    URL: https://brave-mcp.example.com                      │  │
-│  │    Tools: — │ Source: catalog                               │  │
+│  │    Tools: — │ Source: registry                              │  │
 │  └────────────────────────────────────────────────────────────┘  │
 │                                                                  │
-│  ── Catalog ──────────────────────────────────────────────────   │
+│  ── MCP Registry ─────────────────────────────────────────────   │
 │                                                                  │
-│  [ ] Filesystem (read-only)     Stdio  │ [Add]                   │
+│  🔍 Search registry...                                           │
+│                                                                  │
+│  [ ] Azure MCP Server           Stdio  │ [Add]                   │
+│  [ ] GitHub MCP Server          HTTP   │ [Add]                   │
 │  [ ] Brave Search               HTTP   │ [Add]                   │
-│  [ ] Sentry                     HTTP   │ [Add]                   │
+│           ... (infinite scroll loads more) ...                   │
 │                                                                  │
 │  ── Add Custom Server ────────────────────────────────────────   │
 │                                                                  │
@@ -643,7 +646,7 @@ Manage MCP server connections. Accessed from Settings > MCP tab.
 - 🟢/🔴 indicator shows live connection status
 - Test button sends a ping and shows result inline
 - Stdio servers show first-launch confirmation dialog
-- Catalog entries pre-fill config; user just provides API keys
+- Registry entries pre-fill config; one-click add for npm/pypi servers
 - Browse button for binary path opens native file picker
 - Remove requires confirmation; warns if agents reference this server
 - Discovered tools count updates after successful connection
@@ -799,8 +802,8 @@ and **events** (`listen()`/`emit()`). This is the only bridge between the two la
 | `agents.rs` | `get_agents` — list agent personas; `create_agent` — new agent; `update_agent` — edit agent; `delete_agent` — remove agent | ⬚ stub |
 | `skills.rs` | `get_skills` — list all skills (MCP tools + extensions); `toggle_skill` — enable/disable; `configure_skill` — update skill config | ⬚ stub |
 | `projects.rs` | `get_projects` — list projects; `create_project` — new project; `update_project` — edit instructions/name; `delete_project` — remove project; `add_project_file` — attach file (BLOB); `remove_project_file` — detach file | ⬚ stub |
-| `mcp.rs` | `get_mcp_servers` — list configured servers; `add_mcp_server` — register new server; `remove_mcp_server` — delete server; `test_mcp_connection` — verify server responds; `mcp_invoke_tool` — call an MCP tool | ⬚ stub |
-| `web_research.rs` | `web_search` — trigger web search via API; `fetch_url` — fetch + extract URL content | ⬚ stub |
+| `mcp.rs` | `get_mcp_servers` — list configured servers; `add_mcp_server` — register new server; `update_mcp_server` — update server config; `remove_mcp_server` — delete server; `connect_mcp_server` — connect to server; `disconnect_mcp_server` — disconnect; `test_mcp_connection` — verify server responds; `get_mcp_tools` — list discovered tools; `invoke_mcp_tool` — call an MCP tool; `fetch_mcp_registry` — browse official MCP Registry | ✅ |
+| `web_research.rs` | `web_search` — trigger web search via API; `fetch_url` — fetch + extract URL content | ✅ |
 
 **Events** (backend → frontend, push):
 - `streaming-token` — individual SSE tokens during chat
@@ -839,30 +842,34 @@ copilot-desktop/
 │   │   │   ├── ThinkingSection.svelte   # Collapsible reasoning/thinking display
 │   │   │   ├── WebResultCard.svelte     # Cited web search result card
 │   │   │   ├── AuthScreen.svelte        # OAuth login/welcome screen
-│   │   │   ├── SettingsPanel.svelte     # Settings (account, theme, model, MCP, export, DB, shortcuts)
-│   │   │   ├── ProjectView.svelte       # Project detail (instructions, files, conversations)
-│   │   │   ├── AgentsPanel.svelte       # Agent management (create/edit/delete personas)
-│   │   │   ├── SkillsPanel.svelte       # Skills browser (MCP tools + extensions, toggle on/off)
-│   │   │   ├── McpSettings.svelte       # MCP server management (add, configure, test, browse tools)
-│   │   │   ├── UpdateBanner.svelte      # Auto-update notification + download progress
+│   │   │   ├── SettingsPanel.svelte     # Settings (account, theme, model, MCP, export, DB, shortcuts) (⬚ Phase 10)
+│   │   │   ├── ProjectView.svelte       # Project detail (instructions, files, conversations) (⬚ Phase 9)
+│   │   │   ├── AgentsPanel.svelte       # Agent management (create/edit/delete personas) (⬚ Phase 8)
+│   │   │   ├── SkillsPanel.svelte       # Skills browser (MCP tools + extensions, toggle on/off) (⬚ Phase 8)
+│   │   │   ├── McpSettings.svelte       # MCP server management (add, configure, test, browse registry)
+│   │   │   ├── McpServerForm.svelte    # MCP server add/edit form with registry pre-fill
+│   │   │   ├── UpdateBanner.svelte      # Auto-update notification + download progress (⬚ Phase 11)
 │   │   │   └── SearchOverlay.svelte     # In-conversation Cmd+F search overlay
 │   │   ├── stores/               # Svelte 5 runes-based stores (reactive state)
 │   │   │   ├── conversations.svelte.ts  # Conversation + message state
 │   │   │   ├── auth.svelte.ts           # Auth state (token, user info)
-│   │   │   ├── agents.svelte.ts         # Agent personas state
-│   │   │   ├── skills.svelte.ts         # Skills/extensions state
-│   │   │   ├── projects.svelte.ts       # Projects state
+│   │   │   ├── models.svelte.ts         # Available models state
 │   │   │   ├── mcp.svelte.ts            # MCP server connections state
-│   │   │   ├── settings.svelte.ts       # User preferences
-│   │   │   ├── theme.svelte.ts          # Light/dark theme state
-│   │   │   └── network.svelte.ts        # Online/offline state
+│   │   │   ├── agents.svelte.ts         # Agent personas state (⬚ Phase 8)
+│   │   │   ├── skills.svelte.ts         # Skills/extensions state (⬚ Phase 8)
+│   │   │   ├── projects.svelte.ts       # Projects state (⬚ Phase 9)
+│   │   │   ├── settings.svelte.ts       # User preferences (⬚ Phase 10)
+│   │   │   ├── theme.svelte.ts          # Light/dark theme state (⬚ Phase 10)
+│   │   │   └── network.svelte.ts        # Online/offline state (⬚ Phase 10)
 │   │   ├── types/                # TypeScript type definitions (mirrors Rust types)
+│   │   │   ├── auth.ts
 │   │   │   ├── conversation.ts
 │   │   │   ├── message.ts
+│   │   │   ├── mcp.ts
+│   │   │   ├── web-research.ts
 │   │   │   ├── agent.ts
 │   │   │   ├── skill.ts
-│   │   │   ├── project.ts
-│   │   │   └── mcp.ts
+│   │   │   └── project.ts
 │   │   ├── strings/               # Centralized user-facing strings (i18n prep)
 │   │   │   └── en.ts              # English strings (default)
 │   │   └── utils/
@@ -914,10 +921,10 @@ copilot-desktop/
 │   ├── mcp-client/               # MCP protocol client (zero Tauri dependency)
 │   │   ├── src/
 │   │   │   ├── lib.rs            # Public API
-│   │   │   ├── client.rs         # MCP server connection + tool invocation
-│   │   │   ├── types.rs          # MCP protocol types (tools, resources, prompts)
-│   │   │   ├── catalog.rs        # Built-in catalog of popular MCP servers
-│   │   │   └── registry.rs       # User-configured MCP server registry
+│   │   │   ├── client.rs         # MCP server connection + tool invocation (SSRF protection)
+│   │   │   ├── manager.rs        # Connection lifecycle manager (RwLock-based pool)
+│   │   │   ├── registry.rs       # Official MCP Registry client (search, pagination, package info)
+│   │   │   └── types.rs          # MCP protocol types (tools, resources, prompts)
 │   │   └── Cargo.toml
 │   └── web-research/             # Web search + URL content extraction (zero Tauri dependency)
 │       ├── src/
@@ -1062,7 +1069,7 @@ test(web-research): add URL validation tests for private IP blocking
 ### Crate Boundaries
 
 - **`copilot-api`** is a standalone Rust library with **zero Tauri dependency**. It should be usable from any Rust project (CLI, different GUI framework, etc.)
-- **`mcp-client`** is a standalone Rust library with **zero Tauri dependency**. Handles MCP protocol, server connections, tool invocation, and the built-in catalog.
+- **`mcp-client`** is a standalone Rust library with **zero Tauri dependency**. Handles MCP protocol, server connections, tool invocation, connection lifecycle management, and the official MCP Registry client.
 - **`web-research`** is a standalone Rust library with **zero Tauri dependency**. Handles web search API calls and URL content fetching/extraction.
 - **`src-tauri`** depends on all library crates — it is the only crate that imports Tauri and defines commands.
 - **Frontend** depends only on `@tauri-apps/*` packages for IPC — all heavy logic runs in Rust.
@@ -1105,7 +1112,7 @@ an MCP server binary. This is the **only** exception to the no-subprocess rule:
 - The binary path must be user-provided — the app never searches the filesystem for binaries
 - Each stdio server launch must be logged and visible in the MCP settings UI
 - The app should show a clear confirmation dialog the first time a new stdio server binary is launched
-- HTTP transport is preferred and should be the default recommendation in the catalog
+- HTTP transport is preferred and should be the default recommendation in the registry
 - Tauri's `shell` plugin scope must be configured to allow **only** user-configured MCP binaries — no wildcard execution
 - If App Sandbox restricts subprocess spawning, document this limitation and fall back to HTTP-only
 
@@ -1330,24 +1337,24 @@ Uses the **OAuth device flow** — the same flow VS Code uses to authenticate wi
 - Target **MCP specification version 2025-03-26** (or latest stable at implementation time)
 - Reference: https://modelcontextprotocol.io/specification
 - Support two transports:
-  - **HTTP (SSE)** — preferred, works with remote servers. Default for catalog entries.
+  - **HTTP (SSE)** — preferred, works with remote servers. Default for registry entries with remote URLs.
   - **Stdio** — for local MCP servers. Requires user-approved binary path (see MCP Security). Uses `tauri-plugin-shell` with scoped permissions.
 
-### Built-in Catalog (initial entries)
+### MCP Registry
 
-| Server | Description | Transport |
-|---|---|---|
-| GitHub | Repository search, issues, PRs | HTTP |
-| Web Search | Bing/Google search (if not using built-in) | HTTP |
-| Filesystem (read-only) | User-selected directory read access | Stdio |
-| PostgreSQL | Database queries | HTTP/Stdio |
-| Brave Search | Privacy-focused web search | HTTP |
+Instead of a static built-in catalog, the app browses the **official MCP Registry** at `registry.modelcontextprotocol.io`:
 
-The catalog is a static list shipped with the app. Users can enable/disable entries and provide required config (API keys, connection strings). The catalog can be extended in future releases.
+- **Server-side search** via `?search=` API parameter — returns servers matching the query by name/description
+- **Cursor-based pagination** — fetches 20 servers per page with infinite scroll (load more on reaching bottom)
+- **First-party prioritization** — servers from well-known publishers (Microsoft, GitHub, Anthropic, etc.) are sorted to the top via heuristic
+- **Multi-package support** — each server may offer npm, pypi, nuget, or docker packages. The app auto-detects the best option and pre-fills `npx -y`, `uvx`, or `dotnet tool run` commands with the correct version and `packageArguments`
+- **One-click add** — users can add a server directly from the registry browser; the app constructs the full command (e.g., `npx -y @azure/mcp@3.0.0-beta.1 server start`) and auto-connects
+- **Detail view** — clicking a registry entry shows full description, connection options (remote vs stdio), package versions, and setup guidance
+- **Auto-connect** — newly added servers connect automatically
 
 ### Custom Servers
 
-Users can add custom MCP servers in settings (`McpSettings.svelte`):
+Users can also add custom MCP servers manually in settings (`McpSettings.svelte` + `McpServerForm.svelte`):
 - **HTTP servers:** URL + optional auth header
 - **Stdio servers:** binary path + arguments (user-approved, see MCP Security)
 - Test connectivity button to verify the server responds
@@ -1491,7 +1498,7 @@ CREATE TABLE mcp_servers (
     binary_path TEXT,              -- For stdio transport
     args TEXT,                     -- JSON array of arguments for stdio
     auth_header TEXT,              -- Optional auth for HTTP
-    from_catalog INTEGER DEFAULT 0, -- 1 if from built-in catalog
+    from_catalog INTEGER DEFAULT 0, -- 1 if added from MCP Registry
     enabled INTEGER DEFAULT 1,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
@@ -1590,9 +1597,9 @@ INSERT INTO config (key, value) VALUES ('schema_version', '1');
 20. ✅ **url-fetcher** — Tauri command `fetch_url`. HTTPS only, public IPs only. Extract readable text via `dom_smoothie`. URL preview card in input area. Max 50KB extracted text.
 
 ### Phase 7: MCP Integration ✅
-21. ✅ **mcp-client** — `mcp-client` crate: MCP protocol client (spec 2025-03-26) via `rmcp` SDK v1.3. Connect, discover tools, invoke, handle responses. HTTP and stdio transports. SSRF protection, binary path validation, 1MB payload size limits, image MIME validation.
-22. ✅ **mcp-catalog** — Built-in catalog of popular MCP servers (GitHub, Brave Search, Filesystem, PostgreSQL). Static data with required config fields. Catalog entries pre-fill server config.
-23. ✅ **mcp-settings** — `McpSettings.svelte`: manage MCP connections. Add custom servers (URL + auth or binary path), enable/disable, test connectivity, browse discovered tools. Frontend form validation. Server cards with live 🟢/🔴 status indicators.
+21. ✅ **mcp-client** — `mcp-client` crate: MCP protocol client (spec 2025-03-26) via `rmcp` SDK v1.3. Connect, discover tools, invoke, handle responses. HTTP and stdio transports. SSRF protection with DNS rebinding defense, comprehensive IPv4/IPv6 private range blocking, binary path validation, 1MB payload size limits, image MIME validation, 30-second connection timeouts, server-side input validation (`validate_config`), auth header redaction in IPC responses.
+22. ✅ **mcp-registry** — Browse servers from official MCP Registry (`registry.modelcontextprotocol.io`). Server-side search via `?search=` API parameter, cursor-based pagination (20 per page with infinite scroll), first-party server prioritization heuristic. Multi-package registry types (npm/pypi/nuget). One-click add with auto-filled `npx -y`/`uvx`/`dotnet tool run` commands including `packageArguments`. Registry detail view with setup guides and connection options. Auto-connect on server add.
+23. ✅ **mcp-settings** — `McpSettings.svelte` + `McpServerForm.svelte`: manage MCP connections. Add custom servers (URL + auth or binary path), enable/disable, test connectivity, browse discovered tools. Server cards with live 🟢/🔴 status indicators. Confirmation dialog on removal. ARIA attributes throughout.
 
 ### Phase 8: Skills & Agents
 24. ⬚ **skills-manager** — `SkillsPanel.svelte`: browse Copilot Extensions + MCP tools as unified skill list. Toggle on/off, configure per-skill settings. Persist to SQLite.
