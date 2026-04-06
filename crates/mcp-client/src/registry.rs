@@ -3,8 +3,8 @@
 //! Fetches available MCP servers from the official MCP Registry
 //! at <https://registry.modelcontextprotocol.io>.
 //!
-//! Paginates through all entries, deduplicates to latest versions,
-//! and includes both HTTP and stdio-only servers.
+//! Uses server-side search (`?search=`) and version filtering
+//! (`?version=latest`) for efficient queries.
 
 use serde::{Deserialize, Serialize};
 
@@ -13,11 +13,11 @@ use crate::types::McpClientError;
 /// Default registry base URL.
 const REGISTRY_URL: &str = "https://registry.modelcontextprotocol.io/v0.1/servers";
 
-/// Entries per page when paginating.
+/// Results per page (API max is 100).
 const PAGE_SIZE: usize = 100;
 
-/// Maximum total pages to fetch (safety limit).
-const MAX_PAGES: usize = 50;
+/// Maximum pages to fetch for a single query (safety limit).
+const MAX_PAGES: usize = 30;
 
 // ── API response types ──────────────────────────────────────────
 
@@ -36,8 +36,6 @@ struct ApiPaginationMeta {
 #[derive(Debug, Deserialize)]
 struct ApiEntry {
     server: ApiServer,
-    #[serde(rename = "_meta")]
-    meta: Option<ApiMeta>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -73,18 +71,6 @@ struct ApiHeader {
 #[derive(Debug, Deserialize)]
 struct ApiRepository {
     url: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-struct ApiMeta {
-    #[serde(rename = "io.modelcontextprotocol.registry/official")]
-    official: Option<ApiOfficialMeta>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct ApiOfficialMeta {
-    is_latest: Option<bool>,
 }
 
 // ── Public types ────────────────────────────────────────────────
@@ -127,23 +113,39 @@ pub struct RegistryRemote {
 
 // ── Fetch logic ─────────────────────────────────────────────────
 
-/// Fetch MCP servers from the official registry.
+/// Search the MCP Registry with an optional query string.
 ///
-/// Paginates through all entries, deduplicates to latest versions,
-/// and returns both HTTP and stdio-only servers.
-pub async fn fetch_registry() -> Result<Vec<RegistryServer>, McpClientError> {
+/// - `query` — if `Some`, performs server-side substring search by name.
+///   If `None`, returns a paginated listing of all latest servers.
+/// - Always requests `version=latest` to avoid duplicates.
+/// - Paginates to collect all matching results.
+pub async fn fetch_registry(query: Option<&str>) -> Result<Vec<RegistryServer>, McpClientError> {
     let client = reqwest::Client::new();
-    let mut all_entries = Vec::new();
+    let mut all_servers = Vec::new();
     let mut cursor: Option<String> = None;
 
-    for page in 0..MAX_PAGES {
-        let mut url = format!("{REGISTRY_URL}?count={PAGE_SIZE}");
+    // For unfiltered browsing, cap at a reasonable number of pages
+    let max_pages = if query.is_some() { 5 } else { MAX_PAGES };
+
+    for page in 0..max_pages {
+        let mut url = format!("{REGISTRY_URL}?version=latest&limit={PAGE_SIZE}");
+
+        if let Some(q) = query {
+            url.push_str(&format!(
+                "&search={}",
+                url::form_urlencoded::byte_serialize(q.as_bytes()).collect::<String>()
+            ));
+        }
+
         if let Some(ref c) = cursor {
             url.push_str(&format!("&cursor={c}"));
         }
 
         if page == 0 {
-            log::info!("Fetching MCP registry...");
+            log::info!(
+                "Fetching MCP registry{}...",
+                query.map(|q| format!(" (search: {q})")).unwrap_or_default()
+            );
         }
 
         let response =
@@ -163,44 +165,27 @@ pub async fn fetch_registry() -> Result<Vec<RegistryServer>, McpClientError> {
         })?;
 
         let batch_len = api.servers.len();
-        all_entries.extend(api.servers);
+        for entry in api.servers {
+            if let Some(server) = convert_entry(entry.server) {
+                all_servers.push(server);
+            }
+        }
 
-        // Check for next page
         cursor = api.metadata.and_then(|m| m.next_cursor);
         if cursor.is_none() || batch_len == 0 {
             break;
         }
     }
 
-    // Deduplicate: keep only the latest version of each server
-    let mut latest: std::collections::HashMap<String, ApiEntry> = std::collections::HashMap::new();
-    for entry in all_entries {
-        let is_latest = entry
-            .meta
-            .as_ref()
-            .and_then(|m| m.official.as_ref())
-            .and_then(|o| o.is_latest)
-            .unwrap_or(false);
-
-        if is_latest {
-            latest.insert(entry.server.name.clone(), entry);
-        }
-    }
-
-    let mut servers: Vec<RegistryServer> = latest
-        .into_values()
-        .filter_map(|entry| convert_entry(entry.server))
-        .collect();
-
     // Sort by display name for consistent ordering
-    servers.sort_by(|a, b| {
+    all_servers.sort_by(|a, b| {
         a.display_name
             .to_lowercase()
             .cmp(&b.display_name.to_lowercase())
     });
 
-    log::info!("Fetched {} servers from MCP registry", servers.len());
-    Ok(servers)
+    log::info!("Fetched {} servers from MCP registry", all_servers.len());
+    Ok(all_servers)
 }
 
 /// Convert an API server to our public type.

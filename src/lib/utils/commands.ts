@@ -246,7 +246,8 @@ export async function invokeMcpTool(
   });
 }
 
-/** Fetch servers from the official MCP Registry. */
-export async function fetchMcpRegistry(): Promise<RegistryServer[]> {
-  return invoke<RegistryServer[]>("fetch_mcp_registry");
+/** Fetch servers from the official MCP Registry.
+ *  If `query` is provided, performs server-side search by name. */
+export async function fetchMcpRegistry(query?: string): Promise<RegistryServer[]> {
+  return invoke<RegistryServer[]>("fetch_mcp_registry", { query: query ?? null });
 }

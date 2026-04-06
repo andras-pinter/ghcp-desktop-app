@@ -8,6 +8,7 @@
     testConnection,
     loadTools,
     loadRegistry,
+    searchRegistry,
   } from "$lib/stores/mcp.svelte";
   import type { McpConnectionInfo, RegistryServer } from "$lib/types/mcp";
   import McpServerForm from "./McpServerForm.svelte";
@@ -39,17 +40,23 @@
   let testResult = $state<{ serverId: string; success: boolean; message: string } | null>(null);
   let expandedTools = $state<string | null>(null);
   let registrySearch = $state("");
+  let searchDebounce: ReturnType<typeof setTimeout> | null = null;
 
-  let filteredRegistry = $derived(
-    registrySearch.trim()
-      ? mcp.registry.filter(
-          (s) =>
-            s.displayName.toLowerCase().includes(registrySearch.toLowerCase()) ||
-            s.name.toLowerCase().includes(registrySearch.toLowerCase()) ||
-            (s.description?.toLowerCase().includes(registrySearch.toLowerCase()) ?? false),
-        )
-      : mcp.registry.slice(0, 30),
-  );
+  // Debounced server-side search
+  function handleSearchInput(value: string) {
+    registrySearch = value;
+    if (searchDebounce) clearTimeout(searchDebounce);
+    searchDebounce = setTimeout(
+      () => {
+        if (value.trim()) {
+          searchRegistry(value.trim());
+        } else {
+          searchRegistry("");
+        }
+      },
+      value.trim() ? 400 : 0,
+    );
+  }
 
   onMount(() => {
     initMcp();
@@ -154,6 +161,7 @@
     <header class="mcp-header">
       <button class="back-btn" onclick={onBack} aria-label="Go back">← Back</button>
       <h2 class="mcp-title">MCP Servers</h2>
+      <button class="header-add-btn" onclick={openAddForm}>+ Add Custom</button>
     </header>
 
     <div class="mcp-content">
@@ -256,7 +264,7 @@
         <section class="mcp-section">
           <h3 class="section-heading">
             MCP Registry
-            {#if mcp.registry.length > 0}
+            {#if mcp.registry.length > 0 && !mcp.registryLoading}
               <span class="registry-count">({mcp.registry.length})</span>
             {/if}
           </h3>
@@ -266,23 +274,27 @@
               href="https://registry.modelcontextprotocol.io"
               target="_blank"
               rel="noopener noreferrer">MCP Registry</a
-            >.
+            >. Search by name to find specific servers.
           </p>
 
-          {#if mcp.registryLoading}
+          <div class="registry-search">
+            <input
+              type="text"
+              value={registrySearch}
+              oninput={(e) => handleSearchInput(e.currentTarget.value)}
+              placeholder="Search servers (e.g. azure, github, postgres)..."
+              class="search-input"
+            />
+            {#if mcp.registryLoading}
+              <span class="search-spinner" aria-label="Searching">⟳</span>
+            {/if}
+          </div>
+
+          {#if mcp.registryLoading && mcp.registry.length === 0}
             <div class="registry-loading">Fetching from registry...</div>
           {:else if mcp.registry.length > 0}
-            <div class="registry-search">
-              <input
-                type="text"
-                bind:value={registrySearch}
-                placeholder="Filter servers..."
-                class="search-input"
-              />
-            </div>
-
             <div class="registry-list">
-              {#each filteredRegistry as entry (entry.name)}
+              {#each mcp.registry as entry (entry.name)}
                 <div class="registry-entry">
                   <div class="registry-info">
                     <strong class="registry-name">{entry.displayName}</strong>
@@ -306,24 +318,13 @@
                   </div>
                 </div>
               {/each}
-
-              {#if filteredRegistry.length === 0 && registrySearch.trim()}
-                <p class="section-empty">No servers match "{registrySearch}"</p>
-              {/if}
             </div>
-
-            {#if !registrySearch.trim() && mcp.registry.length > 30}
-              <p class="registry-hint">
-                Showing 30 of {mcp.registry.length}. Use the filter to find more.
-              </p>
-            {/if}
-          {:else}
+          {:else if registrySearch.trim() && !mcp.registryLoading}
+            <p class="section-empty">No servers match "{registrySearch}"</p>
+          {:else if !mcp.registryLoading}
             <p class="section-empty">Could not load the MCP Registry.</p>
           {/if}
         </section>
-
-        <!-- Add Custom -->
-        <button class="add-custom-btn" onclick={openAddForm}>+ Add Custom Server</button>
       {/if}
     </div>
   </div>
@@ -367,6 +368,25 @@
     font-size: var(--font-size-xl);
     color: var(--color-text-primary);
     margin: 0;
+    flex: 1;
+  }
+
+  .header-add-btn {
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-medium);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border: 1px solid var(--color-border-primary);
+    border-radius: var(--radius-sm);
+    background: var(--color-bg-primary);
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    white-space: nowrap;
+  }
+  .header-add-btn:hover {
+    background: var(--color-bg-hover);
+    color: var(--color-accent-copper);
+    border-color: var(--color-accent-copper);
   }
 
   .mcp-content {
@@ -560,11 +580,13 @@
 
   .registry-search {
     margin-bottom: var(--spacing-sm);
+    position: relative;
   }
 
   .search-input {
     width: 100%;
     padding: var(--spacing-sm);
+    padding-right: var(--spacing-2xl);
     border: 1px solid var(--color-border-primary);
     border-radius: var(--radius-sm);
     background: var(--color-bg-primary);
@@ -577,6 +599,25 @@
     outline: none;
     border-color: var(--color-accent-copper);
     box-shadow: var(--shadow-input-focus);
+  }
+
+  .search-spinner {
+    position: absolute;
+    right: var(--spacing-sm);
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: var(--font-size-sm);
+    color: var(--color-accent-copper);
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    from {
+      transform: translateY(-50%) rotate(0deg);
+    }
+    to {
+      transform: translateY(-50%) rotate(360deg);
+    }
   }
 
   .registry-loading {
@@ -639,6 +680,7 @@
     margin: 0;
     display: -webkit-box;
     -webkit-line-clamp: 2;
+    line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
@@ -651,31 +693,5 @@
     font-size: var(--font-size-xs);
     color: var(--color-text-tertiary);
     font-style: italic;
-  }
-
-  .registry-hint {
-    font-size: var(--font-size-xs);
-    color: var(--color-text-tertiary);
-    font-style: italic;
-    margin-top: var(--spacing-sm);
-  }
-
-  /* ── Add Custom ── */
-
-  .add-custom-btn {
-    display: block;
-    width: 100%;
-    padding: var(--spacing-md);
-    border: 2px dashed var(--color-border-primary);
-    border-radius: var(--radius-md);
-    background: transparent;
-    color: var(--color-text-secondary);
-    cursor: pointer;
-    font-size: var(--font-size-sm);
-    transition: all var(--transition-fast);
-  }
-  .add-custom-btn:hover {
-    border-color: var(--color-accent-copper);
-    color: var(--color-accent-copper);
   }
 </style>

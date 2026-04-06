@@ -53,7 +53,7 @@ export async function initMcp(): Promise<void> {
   }
 }
 
-/** Fetch MCP servers from the official registry. */
+/** Fetch MCP servers from the official registry (initial browse). */
 export async function loadRegistry(): Promise<void> {
   if (registryLoading || registry.length > 0) return;
   registryLoading = true;
@@ -62,6 +62,19 @@ export async function loadRegistry(): Promise<void> {
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     logFrontend("warn", `Failed to fetch MCP registry: ${msg}`);
+  } finally {
+    registryLoading = false;
+  }
+}
+
+/** Search the MCP registry with a server-side query. */
+export async function searchRegistry(query: string): Promise<void> {
+  registryLoading = true;
+  try {
+    registry = await fetchMcpRegistry(query || undefined);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    logFrontend("warn", `Failed to search MCP registry: ${msg}`);
   } finally {
     registryLoading = false;
   }
