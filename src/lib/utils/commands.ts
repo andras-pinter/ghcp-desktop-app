@@ -4,6 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type { AuthState, DeviceCodeResponse, GitHubUser } from "$lib/types/auth";
 import type { Conversation } from "$lib/types/conversation";
 import type { Message, ChatMessage, Model } from "$lib/types/message";
+import type { SearchResult, ExtractedContent } from "$lib/types/web-research";
 
 // ── Logging ─────────────────────────────────────────────────────
 
@@ -169,4 +170,16 @@ export async function getDraft(
 /** Delete the draft for a conversation. */
 export async function deleteDraft(conversationId: string): Promise<void> {
   return invoke("delete_draft", { conversationId });
+}
+
+// ── Web Research ────────────────────────────────────────────────
+
+/** Search the web via Bing Web Search API. API key is read from keychain by backend. */
+export async function webSearch(query: string, count?: number): Promise<SearchResult[]> {
+  return invoke<SearchResult[]>("web_search", { query, count: count ?? null });
+}
+
+/** Fetch a URL and extract its readable content. */
+export async function fetchUrl(url: string): Promise<ExtractedContent> {
+  return invoke<ExtractedContent>("fetch_url", { url });
 }

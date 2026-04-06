@@ -55,6 +55,8 @@ pub fn run(force_logout: bool) {
             commands::settings::save_draft,
             commands::settings::get_draft,
             commands::settings::delete_draft,
+            commands::web_research::web_search,
+            commands::web_research::fetch_url,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Chuck");

@@ -1,8 +1,10 @@
 <script lang="ts">
   import type { Message } from "$lib/types/message";
+  import type { SearchResult } from "$lib/types/web-research";
   import { renderMarkdown, CODE_BLOCK_CLASS, getLastCodeBlocks } from "$lib/utils/markdown";
   import CodeBlock from "./CodeBlock.svelte";
   import ThinkingSection from "./ThinkingSection.svelte";
+  import WebResultCard from "./WebResultCard.svelte";
   import { mount, unmount } from "svelte";
   import { onDestroy } from "svelte";
 
@@ -10,6 +12,8 @@
     message: Message;
     isStreaming?: boolean;
     isLastAssistant?: boolean;
+    /** Web search results to display alongside this message. */
+    webResults?: SearchResult[];
     onEdit?: (message: Message) => void;
     onRegenerate?: () => void;
   }
@@ -20,6 +24,7 @@
     isLastAssistant = false,
     onEdit,
     onRegenerate,
+    webResults = [],
   }: Props = $props();
 
   let isUser = $derived(message.role === "user");
@@ -187,6 +192,13 @@
           {#if !message.thinkingContent}
             <span class="thinking-placeholder">Thinking<span class="dots">...</span></span>
           {/if}
+        {/if}
+        {#if webResults.length > 0}
+          <nav class="web-results" aria-label="Web sources">
+            {#each webResults as result (result.url)}
+              <WebResultCard {result} />
+            {/each}
+          </nav>
         {/if}
         {#if !isStreaming && message.content}
           <div class="message-actions assistant-actions">
@@ -377,5 +389,16 @@
 
   .action-btn:active {
     background: var(--color-bg-active);
+  }
+
+  /* ── Web results ── */
+
+  .web-results {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+    margin-top: var(--spacing-md);
+    padding-top: var(--spacing-sm);
+    border-top: 1px solid var(--color-border-primary);
   }
 </style>

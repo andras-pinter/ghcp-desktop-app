@@ -3,6 +3,7 @@
   import MessageBubble from "./MessageBubble.svelte";
   import SearchOverlay from "./SearchOverlay.svelte";
   import type { Message, ChatMessage } from "$lib/types/message";
+  import type { UrlPreview } from "$lib/types/web-research";
   import { sendMessage, stopStreaming, updateConversation } from "$lib/utils/commands";
   import { onStreamingToken, onStreamingComplete, onStreamingError } from "$lib/utils/events";
   import { onMount, onDestroy } from "svelte";
@@ -113,7 +114,7 @@
     if (draftTimer) clearTimeout(draftTimer);
   });
 
-  async function handleSend(text: string) {
+  async function handleSend(text: string, urls?: UrlPreview[]) {
     // Ensure we have an active conversation
     let convId = store.activeConversationId;
     if (!convId) {
@@ -125,11 +126,27 @@
     clearDraft(convId);
     draftText = "";
 
+    // Build user message content — append URL context if provided
+    let content = text;
+    if (urls && urls.length > 0) {
+      const urlContext = urls
+        .filter((u) => u.content)
+        .map((u) => {
+          const title = u.content?.title ? ` — ${u.content.title}` : "";
+          const truncNote = u.content?.truncated ? " (truncated)" : "";
+          return `\n\n---\n📎 [${u.domain}${title}](${u.url})${truncNote}\n\n${u.content?.text}`;
+        })
+        .join("");
+      if (urlContext) {
+        content = text + urlContext;
+      }
+    }
+
     const userMessage: Message = {
       id: crypto.randomUUID(),
       conversationId: convId,
       role: "user",
-      content: text,
+      content,
       createdAt: new Date().toISOString(),
       sortOrder: store.messages.length,
     };

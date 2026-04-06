@@ -16,6 +16,8 @@ pub struct AppState {
     pub copilot: CopilotClient,
     /// Flag to cancel an in-flight streaming response.
     pub cancel_stream: TokioMutex<Option<tokio::sync::watch::Sender<bool>>>,
+    /// Shared HTTP client for web research (hardened with SSRF protection).
+    pub http_client: web_research::HttpClient,
 }
 
 impl AppState {
@@ -39,6 +41,7 @@ impl AppState {
             db: Mutex::new(conn),
             copilot: CopilotClient::new(),
             cancel_stream: TokioMutex::new(None),
+            http_client: web_research::new_client()?,
         })
     }
 }

@@ -1,8 +1,10 @@
 <script lang="ts">
   import type { Model } from "$lib/types/message";
+  import type { UrlPreview } from "$lib/types/web-research";
+  import { fetchUrl } from "$lib/utils/commands";
 
   interface Props {
-    onSend: (text: string) => void;
+    onSend: (text: string, urls?: UrlPreview[]) => void;
     onStop?: () => void;
     streaming?: boolean;
     model?: string;
@@ -35,11 +37,24 @@
   let dropdownOpen = $state(false);
   let dropdownEl: HTMLDivElement | undefined = $state();
 
+  // URL input state
+  let urlInputVisible = $state(false);
+  let urlInputText = $state("");
+  let urlInputEl: HTMLInputElement | undefined = $state();
+  let attachedUrls: UrlPreview[] = $state([]);
+
   // Sync initialValue prop on first mount
   $effect(() => {
     if (!initialized && initialValue) {
       inputText = initialValue;
       initialized = true;
+    }
+  });
+
+  // Auto-focus URL input when it appears
+  $effect(() => {
+    if (urlInputVisible && urlInputEl) {
+      urlInputEl.focus();
     }
   });
 
@@ -53,8 +68,12 @@
   function handleSend() {
     const trimmed = inputText.trim();
     if (!trimmed || streaming) return;
-    onSend(trimmed);
+    const urls = attachedUrls.filter((u) => u.content !== null);
+    onSend(trimmed, urls.length > 0 ? urls : undefined);
     inputText = "";
+    attachedUrls = [];
+    urlInputVisible = false;
+    urlInputText = "";
     if (textareaEl) {
       textareaEl.style.height = "auto";
     }
@@ -93,6 +112,91 @@
     return m.name ?? m.id;
   }
 
+  /** Extract domain from a URL string. */
+  function extractDomain(url: string): string {
+    try {
+      return new URL(url).hostname.replace(/^www\./, "");
+    } catch {
+      return url;
+    }
+  }
+
+  /** Toggle the URL input bar. */
+  function toggleUrlInput() {
+    urlInputVisible = !urlInputVisible;
+    if (!urlInputVisible) {
+      urlInputText = "";
+    }
+  }
+
+  /** Add a URL to the attached list and fetch its content. */
+  async function addUrl(raw: string) {
+    const trimmed = raw.trim();
+    if (!trimmed) return;
+
+    // Auto-upgrade http:// to https:// for safety; add https:// if no scheme
+    let url = trimmed;
+    if (/^http:\/\//i.test(url)) {
+      url = url.replace(/^http:\/\//i, "https://");
+    } else if (!/^https:\/\//i.test(url)) {
+      url = "https://" + url;
+    }
+
+    // Don't add duplicates
+    if (attachedUrls.some((u) => u.url === url)) {
+      urlInputText = "";
+      return;
+    }
+
+    const preview: UrlPreview = {
+      url,
+      domain: extractDomain(url),
+      content: null,
+      loading: true,
+      error: null,
+    };
+
+    attachedUrls = [...attachedUrls, preview];
+    urlInputText = "";
+
+    // Fetch in background
+    try {
+      const content = await fetchUrl(url);
+      attachedUrls = attachedUrls.map((u) =>
+        u.url === url ? { ...u, content, loading: false } : u,
+      );
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      attachedUrls = attachedUrls.map((u) =>
+        u.url === url ? { ...u, loading: false, error: msg } : u,
+      );
+    }
+  }
+
+  function handleUrlKeydown(event: KeyboardEvent) {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      addUrl(urlInputText);
+    } else if (event.key === "Escape") {
+      urlInputVisible = false;
+      urlInputText = "";
+      textareaEl?.focus();
+    }
+  }
+
+  function removeUrl(url: string) {
+    attachedUrls = attachedUrls.filter((u) => u.url !== url);
+  }
+
+  /** Handle paste — auto-detect URLs and add them. */
+  function handlePaste(event: ClipboardEvent) {
+    const text = event.clipboardData?.getData("text/plain")?.trim();
+    if (text && /^https?:\/\/\S+$/i.test(text)) {
+      event.preventDefault();
+      addUrl(text);
+    }
+  }
+
   $effect(() => {
     if (dropdownOpen) {
       document.addEventListener("click", handleWindowClick);
@@ -105,11 +209,80 @@
 
 <div class="input-area">
   <div class="input-box">
+    {#if attachedUrls.length > 0}
+      <div class="url-pills">
+        {#each attachedUrls as urlPreview (urlPreview.url)}
+          <div class="url-pill" class:error={!!urlPreview.error} class:loading={urlPreview.loading}>
+            <svg
+              class="url-pill-icon"
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
+              <path d="M2 12h20" />
+            </svg>
+            <span class="url-pill-domain">{urlPreview.domain}</span>
+            {#if urlPreview.loading}
+              <span class="url-pill-spinner"></span>
+            {:else if urlPreview.error}
+              <span class="url-pill-error" title={urlPreview.error}>✗</span>
+            {:else}
+              <span class="url-pill-ok">✓</span>
+            {/if}
+            <button
+              class="url-pill-remove"
+              onclick={() => removeUrl(urlPreview.url)}
+              aria-label="Remove {urlPreview.domain}"
+            >
+              ✕
+            </button>
+          </div>
+        {/each}
+      </div>
+    {/if}
+
+    {#if urlInputVisible}
+      <div class="url-input-row">
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          class="url-input-icon"
+        >
+          <circle cx="12" cy="12" r="10" />
+          <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
+          <path d="M2 12h20" />
+        </svg>
+        <input
+          bind:this={urlInputEl}
+          bind:value={urlInputText}
+          onkeydown={handleUrlKeydown}
+          type="url"
+          placeholder="Paste a URL and press Enter..."
+          class="url-input"
+          aria-label="URL input"
+        />
+      </div>
+    {/if}
+
     <textarea
       bind:this={textareaEl}
       bind:value={inputText}
       onkeydown={handleKeydown}
       oninput={handleInput}
+      onpaste={handlePaste}
       placeholder="Message Copilot..."
       rows="1"
       aria-label="Message input"
@@ -128,6 +301,29 @@
             <path
               d="M14 8.5l-5.5 5.5a3.5 3.5 0 0 1-5-5L9 3.5a2.5 2.5 0 0 1 3.5 3.5L7 12.5a1.5 1.5 0 0 1-2-2L10.5 5"
             />
+          </svg>
+        </button>
+
+        <button
+          class="action-btn"
+          class:active-toggle={urlInputVisible}
+          onclick={toggleUrlInput}
+          aria-label="Add URL"
+          title="Fetch web page content"
+        >
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <circle cx="12" cy="12" r="10" />
+            <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
+            <path d="M2 12h20" />
           </svg>
         </button>
 
@@ -522,5 +718,128 @@
     background: var(--color-bg-hover);
     border-color: var(--color-accent-copper);
     color: var(--color-accent-copper);
+  }
+
+  /* ── Web button active toggle ─────────────────────── */
+
+  .active-toggle {
+    color: var(--color-accent-copper) !important;
+    background: var(--color-accent-subtle) !important;
+  }
+
+  /* ── URL input row ────────────────────────────────── */
+
+  .url-input-row {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-xs) var(--spacing-lg);
+    border-bottom: 1px solid var(--color-border-secondary);
+  }
+
+  .url-input-icon {
+    color: var(--color-text-tertiary);
+    flex-shrink: 0;
+  }
+
+  .url-input {
+    flex: 1;
+    border: none;
+    background: transparent;
+    color: var(--color-text-primary);
+    font-family: var(--font-sans);
+    font-size: var(--font-size-sm);
+    outline: none;
+    padding: var(--spacing-xs) 0;
+  }
+
+  .url-input::placeholder {
+    color: var(--color-text-tertiary);
+  }
+
+  /* ── URL preview pills ────────────────────────────── */
+
+  .url-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-sm) var(--spacing-lg) 0;
+  }
+
+  .url-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 6px 2px 8px;
+    border: 1px solid var(--color-border-primary);
+    border-radius: var(--radius-full);
+    background: var(--color-bg-secondary);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+    max-width: 240px;
+    transition:
+      border-color var(--transition-fast),
+      background var(--transition-fast);
+  }
+
+  .url-pill.error {
+    border-color: var(--color-error);
+    background: var(--color-error-subtle);
+  }
+
+  .url-pill-icon {
+    color: var(--color-text-tertiary);
+    flex-shrink: 0;
+  }
+
+  .url-pill-domain {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .url-pill-spinner {
+    width: 8px;
+    height: 8px;
+    border: 1.5px solid var(--color-border-primary);
+    border-top-color: var(--color-accent-copper);
+    border-radius: 50%;
+    animation: spin 800ms linear infinite;
+    flex-shrink: 0;
+  }
+
+  .url-pill-ok {
+    color: var(--color-success);
+    font-size: 10px;
+    flex-shrink: 0;
+  }
+
+  .url-pill-error {
+    color: var(--color-error);
+    font-size: 10px;
+    flex-shrink: 0;
+  }
+
+  .url-pill-remove {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--color-text-tertiary);
+    font-size: 10px;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: all var(--transition-fast);
+    padding: 0;
+    line-height: 1;
+  }
+
+  .url-pill-remove:hover {
+    background: var(--color-bg-hover);
+    color: var(--color-text-primary);
   }
 </style>
