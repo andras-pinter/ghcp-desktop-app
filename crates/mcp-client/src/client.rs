@@ -66,29 +66,33 @@ impl McpConnection {
     /// Connect via stdio transport (launches a child process).
     ///
     /// # Security
-    /// - Binary path must be absolute
-    /// - Binary must exist on disk
+    /// - Binary path must be absolute or a bare command name (resolved via PATH)
+    /// - If absolute, binary must exist on disk
     /// - Args JSON must be a valid string array if provided
     async fn connect_stdio(&mut self) -> Result<(), McpClientError> {
         let binary = self.config.binary_path.as_deref().ok_or_else(|| {
             McpClientError::InvalidConfig("stdio transport requires binary_path".to_string())
         })?;
 
-        // Validate binary path is absolute
         let binary_path = std::path::Path::new(binary);
-        if !binary_path.is_absolute() {
-            let msg = "binary_path must be an absolute path".to_string();
-            self.status = McpServerStatus::Error;
-            self.error = Some(msg.clone());
-            return Err(McpClientError::InvalidConfig(msg));
-        }
 
-        // Validate binary exists
-        if !binary_path.exists() {
-            let msg = format!("binary not found: {binary}");
-            self.status = McpServerStatus::Error;
-            self.error = Some(msg.clone());
-            return Err(McpClientError::InvalidConfig(msg));
+        // Allow bare command names (npx, uvx, dotnet) resolved via PATH.
+        // Only validate existence for absolute paths.
+        let is_bare_command = !binary.contains('/') && !binary.contains('\\');
+        if !is_bare_command {
+            if !binary_path.is_absolute() {
+                let msg =
+                    "binary_path must be absolute or a bare command name (e.g., npx)".to_string();
+                self.status = McpServerStatus::Error;
+                self.error = Some(msg.clone());
+                return Err(McpClientError::InvalidConfig(msg));
+            }
+            if !binary_path.exists() {
+                let msg = format!("binary not found: {binary}");
+                self.status = McpServerStatus::Error;
+                self.error = Some(msg.clone());
+                return Err(McpClientError::InvalidConfig(msg));
+            }
         }
 
         log::info!(

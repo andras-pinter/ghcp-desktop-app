@@ -243,12 +243,14 @@ pub async fn invoke_mcp_tool(
 /// Fetch MCP servers from the official MCP Registry.
 ///
 /// If `query` is provided, performs a server-side search by name.
-/// Otherwise returns a paginated listing of all latest servers.
+/// If `cursor` is provided, fetches the next page.
+/// Returns a page of results with an optional cursor for the next page.
 #[tauri::command]
 pub async fn fetch_mcp_registry(
     query: Option<String>,
-) -> Result<Vec<mcp_client::RegistryServer>, String> {
-    mcp_client::fetch_registry(query.as_deref())
+    cursor: Option<String>,
+) -> Result<mcp_client::RegistryPage, String> {
+    mcp_client::fetch_registry(query.as_deref(), cursor.as_deref())
         .await
         .map_err(|e| e.to_string())
 }

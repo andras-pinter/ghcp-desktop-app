@@ -13,11 +13,8 @@ use crate::types::McpClientError;
 /// Default registry base URL.
 const REGISTRY_URL: &str = "https://registry.modelcontextprotocol.io/v0.1/servers";
 
-/// Results per page (API max is 100).
-const PAGE_SIZE: usize = 100;
-
-/// Maximum pages to fetch for a single query (safety limit).
-const MAX_PAGES: usize = 30;
+/// Results per page.
+const PAGE_SIZE: usize = 20;
 
 // ── API response types ──────────────────────────────────────────
 
@@ -134,75 +131,75 @@ pub struct RegistryRemote {
     pub auth_description: Option<String>,
 }
 
+/// A page of results from the MCP Registry.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RegistryPage {
+    /// Servers in this page.
+    pub servers: Vec<RegistryServer>,
+    /// Cursor for the next page, if more results exist.
+    pub next_cursor: Option<String>,
+}
+
 // ── Fetch logic ─────────────────────────────────────────────────
 
-/// Search the MCP Registry with an optional query string.
+/// Fetch a single page of servers from the MCP Registry.
 ///
 /// - `query` — if `Some`, performs server-side substring search by name.
-///   If `None`, returns a paginated listing of all latest servers.
+/// - `cursor` — if `Some`, fetches the next page after this cursor.
 /// - Always requests `version=latest` to avoid duplicates.
-/// - Paginates to collect all matching results.
-pub async fn fetch_registry(query: Option<&str>) -> Result<Vec<RegistryServer>, McpClientError> {
+/// - Returns a page of results with an optional next cursor.
+pub async fn fetch_registry(
+    query: Option<&str>,
+    cursor: Option<&str>,
+) -> Result<RegistryPage, McpClientError> {
     let client = reqwest::Client::new();
-    let mut all_servers = Vec::new();
-    let mut cursor: Option<String> = None;
 
-    // For unfiltered browsing, cap at a reasonable number of pages
-    let max_pages = if query.is_some() { 5 } else { MAX_PAGES };
+    let mut url = format!("{REGISTRY_URL}?version=latest&limit={PAGE_SIZE}");
 
-    for page in 0..max_pages {
-        let mut url = format!("{REGISTRY_URL}?version=latest&limit={PAGE_SIZE}");
-
-        if let Some(q) = query {
-            url.push_str(&format!(
-                "&search={}",
-                url::form_urlencoded::byte_serialize(q.as_bytes()).collect::<String>()
-            ));
-        }
-
-        if let Some(ref c) = cursor {
-            url.push_str(&format!("&cursor={c}"));
-        }
-
-        if page == 0 {
-            log::info!(
-                "Fetching MCP registry{}...",
-                query.map(|q| format!(" (search: {q})")).unwrap_or_default()
-            );
-        }
-
-        let response =
-            client.get(&url).send().await.map_err(|e| {
-                McpClientError::Transport(format!("Failed to fetch MCP registry: {e}"))
-            })?;
-
-        if !response.status().is_success() {
-            return Err(McpClientError::Transport(format!(
-                "MCP registry returned status {}",
-                response.status()
-            )));
-        }
-
-        let api: ApiResponse = response.json().await.map_err(|e| {
-            McpClientError::Transport(format!("Failed to parse MCP registry response: {e}"))
-        })?;
-
-        let batch_len = api.servers.len();
-        for entry in api.servers {
-            if let Some(server) = convert_entry(entry.server) {
-                all_servers.push(server);
-            }
-        }
-
-        cursor = api.metadata.and_then(|m| m.next_cursor);
-        if cursor.is_none() || batch_len == 0 {
-            break;
-        }
+    if let Some(q) = query {
+        url.push_str(&format!(
+            "&search={}",
+            url::form_urlencoded::byte_serialize(q.as_bytes()).collect::<String>()
+        ));
     }
 
-    // Sort: first-party servers first (heuristic: name prefix is not io.github.* or
-    // ai.smithery/*), then alphabetically by display name within each group.
-    all_servers.sort_by(|a, b| {
+    if let Some(c) = cursor {
+        url.push_str(&format!("&cursor={c}"));
+    }
+
+    log::info!(
+        "Fetching MCP registry page{}{}...",
+        query.map(|q| format!(" (search: {q})")).unwrap_or_default(),
+        cursor.map(|_| " (next page)").unwrap_or_default()
+    );
+
+    let response = client
+        .get(&url)
+        .send()
+        .await
+        .map_err(|e| McpClientError::Transport(format!("Failed to fetch MCP registry: {e}")))?;
+
+    if !response.status().is_success() {
+        return Err(McpClientError::Transport(format!(
+            "MCP registry returned status {}",
+            response.status()
+        )));
+    }
+
+    let api: ApiResponse = response.json().await.map_err(|e| {
+        McpClientError::Transport(format!("Failed to parse MCP registry response: {e}"))
+    })?;
+
+    let next_cursor = api.metadata.and_then(|m| m.next_cursor);
+    let mut servers: Vec<RegistryServer> = api
+        .servers
+        .into_iter()
+        .filter_map(|entry| convert_entry(entry.server))
+        .collect();
+
+    // Sort: first-party servers first, then alphabetically
+    servers.sort_by(|a, b| {
         let a_first_party = is_first_party(&a.name);
         let b_first_party = is_first_party(&b.name);
         b_first_party.cmp(&a_first_party).then_with(|| {
@@ -212,8 +209,15 @@ pub async fn fetch_registry(query: Option<&str>) -> Result<Vec<RegistryServer>, 
         })
     });
 
-    log::info!("Fetched {} servers from MCP registry", all_servers.len());
-    Ok(all_servers)
+    log::info!(
+        "Fetched {} servers (has_more: {})",
+        servers.len(),
+        next_cursor.is_some()
+    );
+    Ok(RegistryPage {
+        servers,
+        next_cursor,
+    })
 }
 
 /// Convert an API server to our public type.

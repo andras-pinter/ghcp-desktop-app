@@ -246,8 +246,18 @@ export async function invokeMcpTool(
   });
 }
 
-/** Fetch servers from the official MCP Registry.
- *  If `query` is provided, performs server-side search by name. */
-export async function fetchMcpRegistry(query?: string): Promise<RegistryServer[]> {
-  return invoke<RegistryServer[]>("fetch_mcp_registry", { query: query ?? null });
+/** A page of results from the MCP Registry. */
+export interface RegistryPage {
+  servers: RegistryServer[];
+  nextCursor: string | null;
+}
+
+/** Fetch a page of servers from the official MCP Registry.
+ *  If `query` is provided, performs server-side search by name.
+ *  If `cursor` is provided, fetches the next page. */
+export async function fetchMcpRegistry(query?: string, cursor?: string): Promise<RegistryPage> {
+  return invoke<RegistryPage>("fetch_mcp_registry", {
+    query: query ?? null,
+    cursor: cursor ?? null,
+  });
 }

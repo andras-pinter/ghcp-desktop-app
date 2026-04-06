@@ -9,6 +9,7 @@
     testConnection,
     loadTools,
     loadRegistry,
+    loadRegistryMore,
     searchRegistry,
   } from "$lib/stores/mcp.svelte";
   import type { McpConnectionInfo, McpServerConfig, RegistryServer } from "$lib/types/mcp";
@@ -595,6 +596,20 @@
                   </div>
                 </button>
               {/each}
+              {#if mcp.hasMoreRegistry}
+                <button
+                  class="load-more-btn"
+                  onclick={loadRegistryMore}
+                  disabled={mcp.registryLoading}
+                  type="button"
+                >
+                  {#if mcp.registryLoading}
+                    <span class="loading-spinner"></span> Loading…
+                  {:else}
+                    Load more
+                  {/if}
+                </button>
+              {/if}
             </div>
           {:else if registrySearch.trim() && !mcp.registryLoading}
             <p class="section-empty">No servers match "{registrySearch}"</p>
@@ -922,6 +937,32 @@
     display: flex;
     flex-direction: column;
     gap: var(--spacing-xs);
+  }
+
+  .load-more-btn {
+    width: 100%;
+    padding: var(--spacing-sm);
+    background: none;
+    border: 1px dashed var(--color-border-secondary);
+    border-radius: var(--radius-md);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-xs);
+    transition:
+      color var(--transition-fast),
+      border-color var(--transition-fast);
+  }
+  .load-more-btn:hover:not(:disabled) {
+    color: var(--color-accent-copper);
+    border-color: var(--color-accent-copper);
+  }
+  .load-more-btn:disabled {
+    cursor: default;
+    opacity: 0.7;
   }
 
   .registry-entry {

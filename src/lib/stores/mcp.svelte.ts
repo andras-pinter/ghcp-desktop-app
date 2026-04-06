@@ -30,6 +30,12 @@ let registry = $state<RegistryServer[]>([]);
 /** Whether the registry is being fetched. */
 let registryLoading = $state(false);
 
+/** Cursor for the next page of registry results. */
+let registryCursor = $state<string | null>(null);
+
+/** Current search query (empty = browse all). */
+let registryQuery = $state("");
+
 /** Whether the store is loading. */
 let loading = $state(false);
 
@@ -53,12 +59,15 @@ export async function initMcp(): Promise<void> {
   }
 }
 
-/** Fetch MCP servers from the official registry (initial browse). */
+/** Fetch the first page of MCP servers from the registry. */
 export async function loadRegistry(): Promise<void> {
   if (registryLoading || registry.length > 0) return;
   registryLoading = true;
+  registryQuery = "";
   try {
-    registry = await fetchMcpRegistry();
+    const page = await fetchMcpRegistry();
+    registry = page.servers;
+    registryCursor = page.nextCursor;
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     logFrontend("warn", `Failed to fetch MCP registry: ${msg}`);
@@ -67,11 +76,30 @@ export async function loadRegistry(): Promise<void> {
   }
 }
 
-/** Search the MCP registry with a server-side query. */
-export async function searchRegistry(query: string): Promise<void> {
+/** Load the next page of registry results (infinite scroll). */
+export async function loadRegistryMore(): Promise<void> {
+  if (registryLoading || !registryCursor) return;
   registryLoading = true;
   try {
-    registry = await fetchMcpRegistry(query || undefined);
+    const page = await fetchMcpRegistry(registryQuery || undefined, registryCursor);
+    registry = [...registry, ...page.servers];
+    registryCursor = page.nextCursor;
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    logFrontend("warn", `Failed to fetch more registry results: ${msg}`);
+  } finally {
+    registryLoading = false;
+  }
+}
+
+/** Search the MCP registry (resets to first page). */
+export async function searchRegistry(query: string): Promise<void> {
+  registryLoading = true;
+  registryQuery = query;
+  try {
+    const page = await fetchMcpRegistry(query || undefined);
+    registry = page.servers;
+    registryCursor = page.nextCursor;
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     logFrontend("warn", `Failed to search MCP registry: ${msg}`);
@@ -87,6 +115,12 @@ export async function addServer(config: McpServerConfig): Promise<McpConnectionI
   try {
     const info = await addMcpServer(config);
     servers = [...servers, info];
+    // Auto-connect the newly added server
+    try {
+      await connectServer(info.config.id);
+    } catch {
+      // Connection failure is non-fatal — server is still added
+    }
     return info;
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
@@ -172,6 +206,9 @@ export function getMcpState() {
     },
     get registryLoading() {
       return registryLoading;
+    },
+    get hasMoreRegistry() {
+      return registryCursor !== null;
     },
     get loading() {
       return loading;
