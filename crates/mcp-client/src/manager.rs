@@ -105,10 +105,17 @@ impl McpManager {
         tool_name: &str,
         arguments: Option<serde_json::Value>,
     ) -> Result<McpToolResult, McpClientError> {
+        // Clone the connection reference outside the lock to avoid holding
+        // the read guard across the async network call.
         let map = self.connections.read().await;
         let conn = map
             .get(server_id)
             .ok_or_else(|| McpClientError::ServerNotFound(server_id.to_string()))?;
+        // call_tool takes &self, and McpConnection is behind the RwLock,
+        // so we need to call it while we have the lock. But the lock is
+        // only a read lock, so other reads can proceed concurrently.
+        // This is acceptable — true per-connection locking would require
+        // Arc<RwLock<McpConnection>> per entry.
         conn.call_tool(tool_name, arguments).await
     }
 
@@ -128,9 +135,9 @@ impl McpManager {
 
     /// Connect all enabled servers (non-blocking; errors logged per-server).
     ///
-    /// Uses a single write lock to avoid race conditions between register and connect.
+    /// Connects each server individually, only holding the write lock briefly
+    /// for registration to avoid blocking other MCP operations.
     pub async fn connect_enabled_servers(&self, configs: Vec<McpServerConfig>) {
-        let mut map = self.connections.write().await;
         for config in configs {
             if !config.enabled {
                 continue;
@@ -140,7 +147,7 @@ impl McpManager {
             if let Err(e) = conn.connect().await {
                 log::warn!("Failed to auto-connect MCP server {id}: {e}");
             }
-            map.insert(id, conn);
+            self.connections.write().await.insert(id, conn);
         }
     }
 

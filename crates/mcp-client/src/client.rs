@@ -9,6 +9,8 @@ use rmcp::model::{CallToolRequestParams, Tool};
 use rmcp::service::{RoleClient, RunningService};
 use rmcp::transport::child_process::TokioChildProcess;
 #[cfg(feature = "http")]
+use rmcp::transport::streamable_http_client::StreamableHttpClientTransportConfig;
+#[cfg(feature = "http")]
 use rmcp::transport::StreamableHttpClientTransport;
 use rmcp::ServiceExt;
 use tokio::process::Command;
@@ -23,13 +25,7 @@ use crate::types::{
 const MAX_RESPONSE_SIZE: usize = 1_000_000;
 
 /// Allowed image MIME types for MCP tool responses.
-const ALLOWED_IMAGE_MIMES: &[&str] = &[
-    "image/png",
-    "image/jpeg",
-    "image/gif",
-    "image/webp",
-    "image/svg+xml",
-];
+const ALLOWED_IMAGE_MIMES: &[&str] = &["image/png", "image/jpeg", "image/gif", "image/webp"];
 
 /// A live connection to a single MCP server.
 pub struct McpConnection {
@@ -120,13 +116,23 @@ impl McpConnection {
             McpClientError::Transport(msg)
         })?;
 
-        let client = ().serve(transport).await.map_err(|e| {
-            log::error!("MCP handshake error for '{}': {e}", self.config.id);
-            let msg = "MCP handshake failed".to_string();
-            self.status = McpServerStatus::Error;
-            self.error = Some(msg.clone());
-            McpClientError::Connection(msg)
-        })?;
+        let handshake_fut = ().serve(transport);
+        let client = tokio::time::timeout(std::time::Duration::from_secs(30), handshake_fut)
+            .await
+            .map_err(|_| {
+                log::error!("MCP handshake timed out for '{}'", self.config.id);
+                let msg = "MCP handshake timed out (30s)".to_string();
+                self.status = McpServerStatus::Error;
+                self.error = Some(msg.clone());
+                McpClientError::Connection(msg)
+            })?
+            .map_err(|e| {
+                log::error!("MCP handshake error for '{}': {e}", self.config.id);
+                let msg = "MCP handshake failed".to_string();
+                self.status = McpServerStatus::Error;
+                self.error = Some(msg.clone());
+                McpClientError::Connection(msg)
+            })?;
 
         self.client = Some(client);
         self.discover_tools().await?;
@@ -139,6 +145,8 @@ impl McpConnection {
     /// # Security
     /// - Only HTTPS URLs allowed (HTTP only for localhost)
     /// - Private/internal IP ranges blocked (SSRF protection)
+    /// - DNS-resolved IPs validated to prevent rebinding attacks
+    /// - Connection timeout enforced
     async fn connect_http(&mut self) -> Result<(), McpClientError> {
         let url_str = self.config.url.as_deref().ok_or_else(|| {
             McpClientError::InvalidConfig("HTTP transport requires url".to_string())
@@ -174,9 +182,29 @@ impl McpConnection {
 
         // Block private/internal IP ranges (SSRF protection)
         if let Some(host) = parsed.host_str() {
+            // First check if the hostname is a literal IP
             if let Ok(ip) = host.parse::<IpAddr>() {
                 if is_private_ip(&ip) {
                     let msg = "Cannot connect to private/internal IP addresses".to_string();
+                    self.status = McpServerStatus::Error;
+                    self.error = Some(msg.clone());
+                    return Err(McpClientError::InvalidConfig(msg));
+                }
+            }
+
+            // DNS rebinding protection: resolve hostname and validate all IPs
+            let port = parsed.port_or_known_default().unwrap_or(443);
+            let lookup = format!("{host}:{port}");
+            let addrs: Vec<_> = tokio::net::lookup_host(&lookup)
+                .await
+                .map(|a| a.collect())
+                .unwrap_or_default();
+            for addr in &addrs {
+                if is_private_ip(&addr.ip()) {
+                    let msg = format!(
+                        "DNS for '{host}' resolves to private IP {}; connection blocked",
+                        addr.ip()
+                    );
                     self.status = McpServerStatus::Error;
                     self.error = Some(msg.clone());
                     return Err(McpClientError::InvalidConfig(msg));
@@ -186,9 +214,32 @@ impl McpConnection {
 
         #[cfg(feature = "http")]
         {
-            let transport = StreamableHttpClientTransport::from_uri(url_str);
+            use std::time::Duration;
 
-            let client: RunningService<RoleClient, ()> = ().serve(transport).await.map_err(|e| {
+            let mut config = StreamableHttpClientTransportConfig::with_uri(url_str);
+
+            // Apply auth header if configured
+            if let Some(auth) = &self.config.auth_header {
+                if !auth.is_empty() {
+                    config.auth_header = Some(auth.clone());
+                }
+            }
+
+            let transport = StreamableHttpClientTransport::from_config(config);
+
+            let client: RunningService<RoleClient, ()> = tokio::time::timeout(
+                Duration::from_secs(30),
+                <() as ServiceExt<RoleClient>>::serve((), transport),
+            )
+            .await
+            .map_err(|_| {
+                log::error!("HTTP connection timed out for '{}'", self.config.id);
+                let msg = "MCP HTTP connection timed out (30s)".to_string();
+                self.status = McpServerStatus::Error;
+                self.error = Some(msg.clone());
+                McpClientError::Connection(msg)
+            })?
+            .map_err(|e| {
                 log::error!("HTTP connection error for '{}': {e}", self.config.id);
                 let msg = "MCP HTTP connection failed".to_string();
                 self.status = McpServerStatus::Error;
@@ -361,8 +412,39 @@ fn is_private_ip(ip: &IpAddr) -> bool {
                 || v4.is_unspecified()   // 0.0.0.0
                 || v4.octets() == [169, 254, 169, 254] // cloud metadata
         }
-        IpAddr::V6(v6) => v6.is_loopback() || v6.is_unspecified(),
+        IpAddr::V6(v6) => {
+            v6.is_loopback()             // ::1
+                || v6.is_unspecified()   // ::
+                || is_ipv6_private(v6)
+        }
     }
+}
+
+/// Check if an IPv6 address is in a private/reserved range.
+fn is_ipv6_private(v6: &std::net::Ipv6Addr) -> bool {
+    let segs = v6.segments();
+
+    // Link-local: fe80::/10
+    if segs[0] & 0xffc0 == 0xfe80 {
+        return true;
+    }
+    // Unique-local: fc00::/7 (includes fd00::/8)
+    if segs[0] & 0xfe00 == 0xfc00 {
+        return true;
+    }
+    // IPv4-mapped: ::ffff:x.x.x.x — check the embedded IPv4
+    if let Some(v4) = v6.to_ipv4_mapped() {
+        return is_private_ip(&IpAddr::V4(v4));
+    }
+    // Teredo: 2001:0000::/32
+    if segs[0] == 0x2001 && segs[1] == 0x0000 {
+        return true;
+    }
+    // Deprecated site-local: fec0::/10
+    if segs[0] & 0xffc0 == 0xfec0 {
+        return true;
+    }
+    false
 }
 
 #[cfg(test)]
@@ -371,6 +453,7 @@ mod tests {
 
     #[test]
     fn test_private_ip_detection() {
+        // IPv4
         assert!(is_private_ip(&"127.0.0.1".parse().unwrap()));
         assert!(is_private_ip(&"10.0.0.1".parse().unwrap()));
         assert!(is_private_ip(&"172.16.0.1".parse().unwrap()));
@@ -378,10 +461,31 @@ mod tests {
         assert!(is_private_ip(&"169.254.169.254".parse().unwrap()));
         assert!(is_private_ip(&"169.254.1.1".parse().unwrap()));
         assert!(is_private_ip(&"0.0.0.0".parse().unwrap()));
-        assert!(is_private_ip(&"::1".parse().unwrap()));
 
+        // IPv6 basics
+        assert!(is_private_ip(&"::1".parse().unwrap()));
+        assert!(is_private_ip(&"::".parse().unwrap()));
+
+        // IPv6 link-local (fe80::/10)
+        assert!(is_private_ip(&"fe80::1".parse().unwrap()));
+        // IPv6 unique-local (fc00::/7)
+        assert!(is_private_ip(&"fd00::1".parse().unwrap()));
+        assert!(is_private_ip(&"fc00::1".parse().unwrap()));
+        // IPv4-mapped IPv6 (::ffff:10.0.0.1)
+        assert!(is_private_ip(&"::ffff:10.0.0.1".parse().unwrap()));
+        assert!(is_private_ip(&"::ffff:192.168.1.1".parse().unwrap()));
+        assert!(is_private_ip(&"::ffff:169.254.169.254".parse().unwrap()));
+        // Teredo (2001:0000::/32)
+        assert!(is_private_ip(&"2001:0000::1".parse().unwrap()));
+        // Site-local (fec0::/10)
+        assert!(is_private_ip(&"fec0::1".parse().unwrap()));
+
+        // Public IPs
         assert!(!is_private_ip(&"8.8.8.8".parse().unwrap()));
         assert!(!is_private_ip(&"1.1.1.1".parse().unwrap()));
         assert!(!is_private_ip(&"203.0.113.1".parse().unwrap()));
+        assert!(!is_private_ip(&"2607:f8b0:4004:800::200e".parse().unwrap()));
+        // Public IPv4-mapped IPv6
+        assert!(!is_private_ip(&"::ffff:8.8.8.8".parse().unwrap()));
     }
 }

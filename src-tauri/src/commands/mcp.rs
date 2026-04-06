@@ -14,10 +14,14 @@ fn row_to_config(row: &McpServerRow) -> McpServerConfig {
     McpServerConfig {
         id: row.id.clone(),
         name: row.name.clone(),
-        transport: row
-            .transport
-            .parse::<McpTransport>()
-            .unwrap_or(McpTransport::Http),
+        transport: row.transport.parse::<McpTransport>().unwrap_or_else(|_| {
+            log::warn!(
+                "Invalid transport '{}' for MCP server '{}', defaulting to HTTP",
+                row.transport,
+                row.id
+            );
+            McpTransport::Http
+        }),
         url: row.url.clone(),
         binary_path: row.binary_path.clone(),
         args: row.args.clone(),
@@ -44,8 +48,74 @@ fn config_to_row(config: &McpServerConfig, now: &str) -> McpServerRow {
     }
 }
 
+/// ISO 8601 timestamp helper.
 fn now_iso() -> String {
     chrono::Utc::now().to_rfc3339()
+}
+
+/// Validate an `McpServerConfig` before persisting to DB.
+///
+/// The connection logic (`connect_stdio`, `connect_http`) performs its own
+/// validation at connect-time, but we must also reject obviously invalid
+/// configs before they reach the database — a compromised webview could
+/// bypass the frontend form and send arbitrary IPC payloads.
+fn validate_config(config: &McpServerConfig) -> Result<(), String> {
+    if config.name.trim().is_empty() {
+        return Err("Server name is required".to_string());
+    }
+
+    match config.transport {
+        McpTransport::Http => {
+            let url_str = config.url.as_deref().unwrap_or("");
+            if url_str.is_empty() {
+                return Err("HTTP transport requires a URL".to_string());
+            }
+            let parsed = tauri::Url::parse(url_str).map_err(|e| format!("Invalid URL: {e}"))?;
+            match parsed.scheme() {
+                "https" => {}
+                "http" => {
+                    let host = parsed.host_str().unwrap_or("");
+                    if !matches!(host, "localhost" | "127.0.0.1" | "[::1]") {
+                        return Err(
+                            "HTTP (non-TLS) only allowed for localhost; use HTTPS".to_string()
+                        );
+                    }
+                }
+                other => return Err(format!("Unsupported URL scheme: {other}")),
+            }
+        }
+        McpTransport::Stdio => {
+            let binary = config.binary_path.as_deref().unwrap_or("");
+            if binary.is_empty() {
+                return Err("Stdio transport requires a binary path".to_string());
+            }
+            // Block path traversal components
+            if binary.contains("..") {
+                return Err("Binary path must not contain '..' components".to_string());
+            }
+            // If it looks like a path (contains separator), must be absolute
+            if (binary.contains('/') || binary.contains('\\'))
+                && !std::path::Path::new(binary).is_absolute()
+            {
+                return Err("Binary path must be absolute or a bare command name".to_string());
+            }
+            // Validate args JSON if present
+            if let Some(args) = &config.args {
+                serde_json::from_str::<Vec<String>>(args)
+                    .map_err(|e| format!("Invalid args (must be JSON string array): {e}"))?;
+            }
+        }
+    }
+
+    Ok(())
+}
+
+/// Redact sensitive fields from a config before sending to the frontend.
+fn redact_config(config: McpServerConfig) -> McpServerConfig {
+    McpServerConfig {
+        auth_header: config.auth_header.as_ref().map(|_| "••••••••".to_string()),
+        ..config
+    }
 }
 
 // ── Commands ────────────────────────────────────────────────────
@@ -65,7 +135,7 @@ pub async fn get_mcp_servers(state: State<'_, AppState>) -> Result<Vec<McpConnec
     // Merge: DB is source of truth for config, manager for status
     let mut result = Vec::new();
     for row in &db_servers {
-        let config = row_to_config(row);
+        let config = redact_config(row_to_config(row));
         if let Some(live_info) = live.iter().find(|c| c.config.id == row.id) {
             result.push(McpConnectionInfo {
                 config,
@@ -94,6 +164,8 @@ pub async fn add_mcp_server(
     state: State<'_, AppState>,
     config: McpServerConfig,
 ) -> Result<McpConnectionInfo, String> {
+    validate_config(&config)?;
+
     let now = now_iso();
     let row = config_to_row(&config, &now);
 
@@ -106,7 +178,7 @@ pub async fn add_mcp_server(
     state.mcp.register_server(config.clone()).await;
 
     Ok(McpConnectionInfo {
-        config,
+        config: redact_config(config),
         status: McpServerStatus::Disconnected,
         error: None,
         tool_count: 0,
@@ -120,6 +192,8 @@ pub async fn update_mcp_server(
     state: State<'_, AppState>,
     config: McpServerConfig,
 ) -> Result<(), String> {
+    validate_config(&config)?;
+
     let now = now_iso();
     let mut row = config_to_row(&config, &now);
 
@@ -147,12 +221,14 @@ pub async fn remove_mcp_server(
     state: State<'_, AppState>,
     server_id: String,
 ) -> Result<(), String> {
+    // Remove from DB first — if this fails, manager state is untouched
+    {
+        let conn = state.db.lock().map_err(|e| e.to_string())?;
+        queries::delete_mcp_server(&conn, &server_id).map_err(|e| e.to_string())?;
+    }
+
     // Disconnect + remove from manager
     let _ = state.mcp.remove_server(&server_id).await;
-
-    // Remove from DB
-    let conn = state.db.lock().map_err(|e| e.to_string())?;
-    queries::delete_mcp_server(&conn, &server_id).map_err(|e| e.to_string())?;
 
     Ok(())
 }
@@ -205,6 +281,7 @@ pub async fn test_mcp_connection(
     state: State<'_, AppState>,
     config: McpServerConfig,
 ) -> Result<usize, String> {
+    validate_config(&config)?;
     state
         .mcp
         .test_connection(&config)

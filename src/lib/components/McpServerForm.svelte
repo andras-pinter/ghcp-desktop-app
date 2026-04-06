@@ -134,7 +134,7 @@
 
   function buildConfig(): McpServerConfig {
     return {
-      id: editInfo?.config.id ?? `mcp-${Date.now()}`,
+      id: initialEdit?.config.id ?? `mcp-${Date.now()}`,
       name: formName,
       transport: formTransport,
       url: formTransport === "http" ? formUrl || null : null,

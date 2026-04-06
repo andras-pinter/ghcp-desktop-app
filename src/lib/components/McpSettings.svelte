@@ -14,7 +14,7 @@
   } from "$lib/stores/mcp.svelte";
   import type { McpConnectionInfo, McpServerConfig, RegistryServer } from "$lib/types/mcp";
   import McpServerForm from "./McpServerForm.svelte";
-  import { onMount } from "svelte";
+  import { onMount, onDestroy } from "svelte";
 
   interface Props {
     onBack: () => void;
@@ -99,7 +99,7 @@
     quickAdding = true;
     try {
       const config: McpServerConfig = {
-        id: "",
+        id: `mcp-${Date.now()}`,
         name: entry.name,
         transport: "stdio",
         url: null,
@@ -176,7 +176,11 @@
   }
 
   async function handleDisconnect(serverId: string) {
-    await disconnectServer(serverId);
+    try {
+      await disconnectServer(serverId);
+    } catch {
+      // Error is in the store
+    }
   }
 
   async function handleTest(info: McpConnectionInfo) {
@@ -201,7 +205,12 @@
   }
 
   async function handleRemove(serverId: string) {
-    await removeServer(serverId);
+    if (!confirm("Remove this MCP server? This cannot be undone.")) return;
+    try {
+      await removeServer(serverId);
+    } catch {
+      // Error is in the store
+    }
   }
 
   async function toggleTools(serverId: string) {
@@ -233,6 +242,10 @@
         (entry.remotes[0]?.url && s.config.url === entry.remotes[0].url),
     );
   }
+
+  onDestroy(() => {
+    if (searchDebounce) clearTimeout(searchDebounce);
+  });
 </script>
 
 {#if view.kind === "form"}
@@ -459,7 +472,12 @@
           {#each mcp.servers as info (info.config.id)}
             <div class="server-card">
               <div class="server-header">
-                <span class="server-status" title={info.status}>{statusIcon(info.status)}</span>
+                <span
+                  class="server-status"
+                  title={info.status}
+                  role="status"
+                  aria-label={`Server ${info.status}`}>{statusIcon(info.status)}</span
+                >
                 <strong class="server-name">{info.config.name}</strong>
                 <div class="server-actions">
                   {#if info.status === "connected"}
@@ -500,7 +518,12 @@
                 <span class="meta-tag">
                   Tools: {info.toolCount}
                   {#if info.status === "connected" && info.toolCount > 0}
-                    <button class="tools-toggle" onclick={() => toggleTools(info.config.id)}>
+                    <button
+                      class="tools-toggle"
+                      onclick={() => toggleTools(info.config.id)}
+                      aria-label="Toggle tools list"
+                      aria-expanded={expandedTools === info.config.id}
+                    >
                       {expandedTools === info.config.id ? "▼" : "▶"}
                     </button>
                   {/if}
@@ -564,7 +587,7 @@
               class="search-input"
             />
             {#if mcp.registryLoading}
-              <span class="search-spinner" aria-label="Searching"></span>
+              <span class="search-spinner" role="status" aria-label="Searching"></span>
             {/if}
           </div>
 
@@ -740,8 +763,7 @@
   }
 
   .server-status {
-    font-size: 10px;
-    line-height: 1;
+    font-size: var(--font-size-2xs);
   }
 
   .server-name {
@@ -998,9 +1020,8 @@
   }
 
   .registry-transport {
-    font-size: 10px;
+    font-size: var(--font-size-2xs);
     padding: 1px var(--spacing-xs);
-    border-radius: var(--radius-sm);
     text-transform: uppercase;
     font-weight: var(--font-weight-medium);
   }
@@ -1087,7 +1108,7 @@
     background: var(--color-bg-tertiary);
     color: var(--color-text-tertiary);
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: var(--font-size-xs);
   }
 
   .detail-section {

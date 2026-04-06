@@ -12,7 +12,7 @@ pub mod types;
 
 pub use client::McpConnection;
 pub use manager::McpManager;
-pub use registry::{fetch_registry, RegistryPage, RegistryRemote, RegistryServer};
+pub use registry::{fetch_registry, RegistryPackage, RegistryPage, RegistryRemote, RegistryServer};
 pub use types::{
     McpClientError, McpConnectionInfo, McpServerConfig, McpServerStatus, McpToolInfo, McpToolResult,
 };

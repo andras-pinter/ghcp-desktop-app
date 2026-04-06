@@ -70,3 +70,9 @@ export interface RegistryPackage {
   /** Additional arguments required by the package (e.g. ["server", "start"]). */
   arguments: string[];
 }
+
+/** A page of results from the MCP Registry. */
+export interface RegistryPage {
+  servers: RegistryServer[];
+  nextCursor: string | null;
+}

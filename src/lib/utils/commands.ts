@@ -10,7 +10,7 @@ import type {
   McpServerConfig,
   McpToolInfo,
   McpToolResult,
-  RegistryServer,
+  RegistryPage,
 } from "$lib/types/mcp";
 
 // ── Logging ─────────────────────────────────────────────────────
@@ -244,12 +244,6 @@ export async function invokeMcpTool(
     toolName,
     arguments: arguments_ ?? null,
   });
-}
-
-/** A page of results from the MCP Registry. */
-export interface RegistryPage {
-  servers: RegistryServer[];
-  nextCursor: string | null;
 }
 
 /** Fetch a page of servers from the official MCP Registry.

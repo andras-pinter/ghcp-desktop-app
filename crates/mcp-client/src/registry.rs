@@ -176,7 +176,10 @@ pub async fn fetch_registry(
     }
 
     if let Some(c) = cursor {
-        url.push_str(&format!("&cursor={c}"));
+        url.push_str(&format!(
+            "&cursor={}",
+            url::form_urlencoded::byte_serialize(c.as_bytes()).collect::<String>()
+        ));
     }
 
     log::info!(
