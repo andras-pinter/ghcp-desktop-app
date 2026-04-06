@@ -2,15 +2,30 @@
  * Markdown rendering pipeline: marked → DOMPurify.
  *
  * Renders markdown to sanitized HTML. Code blocks are wrapped in container
- * divs with `data-code` and `data-lang` attributes so that the Svelte
- * component layer can mount interactive CodeBlock components on top.
+ * divs with the sentinel class. Code content is stored in a JS-side array
+ * (never as DOM attributes) to prevent spoofing via injected HTML.
  */
 
 import { Marked } from "marked";
 import DOMPurify, { type Config as PurifyConfig } from "dompurify";
 
+/** Maximum source size we'll attempt to render (200 KB). */
+const MAX_RENDER_SIZE = 200_000;
+
 /** Sentinel class used to locate code block placeholders in rendered HTML. */
 export const CODE_BLOCK_CLASS = "md-code-block";
+
+/**
+ * Code blocks extracted during the most recent `renderMarkdown()` call.
+ * Stored in JS memory — never exposed as DOM attributes — so injected HTML
+ * cannot spoof code block content.
+ */
+let lastCodeBlocks: Array<{ code: string; lang?: string }> = [];
+
+/** Get code blocks from the most recent `renderMarkdown()` call. */
+export function getLastCodeBlocks(): ReadonlyArray<{ code: string; lang?: string }> {
+  return lastCodeBlocks;
+}
 
 const marked = new Marked({
   gfm: true,
@@ -18,12 +33,12 @@ const marked = new Marked({
   async: false,
   renderer: {
     code({ text, lang }) {
+      lastCodeBlocks.push({ code: text, lang: lang || undefined });
       const escaped = escapeHtml(text);
-      const langAttr = lang ? ` data-lang="${escapeAttr(lang)}"` : "";
-      return `<div class="${CODE_BLOCK_CLASS}"${langAttr} data-code="${escapeAttr(text)}"><pre><code>${escaped}</code></pre></div>`;
+      return `<div class="${CODE_BLOCK_CLASS}"><pre><code>${escaped}</code></pre></div>`;
     },
     codespan({ text }) {
-      return `<code class="md-inline-code">${text}</code>`;
+      return `<code class="md-inline-code">${escapeHtml(text)}</code>`;
     },
     link({ href, title, text }) {
       const titleAttr = title ? ` title="${escapeAttr(title)}"` : "";
@@ -38,8 +53,11 @@ const marked = new Marked({
 });
 
 /**
- * Configure DOMPurify to allow our code block containers and data attributes,
- * but strip anything dangerous (scripts, event handlers, etc.).
+ * DOMPurify configuration — strict allowlist.
+ *
+ * - `ALLOW_DATA_ATTR: false` prevents arbitrary data-* injection.
+ * - `<input>` is forced to `type="checkbox" disabled` via a hook below
+ *   to prevent form element spoofing.
  */
 const PURIFY_CONFIG: PurifyConfig = {
   RETURN_TRUSTED_TYPE: false,
@@ -85,33 +103,35 @@ const PURIFY_CONFIG: PurifyConfig = {
     // Details
     "details",
     "summary",
-    // Input (task list)
+    // Input (task list checkboxes only — enforced by hook)
     "input",
   ],
-  ALLOWED_ATTR: [
-    "href",
-    "title",
-    "target",
-    "rel",
-    "class",
-    "data-code",
-    "data-lang",
-    "type",
-    "checked",
-    "disabled",
-    "align",
-  ],
-  ALLOW_DATA_ATTR: true,
+  ALLOWED_ATTR: ["href", "title", "target", "rel", "class", "type", "checked", "disabled", "align"],
+  ALLOW_DATA_ATTR: false,
 };
+
+// Force all <input> elements to be disabled checkboxes (GFM task lists)
+DOMPurify.addHook("afterSanitizeAttributes", (node) => {
+  if (node.nodeName === "INPUT") {
+    node.setAttribute("type", "checkbox");
+    node.setAttribute("disabled", "");
+  }
+});
 
 /**
  * Render a markdown string to sanitized HTML.
  *
- * Code fences produce `<div class="md-code-block" data-code="..." data-lang="...">` containers.
- * The Svelte layer can query these and mount CodeBlock components on top.
+ * Code fences produce `<div class="md-code-block">` containers with static
+ * fallback content. Retrieve the actual code content via `getLastCodeBlocks()`
+ * and match by sequential index.
  */
 export function renderMarkdown(source: string): string {
   if (!source) return "";
+  if (source.length > MAX_RENDER_SIZE) {
+    const sizeKb = Math.round(source.length / 1024);
+    return `<p>⚠️ Message too large to render (${sizeKb} KB)</p>`;
+  }
+  lastCodeBlocks = [];
   const raw = marked.parse(source) as string;
   return DOMPurify.sanitize(raw, PURIFY_CONFIG) as string;
 }

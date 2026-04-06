@@ -6,7 +6,7 @@
    * a one-click copy-to-clipboard action.
    */
 
-  import { onMount } from "svelte";
+  import { onDestroy } from "svelte";
   import { highlightCode } from "$lib/utils/syntax";
 
   interface Props {
@@ -20,16 +20,15 @@
   let copied = $state(false);
   let copyTimeout: ReturnType<typeof setTimeout> | undefined;
 
-  onMount(() => {
-    doHighlight();
-  });
-
-  // Re-highlight when code or lang changes (streaming)
+  // Highlight when code or lang changes (including initial mount)
   $effect(() => {
-    // Access reactive deps
     void code;
     void lang;
     doHighlight();
+  });
+
+  onDestroy(() => {
+    if (copyTimeout) clearTimeout(copyTimeout);
   });
 
   async function doHighlight() {

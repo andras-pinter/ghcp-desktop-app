@@ -211,12 +211,12 @@
     }
   }
 
-  /** Edit a user message: discard everything after it and re-send. */
+  /** Edit a user message: discard it and everything after, load content into input. */
   async function handleEdit(msg: Message) {
     if (streaming || !store.activeConversationId) return;
 
-    // Delete all messages after the edited one
-    await deleteMessagesAfter(store.activeConversationId, msg.sortOrder);
+    // Delete the edited message AND all messages after it (sortOrder - 1 keeps msgs before)
+    await deleteMessagesAfter(store.activeConversationId, msg.sortOrder - 1);
 
     // Put the edited message content back in the input for the user to modify
     draftText = msg.content;
@@ -225,6 +225,13 @@
   /** Regenerate the last assistant response. */
   async function handleRegenerate() {
     if (streaming || !store.activeConversationId) return;
+
+    // Defensively stop any in-flight stream before starting a new one
+    try {
+      await stopStreaming();
+    } catch {
+      // ignore — may not be streaming
+    }
 
     const msgs = store.messages;
     const lastAssistant = [...msgs].reverse().find((m) => m.role === "assistant");
@@ -288,8 +295,14 @@
   );
 </script>
 
-<!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="chat-view" onkeydown={handleGlobalKeydown}>
+<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+<div
+  class="chat-view"
+  role="region"
+  aria-label="Chat"
+  tabindex="-1"
+  onkeydown={handleGlobalKeydown}
+>
   {#if store.messages.length === 0}
     <div class="welcome-container">
       <div class="welcome">
@@ -318,7 +331,7 @@
     <div class="chat-messages" bind:this={chatContainer} role="log" aria-label="Chat messages">
       <div class="messages-inner">
         {#each store.messages as message, i (message.id)}
-          <div class="message-entry" style="animation-delay: {Math.min(i * 40, 200)}ms">
+          <div class="message-entry" style:animation-delay="{Math.min(i * 40, 200)}ms">
             <MessageBubble
               {message}
               isStreaming={streaming &&

@@ -6,6 +6,8 @@
    * up/down navigation arrows, and Escape to dismiss.
    */
 
+  import { onDestroy } from "svelte";
+
   interface Props {
     /** Plain text content of all messages, one per entry, with their element IDs. */
     onClose: () => void;
@@ -24,6 +26,10 @@
   const HIGHLIGHT_ACTIVE_CLASS = "search-highlight-active";
 
   let previousMarks: HTMLElement[] = [];
+
+  onDestroy(() => {
+    clearHighlights();
+  });
 
   function clearHighlights() {
     for (const mark of previousMarks) {
@@ -44,9 +50,10 @@
 
     const walker = document.createTreeWalker(chatContainer, NodeFilter.SHOW_TEXT, {
       acceptNode(node) {
-        // Skip nodes inside input, textarea, script, style
         const parent = node.parentElement;
         if (!parent) return NodeFilter.FILTER_REJECT;
+        // Skip search overlay UI, scripts, styles, and form elements
+        if (parent.closest(".search-overlay")) return NodeFilter.FILTER_REJECT;
         const tag = parent.tagName;
         if (tag === "SCRIPT" || tag === "STYLE" || tag === "TEXTAREA" || tag === "INPUT") {
           return NodeFilter.FILTER_REJECT;
@@ -163,8 +170,8 @@
   });
 </script>
 
-<!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="search-overlay" onkeydown={handleKeydown}>
+<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+<div class="search-overlay" role="search" tabindex="-1" onkeydown={handleKeydown}>
   <div class="search-bar">
     <svg
       class="search-icon"

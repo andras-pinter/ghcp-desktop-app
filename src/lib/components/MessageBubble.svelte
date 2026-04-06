@@ -1,10 +1,10 @@
 <script lang="ts">
   import type { Message } from "$lib/types/message";
-  import { renderMarkdown, CODE_BLOCK_CLASS } from "$lib/utils/markdown";
+  import { renderMarkdown, CODE_BLOCK_CLASS, getLastCodeBlocks } from "$lib/utils/markdown";
   import CodeBlock from "./CodeBlock.svelte";
   import ThinkingSection from "./ThinkingSection.svelte";
   import { mount, unmount } from "svelte";
-  import { onMount, onDestroy } from "svelte";
+  import { onDestroy } from "svelte";
 
   interface Props {
     message: Message;
@@ -12,7 +12,6 @@
     isLastAssistant?: boolean;
     onEdit?: (message: Message) => void;
     onRegenerate?: () => void;
-    onCopy?: (content: string) => void;
   }
 
   let {
@@ -21,13 +20,13 @@
     isLastAssistant = false,
     onEdit,
     onRegenerate,
-    onCopy,
   }: Props = $props();
 
   let isUser = $derived(message.role === "user");
   let contentEl: HTMLElement | undefined = $state();
   let copied = $state(false);
   let copyTimeout: ReturnType<typeof setTimeout> | undefined;
+  let renderTimer: ReturnType<typeof setTimeout> | undefined;
 
   /** Track mounted CodeBlock instances for cleanup. */
   let mountedBlocks: Record<string, ReturnType<typeof mount>> = {};
@@ -37,6 +36,8 @@
     if (!contentEl || isUser) return;
 
     const html = renderMarkdown(message.content);
+    const codeBlocks = getLastCodeBlocks();
+
     // eslint-disable-next-line svelte/no-dom-manipulating -- Intentional: we render sanitized markdown HTML and mount Svelte CodeBlock components into placeholders
     contentEl.innerHTML = html;
 
@@ -46,11 +47,13 @@
     }
     mountedBlocks = {};
 
-    // Find code block placeholders and mount interactive CodeBlock components
+    // Find code block placeholders and mount interactive CodeBlock components.
+    // Only mount blocks that have a corresponding renderer entry (by index)
+    // to prevent spoofed HTML from injecting fake code blocks.
     const placeholders = contentEl.querySelectorAll(`.${CODE_BLOCK_CLASS}`);
     placeholders.forEach((el, i) => {
-      const code = el.getAttribute("data-code") || "";
-      const lang = el.getAttribute("data-lang") || undefined;
+      if (i >= codeBlocks.length) return;
+      const { code, lang } = codeBlocks[i];
 
       // Clear the placeholder's static fallback content
       el.innerHTML = "";
@@ -63,15 +66,19 @@
     });
   }
 
-  // Re-render on content change (streaming tokens)
+  // Re-render on content change — debounced during streaming for performance
   $effect(() => {
     void message.content;
     void contentEl;
-    renderAndMount();
-  });
+    const currentlyStreaming = isStreaming;
 
-  onMount(() => {
-    renderAndMount();
+    if (renderTimer) clearTimeout(renderTimer);
+
+    if (currentlyStreaming) {
+      renderTimer = setTimeout(() => renderAndMount(), 100);
+    } else {
+      renderAndMount();
+    }
   });
 
   onDestroy(() => {
@@ -80,18 +87,20 @@
     }
     mountedBlocks = {};
     if (copyTimeout) clearTimeout(copyTimeout);
+    if (renderTimer) clearTimeout(renderTimer);
   });
 
-  function handleCopy() {
-    const text = message.content;
-    navigator.clipboard.writeText(text).then(() => {
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(message.content);
       copied = true;
       if (copyTimeout) clearTimeout(copyTimeout);
       copyTimeout = setTimeout(() => {
         copied = false;
       }, 2000);
-    });
-    onCopy?.(text);
+    } catch {
+      // Clipboard API may not be available in all WebView contexts
+    }
   }
 
   function handleEdit() {
