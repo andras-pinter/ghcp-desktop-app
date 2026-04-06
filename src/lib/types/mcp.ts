@@ -67,4 +67,6 @@ export interface RegistryPackage {
   registryType: string;
   identifier: string;
   version?: string | null;
+  /** Additional arguments required by the package (e.g. ["server", "start"]). */
+  arguments: string[];
 }

@@ -57,16 +57,16 @@
         const pkgRef = npmPkg.version
           ? `${npmPkg.identifier}@${npmPkg.version}`
           : npmPkg.identifier;
-        formArgs = JSON.stringify(["-y", pkgRef]);
+        formArgs = JSON.stringify(["-y", pkgRef, ...npmPkg.arguments]);
       } else if (pypiPkg) {
         formBinaryPath = "uvx";
         const pkgRef = pypiPkg.version
           ? `${pypiPkg.identifier}==${pypiPkg.version}`
           : pypiPkg.identifier;
-        formArgs = JSON.stringify([pkgRef]);
+        formArgs = JSON.stringify([pkgRef, ...pypiPkg.arguments]);
       } else if (nugetPkg) {
         formBinaryPath = "dotnet";
-        formArgs = JSON.stringify(["tool", "run", nugetPkg.identifier]);
+        formArgs = JSON.stringify(["tool", "run", nugetPkg.identifier, ...nugetPkg.arguments]);
       }
     } else {
       formTransport = "http";

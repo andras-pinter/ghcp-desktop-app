@@ -120,16 +120,16 @@
           ? `${npmPkg.identifier}@${npmPkg.version}`
           : npmPkg.identifier;
         config.binaryPath = "npx";
-        config.args = JSON.stringify(["-y", pkgRef]);
+        config.args = JSON.stringify(["-y", pkgRef, ...npmPkg.arguments]);
       } else if (pypiPkg) {
         const pkgRef = pypiPkg.version
           ? `${pypiPkg.identifier}==${pypiPkg.version}`
           : pypiPkg.identifier;
         config.binaryPath = "uvx";
-        config.args = JSON.stringify([pkgRef]);
+        config.args = JSON.stringify([pkgRef, ...pypiPkg.arguments]);
       } else if (nugetPkg) {
         config.binaryPath = "dotnet";
-        config.args = JSON.stringify(["tool", "run", nugetPkg.identifier]);
+        config.args = JSON.stringify(["tool", "run", nugetPkg.identifier, ...nugetPkg.arguments]);
       } else if (!entry.isStdioOnly && entry.remotes.length > 0) {
         // HTTP server — use the first remote
         config.transport = "http";

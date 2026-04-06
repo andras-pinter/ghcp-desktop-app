@@ -54,6 +54,15 @@ struct ApiPackage {
     registry_type: String,
     identifier: String,
     version: Option<String>,
+    package_arguments: Option<Vec<ApiPackageArgument>>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ApiPackageArgument {
+    value: String,
+    #[allow(dead_code)]
+    #[serde(rename = "type")]
+    arg_type: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -115,6 +124,8 @@ pub struct RegistryPackage {
     pub identifier: String,
     /// Package version.
     pub version: Option<String>,
+    /// Additional arguments required by the package (e.g. `["server", "start"]`).
+    pub arguments: Vec<String>,
 }
 
 /// A remote connection option for a registry server.
@@ -262,10 +273,19 @@ fn convert_entry(server: ApiServer) -> Option<RegistryServer> {
         .unwrap_or_default()
         .into_iter()
         .filter(|p| p.registry_type != "mcpb")
-        .map(|p| RegistryPackage {
-            registry_type: p.registry_type,
-            identifier: p.identifier,
-            version: p.version,
+        .map(|p| {
+            let arguments = p
+                .package_arguments
+                .unwrap_or_default()
+                .into_iter()
+                .map(|a| a.value)
+                .collect();
+            RegistryPackage {
+                registry_type: p.registry_type,
+                identifier: p.identifier,
+                version: p.version,
+                arguments,
+            }
         })
         .collect();
 
