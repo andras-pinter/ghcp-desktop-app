@@ -1572,9 +1572,9 @@ INSERT INTO config (key, value) VALUES ('schema_version', '1');
 15. ⬚ **message-actions** — Edit sent messages (discard + re-send), regenerate last response, copy individual messages. *(Backend infrastructure exists: `delete_messages_after` command. No UI yet.)*
 16. ⬚ **in-conversation-search** — `SearchOverlay.svelte`: Cmd+F / Ctrl+F to find text, highlight matches, navigate with arrows
 
-### Phase 5: Markdown & Code Rendering
-17. ⬚ **markdown-rendering** — Render assistant messages with `marked` + `DOMPurify`. Bold, italic, headers, lists, links, blockquotes, tables. *(Dependencies installed: `marked` v15, `dompurify` v3. Not yet integrated — messages currently render as raw text.)*
-18. ⬚ **code-blocks** — `CodeBlock.svelte`: syntax-highlighted fenced blocks via `shiki`, copy button, language label *(Dependency installed: `shiki` v3. Not yet integrated.)*
+### Phase 5: Markdown & Code Rendering ✅
+17. ✅ **markdown-rendering** — `src/lib/utils/markdown.ts`: `marked` v15 with custom renderer (code block placeholders with `data-code`/`data-lang` attributes) piped through `DOMPurify` v3 with strict allowed tags/attributes config. `renderMarkdown()` exported. Inline code gets `.md-inline-code` class. Links open in new tab. Images blocked (rendered as links).
+18. ✅ **code-blocks** — `CodeBlock.svelte` + `src/lib/utils/syntax.ts`: Shiki v3 lazy-loaded singleton highlighter with dual themes (github-light/github-dark), 28 pre-loaded languages + dynamic loading fallback. Copy-to-clipboard button with check animation. Language label header. Warm Ink styled with proper dark mode support via CSS custom properties (`--shiki-light`/`--shiki-dark`). `ThinkingSection.svelte`: collapsible `<details>` for model reasoning tokens, dashed border, muted styling, animated dots during streaming.
 
 ### Phase 6: Web Research
 19. ⬚ **web-search** — `web-research` crate: Bing Web Search API integration. Tauri command `web_search`. `WebResultCard.svelte` for displaying results as cited cards. API key stored in keychain.

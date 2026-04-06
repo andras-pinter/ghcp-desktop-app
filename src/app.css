@@ -352,3 +352,197 @@ body::after {
   white-space: nowrap;
   border-width: 0;
 }
+
+/* ══════════════════════════════════════════════════════════════
+   Markdown Prose — rendered assistant messages
+   ══════════════════════════════════════════════════════════════ */
+
+.markdown-prose {
+  line-height: var(--line-height-relaxed);
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+/* ── Headings ── */
+
+.markdown-prose h1,
+.markdown-prose h2,
+.markdown-prose h3,
+.markdown-prose h4,
+.markdown-prose h5,
+.markdown-prose h6 {
+  font-family: var(--font-sans);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+  color: var(--color-text-primary);
+  margin-top: 1.4em;
+  margin-bottom: 0.5em;
+}
+
+.markdown-prose h1 {
+  font-size: 1.4em;
+}
+
+.markdown-prose h2 {
+  font-size: 1.25em;
+}
+
+.markdown-prose h3 {
+  font-size: 1.1em;
+}
+
+.markdown-prose h4,
+.markdown-prose h5,
+.markdown-prose h6 {
+  font-size: 1em;
+}
+
+.markdown-prose > :first-child {
+  margin-top: 0;
+}
+
+/* ── Paragraphs ── */
+
+.markdown-prose p {
+  margin: 0.65em 0;
+}
+
+.markdown-prose > p:first-child {
+  margin-top: 0;
+}
+
+.markdown-prose > p:last-child {
+  margin-bottom: 0;
+}
+
+/* ── Links ── */
+
+.markdown-prose a {
+  color: var(--color-text-link);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+  transition: color var(--transition-fast);
+}
+
+.markdown-prose a:hover {
+  color: var(--color-accent-copper-hover);
+}
+
+/* ── Lists ── */
+
+.markdown-prose ul,
+.markdown-prose ol {
+  margin: 0.5em 0;
+  padding-left: 1.6em;
+}
+
+.markdown-prose li {
+  margin: 0.25em 0;
+}
+
+.markdown-prose li > p {
+  margin: 0.25em 0;
+}
+
+.markdown-prose ul ul,
+.markdown-prose ul ol,
+.markdown-prose ol ul,
+.markdown-prose ol ol {
+  margin: 0.15em 0;
+}
+
+/* Task list (GFM) */
+.markdown-prose li:has(> input[type="checkbox"]) {
+  list-style: none;
+  margin-left: -1.2em;
+}
+
+.markdown-prose input[type="checkbox"] {
+  margin-right: 0.4em;
+  accent-color: var(--color-accent-copper);
+}
+
+/* ── Blockquotes ── */
+
+.markdown-prose blockquote {
+  margin: 0.75em 0;
+  padding: var(--spacing-xs) var(--spacing-lg);
+  border-left: 3px solid var(--color-accent-copper);
+  color: var(--color-text-secondary);
+  background: var(--color-bg-thinking);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+.markdown-prose blockquote p {
+  margin: 0.3em 0;
+}
+
+/* ── Inline code ── */
+
+.markdown-prose code.md-inline-code {
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+  padding: 1px 5px;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-code);
+  color: var(--color-text-code);
+  border: 1px solid var(--color-border-secondary);
+  word-break: break-all;
+}
+
+/* ── Tables ── */
+
+.markdown-prose table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.75em 0;
+  font-size: var(--font-size-sm);
+}
+
+.markdown-prose th,
+.markdown-prose td {
+  padding: var(--spacing-xs) var(--spacing-md);
+  border: 1px solid var(--color-border-primary);
+  text-align: left;
+}
+
+.markdown-prose th {
+  background: var(--color-bg-secondary);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.markdown-prose tr:nth-child(even) td {
+  background: var(--color-bg-hover);
+}
+
+/* ── Horizontal rules ── */
+
+.markdown-prose hr {
+  border: none;
+  border-top: 1px solid var(--color-border-primary);
+  margin: 1.5em 0;
+}
+
+/* ── Strong & Emphasis ── */
+
+.markdown-prose strong {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.markdown-prose em {
+  font-style: italic;
+}
+
+.markdown-prose del {
+  text-decoration: line-through;
+  color: var(--color-text-tertiary);
+}
+
+/* ── Images (rendered as links) ── */
+
+.markdown-prose img {
+  display: none;
+}

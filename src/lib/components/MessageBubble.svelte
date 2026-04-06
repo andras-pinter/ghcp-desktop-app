@@ -1,5 +1,10 @@
 <script lang="ts">
   import type { Message } from "$lib/types/message";
+  import { renderMarkdown, CODE_BLOCK_CLASS } from "$lib/utils/markdown";
+  import CodeBlock from "./CodeBlock.svelte";
+  import ThinkingSection from "./ThinkingSection.svelte";
+  import { mount, unmount } from "svelte";
+  import { onMount, onDestroy } from "svelte";
 
   interface Props {
     message: Message;
@@ -9,6 +14,59 @@
   let { message, isStreaming = false }: Props = $props();
 
   let isUser = $derived(message.role === "user");
+  let contentEl: HTMLElement | undefined = $state();
+
+  /** Track mounted CodeBlock instances for cleanup. */
+  let mountedBlocks: Record<string, ReturnType<typeof mount>> = {};
+
+  /** Render markdown and mount CodeBlock components into placeholders. */
+  function renderAndMount() {
+    if (!contentEl || isUser) return;
+
+    const html = renderMarkdown(message.content);
+    // eslint-disable-next-line svelte/no-dom-manipulating -- Intentional: we render sanitized markdown HTML and mount Svelte CodeBlock components into placeholders
+    contentEl.innerHTML = html;
+
+    // Clean up old CodeBlock mounts
+    for (const comp of Object.values(mountedBlocks)) {
+      unmount(comp);
+    }
+    mountedBlocks = {};
+
+    // Find code block placeholders and mount interactive CodeBlock components
+    const placeholders = contentEl.querySelectorAll(`.${CODE_BLOCK_CLASS}`);
+    placeholders.forEach((el, i) => {
+      const code = el.getAttribute("data-code") || "";
+      const lang = el.getAttribute("data-lang") || undefined;
+
+      // Clear the placeholder's static fallback content
+      el.innerHTML = "";
+
+      const key = `cb-${i}`;
+      mountedBlocks[key] = mount(CodeBlock, {
+        target: el as HTMLElement,
+        props: { code, lang },
+      });
+    });
+  }
+
+  // Re-render on content change (streaming tokens)
+  $effect(() => {
+    void message.content;
+    void contentEl;
+    renderAndMount();
+  });
+
+  onMount(() => {
+    renderAndMount();
+  });
+
+  onDestroy(() => {
+    for (const comp of Object.values(mountedBlocks)) {
+      unmount(comp);
+    }
+    mountedBlocks = {};
+  });
 </script>
 
 <article class="message" class:user={isUser} class:assistant={!isUser}>
@@ -21,10 +79,19 @@
   {:else}
     <div class="assistant-row">
       <div class="assistant-content">
+        {#if message.thinkingContent}
+          <ThinkingSection
+            content={message.thinkingContent}
+            isStreaming={isStreaming && !message.content}
+          />
+        {/if}
         {#if message.content}
-          {message.content}{#if isStreaming}<span class="cursor">▊</span>{/if}
+          <div class="markdown-prose" bind:this={contentEl}></div>
+          {#if isStreaming}<span class="cursor">▊</span>{/if}
         {:else if isStreaming}
-          <span class="thinking">Thinking<span class="dots">...</span></span>
+          {#if !message.thinkingContent}
+            <span class="thinking-placeholder">Thinking<span class="dots">...</span></span>
+          {/if}
         {/if}
       </div>
     </div>
@@ -68,8 +135,6 @@
     font-size: var(--font-size-base);
     line-height: var(--line-height-relaxed);
     color: var(--color-text-primary);
-    white-space: pre-wrap;
-    word-break: break-word;
   }
 
   .cursor {
@@ -84,7 +149,7 @@
     }
   }
 
-  .thinking {
+  .thinking-placeholder {
     color: var(--color-text-tertiary);
     font-style: italic;
   }
