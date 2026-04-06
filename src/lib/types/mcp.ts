@@ -41,25 +41,6 @@ export type McpToolContent =
   | { type: "text"; text: string }
   | { type: "image"; data: string; mimeType: string };
 
-/** A catalog entry for a well-known MCP server. */
-export interface CatalogEntry {
-  id: string;
-  name: string;
-  description: string;
-  transport: McpTransport;
-  defaultUrl?: string | null;
-  defaultBinary?: string | null;
-  requiredFields: CatalogField[];
-}
-
-/** A required configuration field for a catalog entry. */
-export interface CatalogField {
-  key: string;
-  label: string;
-  placeholder: string;
-  secret: boolean;
-}
-
 /** A server from the official MCP Registry. */
 export interface RegistryServer {
   name: string;
@@ -68,6 +49,7 @@ export interface RegistryServer {
   version?: string | null;
   websiteUrl?: string | null;
   repoUrl?: string | null;
+  isStdioOnly: boolean;
   remotes: RegistryRemote[];
 }
 

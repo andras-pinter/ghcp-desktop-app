@@ -102,7 +102,6 @@ pub fn run(force_logout: bool) {
             commands::mcp::test_mcp_connection,
             commands::mcp::get_mcp_tools,
             commands::mcp::invoke_mcp_tool,
-            commands::mcp::get_mcp_catalog,
             commands::mcp::fetch_mcp_registry,
         ])
         .run(tauri::generate_context!())

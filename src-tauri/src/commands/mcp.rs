@@ -1,7 +1,7 @@
 //! MCP commands: server management + tool invocation.
 
 use mcp_client::types::{McpConnectionInfo, McpServerConfig, McpServerStatus, McpTransport};
-use mcp_client::{McpToolInfo, McpToolResult, CATALOG};
+use mcp_client::{McpToolInfo, McpToolResult};
 use tauri::State;
 
 use crate::db::queries::{self, McpServerRow};
@@ -240,19 +240,10 @@ pub async fn invoke_mcp_tool(
         .map_err(|e| e.to_string())
 }
 
-/// Get the built-in MCP server catalog.
-#[tauri::command]
-pub fn get_mcp_catalog() -> serde_json::Value {
-    serde_json::to_value(CATALOG).unwrap_or_default()
-}
-
 /// Fetch MCP servers from the official MCP Registry.
 #[tauri::command]
-pub async fn fetch_mcp_registry(
-    count: Option<usize>,
-) -> Result<Vec<mcp_client::RegistryServer>, String> {
-    let count = count.unwrap_or(200);
-    mcp_client::fetch_registry(count)
+pub async fn fetch_mcp_registry() -> Result<Vec<mcp_client::RegistryServer>, String> {
+    mcp_client::fetch_registry()
         .await
         .map_err(|e| e.to_string())
 }

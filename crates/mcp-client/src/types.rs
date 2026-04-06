@@ -76,7 +76,7 @@ pub struct McpServerConfig {
     /// Optional auth header for HTTP transport.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub auth_header: Option<String>,
-    /// Whether this server came from the built-in catalog.
+    /// Legacy field — kept for DB compatibility. Always false for new entries.
     #[serde(default)]
     pub from_catalog: bool,
     /// Whether this server is enabled.

@@ -2,6 +2,9 @@
 //!
 //! Fetches available MCP servers from the official MCP Registry
 //! at <https://registry.modelcontextprotocol.io>.
+//!
+//! Paginates through all entries, deduplicates to latest versions,
+//! and includes both HTTP and stdio-only servers.
 
 use serde::{Deserialize, Serialize};
 
@@ -10,14 +13,24 @@ use crate::types::McpClientError;
 /// Default registry base URL.
 const REGISTRY_URL: &str = "https://registry.modelcontextprotocol.io/v0.1/servers";
 
-/// Maximum number of entries to fetch from the registry.
-const MAX_FETCH_COUNT: usize = 500;
+/// Entries per page when paginating.
+const PAGE_SIZE: usize = 100;
+
+/// Maximum total pages to fetch (safety limit).
+const MAX_PAGES: usize = 50;
 
 // ── API response types ──────────────────────────────────────────
 
 #[derive(Debug, Deserialize)]
 struct ApiResponse {
     servers: Vec<ApiEntry>,
+    metadata: Option<ApiPaginationMeta>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ApiPaginationMeta {
+    next_cursor: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -92,8 +105,10 @@ pub struct RegistryServer {
     pub website_url: Option<String>,
     /// Source code repository URL.
     pub repo_url: Option<String>,
-    /// Available remote connections.
+    /// Available remote HTTP connections (empty for stdio-only servers).
     pub remotes: Vec<RegistryRemote>,
+    /// Whether this server is stdio-only (no HTTP remotes).
+    pub is_stdio_only: bool,
 }
 
 /// A remote connection option for a registry server.
@@ -114,43 +129,75 @@ pub struct RegistryRemote {
 
 /// Fetch MCP servers from the official registry.
 ///
-/// Returns only the latest version of each server, filtered to entries
-/// that have at least one remote connection.
-pub async fn fetch_registry(count: usize) -> Result<Vec<RegistryServer>, McpClientError> {
-    let count = count.min(MAX_FETCH_COUNT);
-    let url = format!("{REGISTRY_URL}?count={count}");
+/// Paginates through all entries, deduplicates to latest versions,
+/// and returns both HTTP and stdio-only servers.
+pub async fn fetch_registry() -> Result<Vec<RegistryServer>, McpClientError> {
+    let client = reqwest::Client::new();
+    let mut all_entries = Vec::new();
+    let mut cursor: Option<String> = None;
 
-    log::info!("Fetching MCP registry: {url}");
+    for page in 0..MAX_PAGES {
+        let mut url = format!("{REGISTRY_URL}?count={PAGE_SIZE}");
+        if let Some(ref c) = cursor {
+            url.push_str(&format!("&cursor={c}"));
+        }
 
-    let response = reqwest::get(&url)
-        .await
-        .map_err(|e| McpClientError::Transport(format!("Failed to fetch MCP registry: {e}")))?;
+        if page == 0 {
+            log::info!("Fetching MCP registry...");
+        }
 
-    if !response.status().is_success() {
-        return Err(McpClientError::Transport(format!(
-            "MCP registry returned status {}",
-            response.status()
-        )));
+        let response =
+            client.get(&url).send().await.map_err(|e| {
+                McpClientError::Transport(format!("Failed to fetch MCP registry: {e}"))
+            })?;
+
+        if !response.status().is_success() {
+            return Err(McpClientError::Transport(format!(
+                "MCP registry returned status {}",
+                response.status()
+            )));
+        }
+
+        let api: ApiResponse = response.json().await.map_err(|e| {
+            McpClientError::Transport(format!("Failed to parse MCP registry response: {e}"))
+        })?;
+
+        let batch_len = api.servers.len();
+        all_entries.extend(api.servers);
+
+        // Check for next page
+        cursor = api.metadata.and_then(|m| m.next_cursor);
+        if cursor.is_none() || batch_len == 0 {
+            break;
+        }
     }
 
-    let api: ApiResponse = response.json().await.map_err(|e| {
-        McpClientError::Transport(format!("Failed to parse MCP registry response: {e}"))
-    })?;
+    // Deduplicate: keep only the latest version of each server
+    let mut latest: std::collections::HashMap<String, ApiEntry> = std::collections::HashMap::new();
+    for entry in all_entries {
+        let is_latest = entry
+            .meta
+            .as_ref()
+            .and_then(|m| m.official.as_ref())
+            .and_then(|o| o.is_latest)
+            .unwrap_or(false);
 
-    // Filter for latest versions only, with at least one remote
-    let servers: Vec<RegistryServer> = api
-        .servers
-        .into_iter()
-        .filter(|entry| {
-            entry
-                .meta
-                .as_ref()
-                .and_then(|m| m.official.as_ref())
-                .and_then(|o| o.is_latest)
-                .unwrap_or(false)
-        })
+        if is_latest {
+            latest.insert(entry.server.name.clone(), entry);
+        }
+    }
+
+    let mut servers: Vec<RegistryServer> = latest
+        .into_values()
         .filter_map(|entry| convert_entry(entry.server))
         .collect();
+
+    // Sort by display name for consistent ordering
+    servers.sort_by(|a, b| {
+        a.display_name
+            .to_lowercase()
+            .cmp(&b.display_name.to_lowercase())
+    });
 
     log::info!("Fetched {} servers from MCP registry", servers.len());
     Ok(servers)
@@ -159,7 +206,8 @@ pub async fn fetch_registry(count: usize) -> Result<Vec<RegistryServer>, McpClie
 /// Convert an API server to our public type.
 fn convert_entry(server: ApiServer) -> Option<RegistryServer> {
     let remotes: Vec<RegistryRemote> = server
-        .remotes?
+        .remotes
+        .unwrap_or_default()
         .into_iter()
         .filter_map(|r| {
             // Only include HTTP-based transports
@@ -186,9 +234,7 @@ fn convert_entry(server: ApiServer) -> Option<RegistryServer> {
         })
         .collect();
 
-    if remotes.is_empty() {
-        return None;
-    }
+    let is_stdio_only = remotes.is_empty();
 
     // Use title if available, otherwise derive from name
     let display_name = server.title.unwrap_or_else(|| humanize_name(&server.name));
@@ -201,6 +247,7 @@ fn convert_entry(server: ApiServer) -> Option<RegistryServer> {
         website_url: server.website_url,
         repo_url: server.repository.and_then(|r| r.url),
         remotes,
+        is_stdio_only,
     })
 }
 
@@ -240,17 +287,22 @@ mod tests {
     }
 
     #[test]
-    fn test_convert_entry_no_remotes() {
+    fn test_convert_entry_no_remotes_is_stdio() {
         let server = ApiServer {
             name: "test/server".to_string(),
-            description: Some("Test".to_string()),
+            description: Some("A stdio server".to_string()),
             title: None,
             version: Some("1.0".to_string()),
             website_url: None,
             remotes: None,
-            repository: None,
+            repository: Some(ApiRepository {
+                url: Some("https://github.com/test/server".to_string()),
+            }),
         };
-        assert!(convert_entry(server).is_none());
+        let result = convert_entry(server).unwrap();
+        assert!(result.is_stdio_only);
+        assert!(result.remotes.is_empty());
+        assert_eq!(result.display_name, "Server");
     }
 
     #[test]
@@ -272,7 +324,23 @@ mod tests {
         };
         let result = convert_entry(server).unwrap();
         assert_eq!(result.display_name, "My Server");
+        assert!(!result.is_stdio_only);
         assert_eq!(result.remotes.len(), 1);
         assert!(!result.remotes[0].requires_auth);
+    }
+
+    #[test]
+    fn test_convert_entry_empty_remotes_is_stdio() {
+        let server = ApiServer {
+            name: "test/stdio-server".to_string(),
+            description: Some("Stdio only".to_string()),
+            title: None,
+            version: None,
+            website_url: None,
+            remotes: Some(vec![]),
+            repository: None,
+        };
+        let result = convert_entry(server).unwrap();
+        assert!(result.is_stdio_only);
     }
 }

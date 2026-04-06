@@ -1,24 +1,17 @@
 <script lang="ts">
-  import type {
-    McpServerConfig,
-    McpConnectionInfo,
-    CatalogEntry,
-    RegistryServer,
-  } from "$lib/types/mcp";
+  import type { McpServerConfig, McpConnectionInfo, RegistryServer } from "$lib/types/mcp";
   import { addServer, editServer, testConnection } from "$lib/stores/mcp.svelte";
 
   interface Props {
     /** If set, we're editing this server. */
     editInfo?: McpConnectionInfo | null;
-    /** If set, pre-fill from a catalog entry. */
-    catalogEntry?: CatalogEntry | null;
     /** If set, pre-fill from a registry entry. */
     registryEntry?: RegistryServer | null;
     /** Go back to the list view. */
     onBack: () => void;
   }
 
-  let { editInfo = null, catalogEntry = null, registryEntry = null, onBack }: Props = $props();
+  let { editInfo = null, registryEntry = null, onBack }: Props = $props();
 
   // ── Form fields ──────────────────────────────────────────────
 
@@ -45,20 +38,14 @@
     formBinaryPath = editInfo.config.binaryPath ?? "";
     formArgs = editInfo.config.args ?? "";
     formAuthHeader = editInfo.config.authHeader ?? "";
-  } else if (catalogEntry) {
-    formName = catalogEntry.name;
-    formTransport = catalogEntry.transport;
-    formUrl = catalogEntry.defaultUrl ?? "";
-    // Don't pre-fill binary path with relative paths from catalog
-    if (catalogEntry.defaultBinary && catalogEntry.defaultBinary.startsWith("/")) {
-      formBinaryPath = catalogEntry.defaultBinary;
-    }
-    formArgs = "";
-    formAuthHeader = "";
   } else if (registryEntry) {
-    formName = registryEntry.name;
-    formTransport = "http";
-    formUrl = registryEntry.remotes[0]?.url ?? "";
+    formName = registryEntry.displayName;
+    if (registryEntry.isStdioOnly) {
+      formTransport = "stdio";
+    } else {
+      formTransport = "http";
+      formUrl = registryEntry.remotes[0]?.url ?? "";
+    }
     formAuthHeader = "";
   }
 
@@ -125,7 +112,7 @@
       binaryPath: formTransport === "stdio" ? formBinaryPath || null : null,
       args: formTransport === "stdio" && formArgs ? formArgs : null,
       authHeader: formAuthHeader || null,
-      fromCatalog: catalogEntry !== null,
+      fromCatalog: false,
       enabled: true,
     };
   }
@@ -176,15 +163,14 @@
   </header>
 
   <div class="form-content">
-    {#if catalogEntry && !isEditing}
-      <div class="prefill-notice">
-        Pre-filled from catalog: <strong>{catalogEntry.name}</strong>
-      </div>
-    {/if}
-
     {#if registryEntry && !isEditing}
       <div class="prefill-notice">
-        From MCP Registry: <strong>{registryEntry.name}</strong>
+        From MCP Registry: <strong>{registryEntry.displayName}</strong>
+        {#if registryEntry.isStdioOnly}
+          <span class="stdio-notice"
+            >— This is a stdio-only server. You'll need to install and provide the binary path.</span
+          >
+        {/if}
         {#if registryEntry.description}
           <p class="prefill-desc">{registryEntry.description}</p>
         {/if}
@@ -336,6 +322,10 @@
   }
   .prefill-desc {
     margin: var(--spacing-xs) 0 0;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-tertiary);
+  }
+  .stdio-notice {
     font-size: var(--font-size-xs);
     color: var(--color-text-tertiary);
   }

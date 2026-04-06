@@ -9,7 +9,7 @@
     loadTools,
     loadRegistry,
   } from "$lib/stores/mcp.svelte";
-  import type { McpConnectionInfo, CatalogEntry, RegistryServer } from "$lib/types/mcp";
+  import type { McpConnectionInfo, RegistryServer } from "$lib/types/mcp";
   import McpServerForm from "./McpServerForm.svelte";
   import { onMount } from "svelte";
 
@@ -28,7 +28,6 @@
     | {
         kind: "form";
         editInfo?: McpConnectionInfo;
-        catalogEntry?: CatalogEntry;
         registryEntry?: RegistryServer;
       };
 
@@ -45,14 +44,16 @@
     registrySearch.trim()
       ? mcp.registry.filter(
           (s) =>
+            s.displayName.toLowerCase().includes(registrySearch.toLowerCase()) ||
             s.name.toLowerCase().includes(registrySearch.toLowerCase()) ||
             (s.description?.toLowerCase().includes(registrySearch.toLowerCase()) ?? false),
         )
-      : mcp.registry.slice(0, 20),
+      : mcp.registry.slice(0, 30),
   );
 
   onMount(() => {
     initMcp();
+    loadRegistry();
   });
 
   // ── Handlers ────────────────────────────────────────────────
@@ -63,10 +64,6 @@
 
   function openEditForm(info: McpConnectionInfo) {
     view = { kind: "form", editInfo: info };
-  }
-
-  function openCatalogForm(entry: CatalogEntry) {
-    view = { kind: "form", catalogEntry: entry };
   }
 
   function openRegistryForm(entry: RegistryServer) {
@@ -123,10 +120,6 @@
     }
   }
 
-  function handleBrowseRegistry() {
-    loadRegistry();
-  }
-
   function statusIcon(status: string): string {
     switch (status) {
       case "connected":
@@ -138,10 +131,6 @@
       default:
         return "⚪";
     }
-  }
-
-  function isCatalogAdded(entry: CatalogEntry): boolean {
-    return mcp.servers.some((s) => s.config.id === entry.id || s.config.name === entry.name);
   }
 
   function isRegistryAdded(entry: RegistryServer): boolean {
@@ -156,7 +145,6 @@
 {#if view.kind === "form"}
   <McpServerForm
     editInfo={view.editInfo ?? null}
-    catalogEntry={view.catalogEntry ?? null}
     registryEntry={view.registryEntry ?? null}
     onBack={returnToList}
   />
@@ -178,8 +166,7 @@
 
           {#if mcp.servers.length === 0}
             <p class="section-empty">
-              No MCP servers configured yet. Add one from the catalog, browse the registry, or add a
-              custom server.
+              No MCP servers configured yet. Browse the registry below or add a custom server.
             </p>
           {/if}
 
@@ -232,9 +219,6 @@
                     </button>
                   {/if}
                 </span>
-                {#if info.config.fromCatalog}
-                  <span class="meta-tag catalog-tag">catalog</span>
-                {/if}
               </div>
 
               {#if info.error}
@@ -268,42 +252,26 @@
           {/each}
         </section>
 
-        <!-- Featured Catalog -->
-        <section class="mcp-section">
-          <h3 class="section-heading">Featured</h3>
-          <div class="catalog-list">
-            {#each mcp.catalog as entry (entry.id)}
-              <div class="catalog-entry">
-                <div class="catalog-info">
-                  <strong>{entry.name}</strong>
-                  <span class="catalog-transport">{entry.transport.toUpperCase()}</span>
-                </div>
-                <p class="catalog-desc">{entry.description}</p>
-                {#if isCatalogAdded(entry)}
-                  <span class="catalog-added">Added ✓</span>
-                {:else}
-                  <button class="action-btn" onclick={() => openCatalogForm(entry)}>Add</button>
-                {/if}
-              </div>
-            {/each}
-          </div>
-        </section>
-
         <!-- MCP Registry -->
         <section class="mcp-section">
-          <h3 class="section-heading">MCP Registry</h3>
+          <h3 class="section-heading">
+            MCP Registry
+            {#if mcp.registry.length > 0}
+              <span class="registry-count">({mcp.registry.length})</span>
+            {/if}
+          </h3>
           <p class="section-desc">
             Browse servers from the official
             <a
               href="https://registry.modelcontextprotocol.io"
               target="_blank"
               rel="noopener noreferrer">MCP Registry</a
-            >. These are HTTP-based servers — no local installation needed.
+            >.
           </p>
 
-          {#if mcp.registry.length === 0 && !mcp.registryLoading}
-            <button class="browse-btn" onclick={handleBrowseRegistry}> Browse Registry → </button>
-          {:else}
+          {#if mcp.registryLoading}
+            <div class="registry-loading">Fetching from registry...</div>
+          {:else if mcp.registry.length > 0}
             <div class="registry-search">
               <input
                 type="text"
@@ -313,44 +281,44 @@
               />
             </div>
 
-            {#if mcp.registryLoading}
-              <div class="registry-loading">Fetching from registry...</div>
-            {:else}
-              <div class="registry-list">
-                {#each filteredRegistry as entry (entry.name)}
-                  <div class="registry-entry">
-                    <div class="registry-info">
-                      <strong class="registry-name">{entry.name}</strong>
-                      {#if entry.remotes.length > 0}
-                        <span class="registry-transport">HTTP</span>
-                      {/if}
-                    </div>
-                    {#if entry.description}
-                      <p class="registry-desc">{entry.description}</p>
+            <div class="registry-list">
+              {#each filteredRegistry as entry (entry.name)}
+                <div class="registry-entry">
+                  <div class="registry-info">
+                    <strong class="registry-name">{entry.displayName}</strong>
+                    {#if entry.isStdioOnly}
+                      <span class="registry-transport stdio">STDIO</span>
+                    {:else}
+                      <span class="registry-transport http">HTTP</span>
                     {/if}
-                    <div class="registry-actions">
-                      {#if isRegistryAdded(entry)}
-                        <span class="catalog-added">Added ✓</span>
-                      {:else}
-                        <button class="action-btn" onclick={() => openRegistryForm(entry)}>
-                          Add
-                        </button>
-                      {/if}
-                    </div>
                   </div>
-                {/each}
+                  {#if entry.description}
+                    <p class="registry-desc">{entry.description}</p>
+                  {/if}
+                  <div class="registry-actions">
+                    {#if isRegistryAdded(entry)}
+                      <span class="registry-added">Added ✓</span>
+                    {:else}
+                      <button class="action-btn" onclick={() => openRegistryForm(entry)}>
+                        Add
+                      </button>
+                    {/if}
+                  </div>
+                </div>
+              {/each}
 
-                {#if filteredRegistry.length === 0 && registrySearch.trim()}
-                  <p class="section-empty">No servers match "{registrySearch}"</p>
-                {/if}
-              </div>
-
-              {#if !registrySearch.trim() && mcp.registry.length > 20}
-                <p class="registry-hint">
-                  Showing 20 of {mcp.registry.length}. Use the filter to find more.
-                </p>
+              {#if filteredRegistry.length === 0 && registrySearch.trim()}
+                <p class="section-empty">No servers match "{registrySearch}"</p>
               {/if}
+            </div>
+
+            {#if !registrySearch.trim() && mcp.registry.length > 30}
+              <p class="registry-hint">
+                Showing 30 of {mcp.registry.length}. Use the filter to find more.
+              </p>
             {/if}
+          {:else}
+            <p class="section-empty">Could not load the MCP Registry.</p>
           {/if}
         </section>
 
@@ -497,11 +465,6 @@
     white-space: nowrap;
   }
 
-  .catalog-tag {
-    color: var(--color-accent-copper);
-    font-weight: var(--font-weight-medium);
-  }
-
   .server-error {
     font-size: var(--font-size-xs);
     color: var(--color-error);
@@ -585,74 +548,14 @@
     border-color: var(--color-error);
   }
 
-  /* ── Catalog ── */
-
-  .catalog-list {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-sm);
-  }
-
-  .catalog-entry {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--spacing-sm);
-    padding: var(--spacing-sm) var(--spacing-md);
-    background: var(--color-bg-secondary);
-    border: 1px solid var(--color-border-secondary);
-    border-radius: var(--radius-md);
-  }
-
-  .catalog-info {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-xs);
-    flex: 1;
-    min-width: 0;
-  }
-  .catalog-info strong {
-    font-size: var(--font-size-sm);
-    color: var(--color-text-primary);
-  }
-  .catalog-transport {
-    font-size: var(--font-size-xs);
-    color: var(--color-text-tertiary);
-    background: var(--color-bg-tertiary);
-    padding: 1px var(--spacing-xs);
-    border-radius: var(--radius-sm);
-  }
-
-  .catalog-desc {
-    width: 100%;
-    font-size: var(--font-size-xs);
-    color: var(--color-text-secondary);
-    margin: 0;
-  }
-
-  .catalog-added {
-    font-size: var(--font-size-xs);
-    color: var(--color-text-tertiary);
-    font-style: italic;
-  }
-
   /* ── MCP Registry ── */
 
-  .browse-btn {
-    display: block;
-    width: 100%;
-    padding: var(--spacing-md);
-    border: 1px solid var(--color-border-primary);
-    border-radius: var(--radius-md);
-    background: var(--color-bg-secondary);
-    color: var(--color-accent-copper);
-    cursor: pointer;
-    font-size: var(--font-size-sm);
-    font-weight: var(--font-weight-medium);
-    transition: all var(--transition-fast);
-  }
-  .browse-btn:hover {
-    background: var(--color-bg-hover);
+  .registry-count {
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-normal);
+    color: var(--color-text-tertiary);
+    text-transform: none;
+    letter-spacing: 0;
   }
 
   .registry-search {
@@ -715,11 +618,18 @@
 
   .registry-transport {
     font-size: 10px;
-    color: var(--color-text-tertiary);
-    background: var(--color-bg-tertiary);
     padding: 1px var(--spacing-xs);
     border-radius: var(--radius-sm);
     text-transform: uppercase;
+    font-weight: var(--font-weight-medium);
+  }
+  .registry-transport.http {
+    color: var(--color-accent-copper);
+    background: color-mix(in srgb, var(--color-accent-copper) 12%, transparent);
+  }
+  .registry-transport.stdio {
+    color: var(--color-text-tertiary);
+    background: var(--color-bg-tertiary);
   }
 
   .registry-desc {
@@ -735,6 +645,12 @@
 
   .registry-actions {
     flex-shrink: 0;
+  }
+
+  .registry-added {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-tertiary);
+    font-style: italic;
   }
 
   .registry-hint {

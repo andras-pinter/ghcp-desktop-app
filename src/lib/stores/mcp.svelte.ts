@@ -4,7 +4,6 @@ import type {
   McpConnectionInfo,
   McpServerConfig,
   McpToolInfo,
-  CatalogEntry,
   RegistryServer,
 } from "$lib/types/mcp";
 import {
@@ -16,7 +15,6 @@ import {
   disconnectMcpServer,
   testMcpConnection,
   getMcpTools,
-  getMcpCatalog,
   fetchMcpRegistry,
 } from "$lib/utils/commands";
 import { logFrontend } from "$lib/utils/commands";
@@ -25,9 +23,6 @@ import { logFrontend } from "$lib/utils/commands";
 
 /** All configured MCP servers with live connection status. */
 let servers = $state<McpConnectionInfo[]>([]);
-
-/** The built-in catalog of MCP servers. */
-let catalog = $state<CatalogEntry[]>([]);
 
 /** Servers from the official MCP Registry. */
 let registry = $state<RegistryServer[]>([]);
@@ -43,14 +38,12 @@ let error = $state<string | null>(null);
 
 // ── Init ────────────────────────────────────────────────────────
 
-/** Load MCP servers and catalog from backend. */
+/** Load MCP servers from backend. */
 export async function initMcp(): Promise<void> {
   loading = true;
   error = null;
   try {
-    const [serverList, catalogList] = await Promise.all([getMcpServers(), getMcpCatalog()]);
-    servers = serverList;
-    catalog = catalogList;
+    servers = await getMcpServers();
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     error = msg;
@@ -65,7 +58,7 @@ export async function loadRegistry(): Promise<void> {
   if (registryLoading || registry.length > 0) return;
   registryLoading = true;
   try {
-    registry = await fetchMcpRegistry(200);
+    registry = await fetchMcpRegistry();
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     logFrontend("warn", `Failed to fetch MCP registry: ${msg}`);
@@ -160,9 +153,6 @@ export function getMcpState() {
   return {
     get servers() {
       return servers;
-    },
-    get catalog() {
-      return catalog;
     },
     get registry() {
       return registry;
