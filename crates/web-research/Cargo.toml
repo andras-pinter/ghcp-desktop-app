@@ -11,5 +11,13 @@ serde_json.workspace = true
 tokio.workspace = true
 reqwest.workspace = true
 thiserror.workspace = true
-log.workspace = true
 url.workspace = true
+
+# HTML content extraction (Readability algorithm — Mozilla port)
+dom_smoothie = "0.16"
+
+# Streaming response body reads
+futures-util = "0.3"
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util"] }

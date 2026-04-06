@@ -218,6 +218,22 @@ impl CopilotClient {
         let models_resp = resp.json::<ModelsResponse>().await?;
         Ok(models_resp.data)
     }
+
+    /// Store a web search API key in the OS keychain.
+    pub fn set_search_api_key(&self, key: &str) -> Result<(), crate::keychain::KeychainError> {
+        crate::keychain::store("bing_api_key", key)
+    }
+
+    /// Retrieve the web search API key from the OS keychain.
+    ///
+    /// Returns `Ok(None)` if no key is stored, `Ok(Some(key))` if found.
+    pub fn get_search_api_key(&self) -> Result<Option<String>, crate::keychain::KeychainError> {
+        match crate::keychain::retrieve("bing_api_key") {
+            Ok(key) => Ok(Some(key)),
+            Err(crate::keychain::KeychainError::NotFound(_)) => Ok(None),
+            Err(e) => Err(e),
+        }
+    }
 }
 
 impl Default for CopilotClient {

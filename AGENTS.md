@@ -1585,9 +1585,9 @@ INSERT INTO config (key, value) VALUES ('schema_version', '1');
 17. ✅ **markdown-rendering** — `src/lib/utils/markdown.ts`: `marked` v15 with custom renderer (code block placeholders with `data-code`/`data-lang` attributes) piped through `DOMPurify` v3 with strict allowed tags/attributes config. `renderMarkdown()` exported. Inline code gets `.md-inline-code` class. Links open in new tab. Images blocked (rendered as links).
 18. ✅ **code-blocks** — `CodeBlock.svelte` + `src/lib/utils/syntax.ts`: Shiki v3 lazy-loaded singleton highlighter with dual themes (github-light/github-dark), 28 pre-loaded languages + dynamic loading fallback. Copy-to-clipboard button with check animation. Language label header. Warm Ink styled with proper dark mode support via CSS custom properties (`--shiki-light`/`--shiki-dark`). `ThinkingSection.svelte`: collapsible `<details>` for model reasoning tokens, dashed border, muted styling, animated dots during streaming.
 
-### Phase 6: Web Research
-19. ⬚ **web-search** — `web-research` crate: Bing Web Search API integration. Tauri command `web_search`. `WebResultCard.svelte` for displaying results as cited cards. API key stored in keychain.
-20. ⬚ **url-fetcher** — Tauri command `fetch_url`. HTTPS only, public IPs only. Extract readable text via `dom_smoothie`. URL preview card in input area. Max 50KB extracted text.
+### Phase 6: Web Research ✅
+19. ✅ **web-search** — `web-research` crate: Bing Web Search API integration. Tauri command `web_search`. `WebResultCard.svelte` for displaying results as cited cards. API key stored in keychain.
+20. ✅ **url-fetcher** — Tauri command `fetch_url`. HTTPS only, public IPs only. Extract readable text via `dom_smoothie`. URL preview card in input area. Max 50KB extracted text.
 
 ### Phase 7: MCP Integration
 21. ⬚ **mcp-client** — `mcp-client` crate: MCP protocol client (spec 2025-03-26). Connect, discover tools, invoke, handle responses. HTTP and stdio transports.
