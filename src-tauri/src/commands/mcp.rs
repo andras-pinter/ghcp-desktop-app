@@ -75,7 +75,7 @@ fn validate_config(config: &McpServerConfig) -> Result<(), String> {
                 "https" => {}
                 "http" => {
                     let host = parsed.host_str().unwrap_or("");
-                    if !matches!(host, "localhost" | "127.0.0.1" | "[::1]") {
+                    if !matches!(host, "localhost" | "127.0.0.1" | "::1") {
                         return Err(
                             "HTTP (non-TLS) only allowed for localhost; use HTTPS".to_string()
                         );

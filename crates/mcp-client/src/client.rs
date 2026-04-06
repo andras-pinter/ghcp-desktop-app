@@ -165,7 +165,7 @@ impl McpConnection {
             "https" => {}
             "http" => {
                 let host = parsed.host_str().unwrap_or("");
-                if !matches!(host, "localhost" | "127.0.0.1" | "[::1]") {
+                if !matches!(host, "localhost" | "127.0.0.1" | "::1") {
                     let msg = "HTTP (non-TLS) only allowed for localhost; use HTTPS".to_string();
                     self.status = McpServerStatus::Error;
                     self.error = Some(msg.clone());
