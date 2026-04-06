@@ -9,6 +9,8 @@
     onModelChange?: (model: string) => void;
     availableModels?: Model[];
     modelsLoaded?: boolean;
+    defaultModelId?: string | null;
+    onSetDefault?: (modelId: string) => void;
     initialValue?: string;
     onInput?: (text: string) => void;
   }
@@ -21,6 +23,8 @@
     onModelChange,
     availableModels = [],
     modelsLoaded = false,
+    defaultModelId = null,
+    onSetDefault,
     initialValue = "",
     onInput: onInputCallback,
   }: Props = $props();
@@ -28,6 +32,8 @@
   let inputText = $state("");
   let textareaEl: HTMLTextAreaElement | undefined = $state();
   let initialized = false;
+  let dropdownOpen = $state(false);
+  let dropdownEl: HTMLDivElement | undefined = $state();
 
   // Sync initialValue prop on first mount
   $effect(() => {
@@ -36,6 +42,13 @@
       initialized = true;
     }
   });
+
+  // Close dropdown on outside click
+  function handleWindowClick(event: MouseEvent) {
+    if (dropdownOpen && dropdownEl && !dropdownEl.contains(event.target as Node)) {
+      dropdownOpen = false;
+    }
+  }
 
   function handleSend() {
     const trimmed = inputText.trim();
@@ -61,10 +74,33 @@
     onInputCallback?.(inputText);
   }
 
-  function handleModelSelect(event: Event) {
-    const target = event.target as HTMLSelectElement;
-    onModelChange?.(target.value);
+  function handleModelClick(modelId: string, event: MouseEvent) {
+    if (event.shiftKey && onSetDefault) {
+      onSetDefault(modelId);
+    }
+    onModelChange?.(modelId);
+    dropdownOpen = false;
   }
+
+  function handleDropdownKeydown(event: KeyboardEvent) {
+    if (event.key === "Escape") {
+      dropdownOpen = false;
+    }
+  }
+
+  /** Display-friendly model name — strips date suffixes and normalizes. */
+  function displayName(m: Model): string {
+    return m.name ?? m.id;
+  }
+
+  $effect(() => {
+    if (dropdownOpen) {
+      document.addEventListener("click", handleWindowClick);
+    } else {
+      document.removeEventListener("click", handleWindowClick);
+    }
+    return () => document.removeEventListener("click", handleWindowClick);
+  });
 </script>
 
 <div class="input-area">
@@ -94,20 +130,37 @@
             />
           </svg>
         </button>
-        <div class="model-selector">
-          {#if !modelsLoaded}
-            <span class="model-label">{model}</span>
-          {:else if availableModels.length <= 1}
-            <span class="model-label">{availableModels[0]?.name ?? model}</span>
-          {:else}
-            <div class="model-dropdown-wrap">
-              <select value={model} onchange={handleModelSelect} aria-label="Select model">
-                {#each availableModels as m (m.id)}
-                  <option value={m.id}>{m.name ?? m.id}</option>
-                {/each}
-              </select>
+
+        {#if modelsLoaded && availableModels.length > 1}
+          <div class="model-picker" bind:this={dropdownEl}>
+            <button
+              class="model-trigger"
+              onclick={() => (dropdownOpen = !dropdownOpen)}
+              aria-label="Select model"
+              aria-expanded={dropdownOpen}
+              aria-haspopup="listbox"
+              title="Click to switch model · Shift+click to set default"
+            >
+              {#if model === defaultModelId}
+                <svg
+                  class="model-star"
+                  width="10"
+                  height="10"
+                  viewBox="0 0 16 16"
+                  fill="currentColor"
+                  aria-label="Default model"
+                >
+                  <path
+                    d="M8 1.5l1.85 4.1L14.2 6l-3.3 3 .85 4.5L8 11.3 4.25 13.5l.85-4.5L1.8 6l4.35-.4z"
+                  />
+                </svg>
+              {/if}
+              <span class="model-trigger-name"
+                >{displayName(availableModels.find((m) => m.id === model) ?? { id: model })}</span
+              >
               <svg
-                class="model-chevron"
+                class="model-trigger-chevron"
+                class:open={dropdownOpen}
                 width="10"
                 height="10"
                 viewBox="0 0 16 16"
@@ -116,9 +169,53 @@
               >
                 <path d="M4.5 6l3.5 4 3.5-4H4.5z" />
               </svg>
-            </div>
-          {/if}
-        </div>
+            </button>
+
+            {#if dropdownOpen}
+              <div
+                class="model-dropdown"
+                role="listbox"
+                tabindex="-1"
+                aria-label="Available models"
+                onkeydown={handleDropdownKeydown}
+              >
+                <div class="model-dropdown-hint">
+                  <span>⇧ click to set default</span>
+                </div>
+                {#each availableModels as m (m.id)}
+                  <button
+                    class="model-option"
+                    class:selected={m.id === model}
+                    class:is-default={m.id === defaultModelId}
+                    role="option"
+                    aria-selected={m.id === model}
+                    onclick={(e) => handleModelClick(m.id, e)}
+                  >
+                    <span class="model-option-name">{displayName(m)}</span>
+                    {#if m.id === defaultModelId}
+                      <svg
+                        class="model-option-star"
+                        width="10"
+                        height="10"
+                        viewBox="0 0 16 16"
+                        fill="currentColor"
+                        aria-label="Default"
+                      >
+                        <path
+                          d="M8 1.5l1.85 4.1L14.2 6l-3.3 3 .85 4.5L8 11.3 4.25 13.5l.85-4.5L1.8 6l4.35-.4z"
+                        />
+                      </svg>
+                    {/if}
+                  </button>
+                {/each}
+              </div>
+            {/if}
+          </div>
+        {:else}
+          <span class="model-label"
+            >{modelsLoaded ? displayName(availableModels[0] ?? { id: model }) : model}</span
+          >
+        {/if}
       </div>
       {#if streaming}
         <button class="stop-btn" onclick={() => onStop?.()} aria-label="Stop streaming">
@@ -215,9 +312,137 @@
     color: var(--color-text-secondary);
   }
 
-  .model-selector {
+  /* ── Model picker ────────────────────────────────── */
+
+  .model-picker {
+    position: relative;
+  }
+
+  .model-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--radius-full);
+    color: var(--color-text-tertiary);
+    font-family: var(--font-sans);
+    font-size: var(--font-size-xs);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    letter-spacing: var(--letter-spacing-normal);
+    white-space: nowrap;
+  }
+
+  .model-trigger:hover {
+    background: var(--color-bg-hover);
+    border-color: var(--color-border-primary);
+    color: var(--color-text-secondary);
+  }
+
+  .model-star {
+    color: var(--color-accent-copper);
+    flex-shrink: 0;
+  }
+
+  .model-trigger-name {
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .model-trigger-chevron {
+    flex-shrink: 0;
+    opacity: 0.5;
+    transition: transform var(--transition-fast);
+  }
+
+  .model-trigger-chevron.open {
+    transform: rotate(180deg);
+  }
+
+  .model-dropdown {
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 0;
+    min-width: 220px;
+    max-width: 280px;
+    max-height: 320px;
+    overflow-y: auto;
+    background: var(--color-bg-primary);
+    border: 1px solid var(--color-border-primary);
+    border-radius: var(--radius-md);
+    box-shadow:
+      0 8px 24px rgba(0, 0, 0, 0.12),
+      0 2px 8px rgba(0, 0, 0, 0.06);
+    z-index: 100;
+    padding: var(--spacing-xs);
+    animation: dropdownFadeIn 120ms ease;
+  }
+
+  @keyframes dropdownFadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .model-dropdown-hint {
+    padding: 4px 8px 6px;
+    font-family: var(--font-sans);
+    font-size: 10px;
+    color: var(--color-text-tertiary);
+    opacity: 0.6;
+    user-select: none;
+    border-bottom: 1px solid var(--color-border-secondary);
+    margin-bottom: var(--spacing-xs);
+  }
+
+  .model-option {
     display: flex;
     align-items: center;
+    gap: 6px;
+    width: 100%;
+    padding: 6px 8px;
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-sm);
+    color: var(--color-text-secondary);
+    font-family: var(--font-sans);
+    font-size: var(--font-size-xs);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    text-align: left;
+    letter-spacing: var(--letter-spacing-normal);
+    white-space: nowrap;
+    overflow: hidden;
+  }
+
+  .model-option:hover {
+    background: var(--color-bg-hover);
+    color: var(--color-text-primary);
+  }
+
+  .model-option.selected {
+    background: var(--color-bg-hover);
+    color: var(--color-text-primary);
+    font-weight: 560;
+  }
+
+  .model-option-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .model-option-star {
+    color: var(--color-accent-copper);
+    flex-shrink: 0;
   }
 
   .model-label {
@@ -228,45 +453,7 @@
     letter-spacing: var(--letter-spacing-normal);
   }
 
-  .model-dropdown-wrap {
-    position: relative;
-    display: flex;
-    align-items: center;
-  }
-
-  .model-dropdown-wrap select {
-    appearance: none;
-    background: transparent;
-    border: none;
-    color: var(--color-text-tertiary);
-    font-family: var(--font-sans);
-    font-size: var(--font-size-xs);
-    padding: var(--spacing-xs) var(--spacing-lg) var(--spacing-xs) var(--spacing-sm);
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    transition: all var(--transition-fast);
-    outline: none;
-    letter-spacing: var(--letter-spacing-normal);
-  }
-
-  .model-dropdown-wrap select:hover {
-    background: var(--color-bg-hover);
-    color: var(--color-text-secondary);
-  }
-
-  .model-dropdown-wrap select:focus-visible {
-    background: var(--color-bg-hover);
-    color: var(--color-text-secondary);
-    outline: 1px solid var(--color-border-focus);
-  }
-
-  .model-chevron {
-    position: absolute;
-    right: var(--spacing-xs);
-    pointer-events: none;
-    color: var(--color-text-tertiary);
-    opacity: 0.6;
-  }
+  /* ── Send / Stop buttons ────────────────────────── */
 
   .send-btn {
     width: 30px;

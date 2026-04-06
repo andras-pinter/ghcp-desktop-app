@@ -18,7 +18,7 @@
     loadDraft,
     clearDraft,
   } from "$lib/stores/conversations.svelte";
-  import { getModelStore } from "$lib/stores/models.svelte";
+  import { getModelStore, setDefaultModel } from "$lib/stores/models.svelte";
 
   const greetings = [
     "Your co-pilot is ready. Where to?",
@@ -44,14 +44,19 @@
   let unlistenComplete: UnlistenFn | undefined;
   let unlistenError: UnlistenFn | undefined;
 
-  // Select first available model if the current one isn't in the list
+  // Use persisted default model, or first available if current isn't in the list
   $effect(() => {
-    if (
-      modelStore.loaded &&
-      modelStore.models.length > 0 &&
-      !modelStore.models.some((m) => m.id === selectedModel)
-    ) {
-      selectedModel = modelStore.models[0].id;
+    if (modelStore.loaded && modelStore.models.length > 0) {
+      const hasDefault =
+        modelStore.defaultModelId &&
+        modelStore.models.some((m) => m.id === modelStore.defaultModelId);
+      const hasCurrent = modelStore.models.some((m) => m.id === selectedModel);
+
+      if (hasDefault && !hasCurrent) {
+        selectedModel = modelStore.defaultModelId!;
+      } else if (!hasCurrent) {
+        selectedModel = modelStore.models[0].id;
+      }
     }
   });
 
@@ -219,6 +224,8 @@
           onModelChange={handleModelChange}
           availableModels={modelStore.models}
           modelsLoaded={modelStore.loaded}
+          defaultModelId={modelStore.defaultModelId}
+          onSetDefault={setDefaultModel}
           initialValue={draftText}
           onInput={handleDraftChange}
         />
@@ -248,6 +255,8 @@
         onModelChange={handleModelChange}
         availableModels={modelStore.models}
         modelsLoaded={modelStore.loaded}
+        defaultModelId={modelStore.defaultModelId}
+        onSetDefault={setDefaultModel}
         initialValue={draftText}
         onInput={handleDraftChange}
       />

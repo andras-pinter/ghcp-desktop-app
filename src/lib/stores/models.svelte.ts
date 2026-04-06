@@ -1,7 +1,14 @@
 /** Reactive models state using Svelte 5 runes. */
 
-import { getModels as getModelsCmd, logFrontend } from "$lib/utils/commands";
+import {
+  getModels as getModelsCmd,
+  getSetting,
+  updateSetting,
+  logFrontend,
+} from "$lib/utils/commands";
 import type { Model } from "$lib/types/message";
+
+const DEFAULT_MODEL_KEY = "default_model";
 
 /** Model IDs that are not chat-capable (embeddings, legacy completions). */
 const NON_CHAT_PREFIXES = ["text-embedding", "gpt-3.5-turbo-0613"];
@@ -23,18 +30,26 @@ function deduplicateModels(list: Model[]): Model[] {
 
 let models = $state<Model[]>([]);
 let loaded = $state(false);
+let defaultModelId = $state<string | null>(null);
 
 /** Fetch models from the backend — call once after auth. */
 export async function initModels(): Promise<void> {
   try {
-    const all = await getModelsCmd();
+    const [all, savedDefault] = await Promise.all([getModelsCmd(), getSetting(DEFAULT_MODEL_KEY)]);
     models = deduplicateModels(all.filter(isChatModel));
+    defaultModelId = savedDefault;
   } catch (e) {
     logFrontend("error", `initModels failed: ${e}`);
     models = [];
   } finally {
     loaded = true;
   }
+}
+
+/** Persist a model as the default. */
+export async function setDefaultModel(modelId: string): Promise<void> {
+  defaultModelId = modelId;
+  await updateSetting(DEFAULT_MODEL_KEY, modelId);
 }
 
 /** Reactive getters. */
@@ -45,6 +60,9 @@ export function getModelStore() {
     },
     get loaded() {
       return loaded;
+    },
+    get defaultModelId() {
+      return defaultModelId;
     },
   };
 }
