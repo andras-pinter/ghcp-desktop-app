@@ -235,6 +235,73 @@
           </section>
         {/if}
 
+        <!-- Setup Guide (stdio servers) -->
+        {#if view.entry.isStdioOnly && view.entry.packages.length > 0}
+          <section class="detail-section">
+            <h3 class="detail-section-heading">Setup Guide</h3>
+            <div class="setup-guide">
+              <p class="setup-step">
+                <span class="step-num">1</span> Install the server binary using one of the packages above:
+              </p>
+              <div class="setup-commands">
+                {#each view.entry.packages as pkg (pkg.identifier + "-guide")}
+                  {#if pkg.registryType === "npm"}
+                    <code class="setup-code"
+                      >npx {pkg.identifier}{pkg.version ? `@${pkg.version}` : ""}</code
+                    >
+                  {:else if pkg.registryType === "pypi"}
+                    <code class="setup-code"
+                      >uvx {pkg.identifier}{pkg.version ? `==${pkg.version}` : ""}</code
+                    >
+                  {:else if pkg.registryType === "nuget"}
+                    <code class="setup-code">dotnet tool run {pkg.identifier}</code>
+                  {/if}
+                {/each}
+              </div>
+              <p class="setup-step">
+                <span class="step-num">2</span> Click <strong>Add Server</strong> below, select
+                <em>Stdio</em> transport, and provide the binary path and arguments.
+              </p>
+              <p class="setup-step">
+                <span class="step-num">3</span> Use <strong>Test Connection</strong> to verify it works.
+              </p>
+            </div>
+          </section>
+        {:else if view.entry.isStdioOnly}
+          <section class="detail-section">
+            <h3 class="detail-section-heading">Setup Guide</h3>
+            <div class="setup-guide">
+              <p class="setup-step">
+                <span class="step-num">1</span> Install the server binary from the repository link above.
+              </p>
+              <p class="setup-step">
+                <span class="step-num">2</span> Click <strong>Add Server</strong> below, select
+                <em>Stdio</em> transport, and enter the full path to the binary.
+              </p>
+              <p class="setup-step">
+                <span class="step-num">3</span> Use <strong>Test Connection</strong> to verify it works.
+              </p>
+            </div>
+          </section>
+        {:else if view.entry.remotes.length > 0 && view.entry.remotes.some((r) => r.requiresAuth)}
+          <section class="detail-section">
+            <h3 class="detail-section-heading">Setup Guide</h3>
+            <div class="setup-guide">
+              <p class="setup-step">
+                <span class="step-num">1</span> This server requires authentication. Obtain an API key
+                from the provider.
+              </p>
+              <p class="setup-step">
+                <span class="step-num">2</span> Click <strong>Add Server</strong> below — the URL will
+                be pre-filled. Add your API key in the auth header field.
+              </p>
+              <p class="setup-step">
+                <span class="step-num">3</span> Use <strong>Test Connection</strong> to verify it works.
+              </p>
+            </div>
+          </section>
+        {/if}
+
         <!-- Links -->
         {#if view.entry.repoUrl || view.entry.websiteUrl}
           <section class="detail-section">
@@ -252,6 +319,20 @@
               {/if}
             </div>
           </section>
+        {/if}
+
+        <!-- Bottom CTA -->
+        {#if !isRegistryAdded(view.entry)}
+          <button
+            class="detail-add-btn"
+            onclick={() => {
+              if (view.kind === "detail") openRegistryForm(view.entry);
+            }}
+          >
+            + Add Server
+          </button>
+        {:else}
+          <div class="detail-already-added">✓ This server is already configured</div>
         {/if}
       </div>
     </div>
@@ -732,9 +813,14 @@
   }
 
   .loading-spinner {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1em;
+    height: 1em;
     animation: spin 1s linear infinite;
     color: var(--color-accent-copper);
+    line-height: 1;
   }
 
   .registry-list {
@@ -929,5 +1015,86 @@
   .detail-link:hover {
     opacity: 0.8;
     text-decoration: underline;
+  }
+
+  /* ── Setup Guide ── */
+
+  .setup-guide {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md);
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border-secondary);
+    border-radius: var(--radius-md);
+  }
+
+  .setup-step {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    margin: 0;
+    display: flex;
+    align-items: baseline;
+    gap: var(--spacing-sm);
+    line-height: 1.5;
+  }
+
+  .step-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--color-accent-copper) 15%, transparent);
+    color: var(--color-accent-copper);
+    font-size: 11px;
+    font-weight: var(--font-weight-semibold);
+    flex-shrink: 0;
+  }
+
+  .setup-commands {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    padding-left: calc(20px + var(--spacing-sm));
+  }
+
+  .setup-code {
+    font-family: var(--font-mono);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-primary);
+    background: var(--color-bg-tertiary);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--radius-sm);
+    display: inline-block;
+    word-break: break-all;
+  }
+
+  /* ── Detail CTA ── */
+
+  .detail-add-btn {
+    width: 100%;
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: var(--color-text-primary);
+    color: var(--color-bg-primary);
+    border: none;
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    font-family: var(--font-body);
+    cursor: pointer;
+    transition: opacity var(--transition-fast);
+  }
+  .detail-add-btn:hover {
+    opacity: 0.85;
+  }
+
+  .detail-already-added {
+    text-align: center;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-tertiary);
+    font-style: italic;
+    padding: var(--spacing-sm);
   }
 </style>
