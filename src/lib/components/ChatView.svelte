@@ -44,17 +44,17 @@
   let unlistenComplete: UnlistenFn | undefined;
   let unlistenError: UnlistenFn | undefined;
 
-  // Use persisted default model, or first available if current isn't in the list
+  // Use persisted default model on first load, then fall back to first available
+  let defaultApplied = false;
   $effect(() => {
-    if (modelStore.loaded && modelStore.models.length > 0) {
-      const hasDefault =
+    if (modelStore.loaded && modelStore.models.length > 0 && !defaultApplied) {
+      defaultApplied = true;
+      if (
         modelStore.defaultModelId &&
-        modelStore.models.some((m) => m.id === modelStore.defaultModelId);
-      const hasCurrent = modelStore.models.some((m) => m.id === selectedModel);
-
-      if (hasDefault && !hasCurrent) {
-        selectedModel = modelStore.defaultModelId!;
-      } else if (!hasCurrent) {
+        modelStore.models.some((m) => m.id === modelStore.defaultModelId)
+      ) {
+        selectedModel = modelStore.defaultModelId;
+      } else if (!modelStore.models.some((m) => m.id === selectedModel)) {
         selectedModel = modelStore.models[0].id;
       }
     }
