@@ -11,6 +11,7 @@ import type {
   McpToolInfo,
   McpToolResult,
   CatalogEntry,
+  RegistryServer,
 } from "$lib/types/mcp";
 
 // ── Logging ─────────────────────────────────────────────────────
@@ -249,4 +250,9 @@ export async function invokeMcpTool(
 /** Get the built-in MCP server catalog. */
 export async function getMcpCatalog(): Promise<CatalogEntry[]> {
   return invoke<CatalogEntry[]>("get_mcp_catalog");
+}
+
+/** Fetch servers from the official MCP Registry. */
+export async function fetchMcpRegistry(count?: number): Promise<RegistryServer[]> {
+  return invoke<RegistryServer[]>("fetch_mcp_registry", { count });
 }

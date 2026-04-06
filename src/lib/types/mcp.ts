@@ -59,3 +59,22 @@ export interface CatalogField {
   placeholder: string;
   secret: boolean;
 }
+
+/** A server from the official MCP Registry. */
+export interface RegistryServer {
+  name: string;
+  displayName: string;
+  description: string;
+  version?: string | null;
+  websiteUrl?: string | null;
+  repoUrl?: string | null;
+  remotes: RegistryRemote[];
+}
+
+/** A remote connection option for a registry server. */
+export interface RegistryRemote {
+  transportType: string;
+  url?: string | null;
+  requiresAuth: boolean;
+  authDescription?: string | null;
+}

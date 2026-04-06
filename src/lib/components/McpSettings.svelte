@@ -2,15 +2,15 @@
   import {
     getMcpState,
     initMcp,
-    addServer,
     removeServer,
     connectServer,
     disconnectServer,
     testConnection,
     loadTools,
-    editServer,
+    loadRegistry,
   } from "$lib/stores/mcp.svelte";
-  import type { McpServerConfig, McpConnectionInfo, CatalogEntry } from "$lib/types/mcp";
+  import type { McpConnectionInfo, CatalogEntry, RegistryServer } from "$lib/types/mcp";
+  import McpServerForm from "./McpServerForm.svelte";
   import { onMount } from "svelte";
 
   interface Props {
@@ -21,143 +21,67 @@
 
   const mcp = getMcpState();
 
+  // ── View state ──────────────────────────────────────────────
+
+  type ViewState =
+    | { kind: "list" }
+    | {
+        kind: "form";
+        editInfo?: McpConnectionInfo;
+        catalogEntry?: CatalogEntry;
+        registryEntry?: RegistryServer;
+      };
+
+  let view = $state<ViewState>({ kind: "list" });
+
   // ── Local state ─────────────────────────────────────────────
 
-  let showAddForm = $state(false);
-  let editingServer = $state<string | null>(null);
   let testingServer = $state<string | null>(null);
   let testResult = $state<{ serverId: string; success: boolean; message: string } | null>(null);
   let expandedTools = $state<string | null>(null);
+  let registrySearch = $state("");
 
-  // Form fields
-  let formName = $state("");
-  let formTransport = $state<"http" | "stdio">("http");
-  let formUrl = $state("");
-  let formBinaryPath = $state("");
-  let formArgs = $state("");
-  let formAuthHeader = $state("");
-  let formError = $state("");
-
-  const argsPlaceholder = '["--port", "3000"]';
+  let filteredRegistry = $derived(
+    registrySearch.trim()
+      ? mcp.registry.filter(
+          (s) =>
+            s.name.toLowerCase().includes(registrySearch.toLowerCase()) ||
+            (s.description?.toLowerCase().includes(registrySearch.toLowerCase()) ?? false),
+        )
+      : mcp.registry.slice(0, 20),
+  );
 
   onMount(() => {
     initMcp();
   });
 
-  // ── Form helpers ────────────────────────────────────────────
+  // ── Handlers ────────────────────────────────────────────────
 
-  function resetForm() {
-    formName = "";
-    formTransport = "http";
-    formUrl = "";
-    formBinaryPath = "";
-    formArgs = "";
-    formAuthHeader = "";
-    formError = "";
-    showAddForm = false;
-    editingServer = null;
+  function openAddForm() {
+    view = { kind: "form" };
   }
 
-  function startEdit(info: McpConnectionInfo) {
-    editingServer = info.config.id;
-    formName = info.config.name;
-    formTransport = info.config.transport;
-    formUrl = info.config.url ?? "";
-    formBinaryPath = info.config.binaryPath ?? "";
-    formArgs = info.config.args ?? "";
-    formAuthHeader = info.config.authHeader ?? "";
-    showAddForm = true;
+  function openEditForm(info: McpConnectionInfo) {
+    view = { kind: "form", editInfo: info };
   }
 
-  function fillFromCatalog(entry: CatalogEntry) {
-    formName = entry.name;
-    formTransport = entry.transport;
-    formUrl = entry.defaultUrl ?? "";
-    formBinaryPath = entry.defaultBinary ?? "";
-    formArgs = "";
-    formAuthHeader = "";
-    showAddForm = true;
-    editingServer = null;
+  function openCatalogForm(entry: CatalogEntry) {
+    view = { kind: "form", catalogEntry: entry };
   }
 
-  async function submitForm() {
-    formError = "";
+  function openRegistryForm(entry: RegistryServer) {
+    view = { kind: "form", registryEntry: entry };
+  }
 
-    // Validate name
-    if (!formName.trim()) {
-      formError = "Server name is required";
-      return;
-    }
-
-    // Validate HTTP URL
-    if (formTransport === "http") {
-      if (!formUrl.trim()) {
-        formError = "URL is required for HTTP transport";
-        return;
-      }
-      try {
-        const parsed = new URL(formUrl);
-        if (!["http:", "https:"].includes(parsed.protocol)) {
-          formError = "Only HTTP and HTTPS URLs are allowed";
-          return;
-        }
-      } catch {
-        formError = "Invalid URL format";
-        return;
-      }
-    }
-
-    // Validate stdio binary path
-    if (formTransport === "stdio") {
-      if (!formBinaryPath.trim()) {
-        formError = "Binary path is required for stdio transport";
-        return;
-      }
-      if (!formBinaryPath.startsWith("/")) {
-        formError = "Binary path must be absolute (start with /)";
-        return;
-      }
-    }
-
-    // Validate args JSON if provided
-    if (formArgs.trim()) {
-      try {
-        const parsed = JSON.parse(formArgs);
-        if (!Array.isArray(parsed)) {
-          formError = "Arguments must be a JSON array of strings";
-          return;
-        }
-      } catch {
-        formError = 'Arguments must be valid JSON (e.g. ["--port", "3000"])';
-        return;
-      }
-    }
-
-    const config: McpServerConfig = {
-      id: editingServer ?? `mcp-${Date.now()}`,
-      name: formName,
-      transport: formTransport,
-      url: formTransport === "http" ? formUrl || null : null,
-      binaryPath: formTransport === "stdio" ? formBinaryPath || null : null,
-      args: formTransport === "stdio" && formArgs ? formArgs : null,
-      authHeader: formAuthHeader || null,
-      fromCatalog: false,
-      enabled: true,
-    };
-
-    if (editingServer) {
-      await editServer(config);
-    } else {
-      await addServer(config);
-    }
-    resetForm();
+  function returnToList() {
+    view = { kind: "list" };
   }
 
   async function handleConnect(serverId: string) {
     try {
       await connectServer(serverId);
     } catch {
-      // Error is already in the store
+      // Error is in the store
     }
   }
 
@@ -173,7 +97,7 @@
       testResult = {
         serverId: info.config.id,
         success: true,
-        message: `Connected successfully — ${count} tool${count !== 1 ? "s" : ""} discovered`,
+        message: `Connected — ${count} tool${count !== 1 ? "s" : ""} discovered`,
       };
     } catch (e) {
       testResult = {
@@ -199,6 +123,10 @@
     }
   }
 
+  function handleBrowseRegistry() {
+    loadRegistry();
+  }
+
   function statusIcon(status: string): string {
     switch (status) {
       case "connected":
@@ -212,215 +140,226 @@
     }
   }
 
-  // Check if a catalog entry is already added
   function isCatalogAdded(entry: CatalogEntry): boolean {
     return mcp.servers.some((s) => s.config.id === entry.id || s.config.name === entry.name);
   }
+
+  function isRegistryAdded(entry: RegistryServer): boolean {
+    return mcp.servers.some(
+      (s) =>
+        s.config.name === entry.name ||
+        (entry.remotes[0]?.url && s.config.url === entry.remotes[0].url),
+    );
+  }
 </script>
 
-<div class="mcp-settings">
-  <!-- Header -->
-  <header class="mcp-header">
-    <button class="back-btn" onclick={onBack} aria-label="Go back">← Back</button>
-    <h2 class="mcp-title">MCP Servers</h2>
-  </header>
+{#if view.kind === "form"}
+  <McpServerForm
+    editInfo={view.editInfo ?? null}
+    catalogEntry={view.catalogEntry ?? null}
+    registryEntry={view.registryEntry ?? null}
+    onBack={returnToList}
+  />
+{:else}
+  <div class="mcp-settings">
+    <!-- Header -->
+    <header class="mcp-header">
+      <button class="back-btn" onclick={onBack} aria-label="Go back">← Back</button>
+      <h2 class="mcp-title">MCP Servers</h2>
+    </header>
 
-  <div class="mcp-content">
-    {#if mcp.loading}
-      <div class="mcp-loading">Loading MCP servers...</div>
-    {:else}
-      <!-- Connected Servers -->
-      <section class="mcp-section">
-        <h3 class="section-heading">Configured Servers</h3>
+    <div class="mcp-content">
+      {#if mcp.loading}
+        <div class="mcp-loading">Loading MCP servers...</div>
+      {:else}
+        <!-- Configured Servers -->
+        <section class="mcp-section">
+          <h3 class="section-heading">Configured Servers</h3>
 
-        {#if mcp.servers.length === 0}
-          <p class="section-empty">
-            No MCP servers configured. Add one below or pick from the catalog.
-          </p>
-        {/if}
+          {#if mcp.servers.length === 0}
+            <p class="section-empty">
+              No MCP servers configured yet. Add one from the catalog, browse the registry, or add a
+              custom server.
+            </p>
+          {/if}
 
-        {#each mcp.servers as info (info.config.id)}
-          <div class="server-card">
-            <div class="server-header">
-              <span class="server-status" title={info.status}>{statusIcon(info.status)}</span>
-              <strong class="server-name">{info.config.name}</strong>
-              <div class="server-actions">
-                {#if info.status === "connected"}
-                  <button class="action-btn" onclick={() => handleDisconnect(info.config.id)}>
-                    Disconnect
+          {#each mcp.servers as info (info.config.id)}
+            <div class="server-card">
+              <div class="server-header">
+                <span class="server-status" title={info.status}>{statusIcon(info.status)}</span>
+                <strong class="server-name">{info.config.name}</strong>
+                <div class="server-actions">
+                  {#if info.status === "connected"}
+                    <button class="action-btn" onclick={() => handleDisconnect(info.config.id)}>
+                      Disconnect
+                    </button>
+                  {:else if info.status === "connecting"}
+                    <button class="action-btn" disabled>Connecting...</button>
+                  {:else}
+                    <button class="action-btn" onclick={() => handleConnect(info.config.id)}>
+                      Connect
+                    </button>
+                  {/if}
+                  <button
+                    class="action-btn"
+                    onclick={() => handleTest(info)}
+                    disabled={testingServer === info.config.id}
+                  >
+                    {testingServer === info.config.id ? "Testing..." : "Test"}
                   </button>
-                {:else if info.status === "connecting"}
-                  <button class="action-btn" disabled>Connecting...</button>
-                {:else}
-                  <button class="action-btn" onclick={() => handleConnect(info.config.id)}>
-                    Connect
+                  <button class="action-btn" onclick={() => openEditForm(info)}>Edit</button>
+                  <button class="action-btn danger" onclick={() => handleRemove(info.config.id)}>
+                    Remove
                   </button>
+                </div>
+              </div>
+
+              <div class="server-meta">
+                <span class="meta-tag">Transport: {info.config.transport.toUpperCase()}</span>
+                {#if info.config.transport === "http" && info.config.url}
+                  <span class="meta-tag url-tag" title={info.config.url}>
+                    {info.config.url}
+                  </span>
                 {/if}
-                <button
-                  class="action-btn"
-                  onclick={() => handleTest(info)}
-                  disabled={testingServer === info.config.id}
+                {#if info.config.transport === "stdio" && info.config.binaryPath}
+                  <span class="meta-tag">Binary: {info.config.binaryPath}</span>
+                {/if}
+                <span class="meta-tag">
+                  Tools: {info.toolCount}
+                  {#if info.status === "connected" && info.toolCount > 0}
+                    <button class="tools-toggle" onclick={() => toggleTools(info.config.id)}>
+                      {expandedTools === info.config.id ? "▼" : "▶"}
+                    </button>
+                  {/if}
+                </span>
+                {#if info.config.fromCatalog}
+                  <span class="meta-tag catalog-tag">catalog</span>
+                {/if}
+              </div>
+
+              {#if info.error}
+                <div class="server-error">⚠ {info.error}</div>
+              {/if}
+
+              {#if testResult && testResult.serverId === info.config.id}
+                <div
+                  class="test-result"
+                  class:success={testResult.success}
+                  class:failure={!testResult.success}
                 >
-                  {testingServer === info.config.id ? "Testing..." : "Test"}
-                </button>
-                <button class="action-btn" onclick={() => startEdit(info)}>Edit</button>
-                <button class="action-btn danger" onclick={() => handleRemove(info.config.id)}>
-                  Remove
-                </button>
-              </div>
-            </div>
-
-            <div class="server-meta">
-              <span class="meta-tag">Transport: {info.config.transport.toUpperCase()}</span>
-              {#if info.config.transport === "http" && info.config.url}
-                <span class="meta-tag">URL: {info.config.url}</span>
+                  {testResult.success ? "✓" : "✗"}
+                  {testResult.message}
+                </div>
               {/if}
-              {#if info.config.transport === "stdio" && info.config.binaryPath}
-                <span class="meta-tag">Binary: {info.config.binaryPath}</span>
-              {/if}
-              <span class="meta-tag">
-                Tools: {info.toolCount} discovered
-                {#if info.status === "connected" && info.toolCount > 0}
-                  <button class="tools-toggle" onclick={() => toggleTools(info.config.id)}>
-                    {expandedTools === info.config.id ? "▼ Hide" : "▶ Show"}
-                  </button>
-                {/if}
-              </span>
-              {#if info.config.fromCatalog}
-                <span class="meta-tag catalog-tag">catalog</span>
-              {/if}
-            </div>
 
-            {#if info.error}
-              <div class="server-error">⚠ {info.error}</div>
-            {/if}
-
-            {#if testResult && testResult.serverId === info.config.id}
-              <div
-                class="test-result"
-                class:success={testResult.success}
-                class:failure={!testResult.success}
-              >
-                {testResult.success ? "✓" : "✗"}
-                {testResult.message}
-              </div>
-            {/if}
-
-            {#if expandedTools === info.config.id && info.tools}
-              <div class="tools-list">
-                {#each info.tools as tool (tool.name)}
-                  <div class="tool-item">
-                    <span class="tool-name">{tool.name}</span>
-                    {#if tool.description}
-                      <span class="tool-desc">{tool.description}</span>
-                    {/if}
-                  </div>
-                {/each}
-              </div>
-            {/if}
-          </div>
-        {/each}
-      </section>
-
-      <!-- Catalog -->
-      <section class="mcp-section">
-        <h3 class="section-heading">Catalog</h3>
-        <div class="catalog-list">
-          {#each mcp.catalog as entry (entry.id)}
-            <div class="catalog-entry">
-              <div class="catalog-info">
-                <strong>{entry.name}</strong>
-                <span class="catalog-transport">{entry.transport.toUpperCase()}</span>
-              </div>
-              <p class="catalog-desc">{entry.description}</p>
-              {#if isCatalogAdded(entry)}
-                <span class="catalog-added">Added</span>
-              {:else}
-                <button class="action-btn" onclick={() => fillFromCatalog(entry)}>Add</button>
+              {#if expandedTools === info.config.id && info.tools}
+                <div class="tools-list">
+                  {#each info.tools as tool (tool.name)}
+                    <div class="tool-item">
+                      <span class="tool-name">{tool.name}</span>
+                      {#if tool.description}
+                        <span class="tool-desc">{tool.description}</span>
+                      {/if}
+                    </div>
+                  {/each}
+                </div>
               {/if}
             </div>
           {/each}
-        </div>
-      </section>
-
-      <!-- Add / Edit Form -->
-      {#if showAddForm}
-        <section class="mcp-section">
-          <h3 class="section-heading">{editingServer ? "Edit Server" : "Add Custom Server"}</h3>
-          <form
-            class="add-form"
-            onsubmit={(e) => {
-              e.preventDefault();
-              submitForm();
-            }}
-          >
-            <label class="form-field">
-              <span class="field-label">Name</span>
-              <input type="text" bind:value={formName} placeholder="My MCP Server" required />
-            </label>
-
-            <fieldset class="form-field">
-              <legend class="field-label">Transport</legend>
-              <div class="radio-group">
-                <label>
-                  <input type="radio" bind:group={formTransport} value="http" /> HTTP
-                </label>
-                <label>
-                  <input type="radio" bind:group={formTransport} value="stdio" /> Stdio
-                </label>
-              </div>
-            </fieldset>
-
-            {#if formTransport === "http"}
-              <label class="form-field">
-                <span class="field-label">URL</span>
-                <input
-                  type="url"
-                  bind:value={formUrl}
-                  placeholder="https://example.com/mcp"
-                  required
-                />
-              </label>
-              <label class="form-field">
-                <span class="field-label">Auth Header (optional)</span>
-                <input type="text" bind:value={formAuthHeader} placeholder="Bearer your-token" />
-              </label>
-            {:else}
-              <label class="form-field">
-                <span class="field-label">Binary Path</span>
-                <input
-                  type="text"
-                  bind:value={formBinaryPath}
-                  placeholder="/usr/local/bin/mcp-server"
-                  required
-                />
-              </label>
-              <label class="form-field">
-                <span class="field-label">Arguments (JSON array, optional)</span>
-                <input type="text" bind:value={formArgs} placeholder={argsPlaceholder} />
-              </label>
-            {/if}
-
-            {#if formError}
-              <div class="form-error">{formError}</div>
-            {/if}
-
-            <div class="form-actions">
-              <button type="button" class="action-btn" onclick={resetForm}>Cancel</button>
-              <button type="submit" class="action-btn primary">
-                {editingServer ? "Save Changes" : "Add Server"}
-              </button>
-            </div>
-          </form>
         </section>
-      {:else}
-        <button class="add-custom-btn" onclick={() => (showAddForm = true)}>
-          + Add Custom Server
-        </button>
+
+        <!-- Featured Catalog -->
+        <section class="mcp-section">
+          <h3 class="section-heading">Featured</h3>
+          <div class="catalog-list">
+            {#each mcp.catalog as entry (entry.id)}
+              <div class="catalog-entry">
+                <div class="catalog-info">
+                  <strong>{entry.name}</strong>
+                  <span class="catalog-transport">{entry.transport.toUpperCase()}</span>
+                </div>
+                <p class="catalog-desc">{entry.description}</p>
+                {#if isCatalogAdded(entry)}
+                  <span class="catalog-added">Added ✓</span>
+                {:else}
+                  <button class="action-btn" onclick={() => openCatalogForm(entry)}>Add</button>
+                {/if}
+              </div>
+            {/each}
+          </div>
+        </section>
+
+        <!-- MCP Registry -->
+        <section class="mcp-section">
+          <h3 class="section-heading">MCP Registry</h3>
+          <p class="section-desc">
+            Browse servers from the official
+            <a
+              href="https://registry.modelcontextprotocol.io"
+              target="_blank"
+              rel="noopener noreferrer">MCP Registry</a
+            >. These are HTTP-based servers — no local installation needed.
+          </p>
+
+          {#if mcp.registry.length === 0 && !mcp.registryLoading}
+            <button class="browse-btn" onclick={handleBrowseRegistry}> Browse Registry → </button>
+          {:else}
+            <div class="registry-search">
+              <input
+                type="text"
+                bind:value={registrySearch}
+                placeholder="Filter servers..."
+                class="search-input"
+              />
+            </div>
+
+            {#if mcp.registryLoading}
+              <div class="registry-loading">Fetching from registry...</div>
+            {:else}
+              <div class="registry-list">
+                {#each filteredRegistry as entry (entry.name)}
+                  <div class="registry-entry">
+                    <div class="registry-info">
+                      <strong class="registry-name">{entry.name}</strong>
+                      {#if entry.remotes.length > 0}
+                        <span class="registry-transport">HTTP</span>
+                      {/if}
+                    </div>
+                    {#if entry.description}
+                      <p class="registry-desc">{entry.description}</p>
+                    {/if}
+                    <div class="registry-actions">
+                      {#if isRegistryAdded(entry)}
+                        <span class="catalog-added">Added ✓</span>
+                      {:else}
+                        <button class="action-btn" onclick={() => openRegistryForm(entry)}>
+                          Add
+                        </button>
+                      {/if}
+                    </div>
+                  </div>
+                {/each}
+
+                {#if filteredRegistry.length === 0 && registrySearch.trim()}
+                  <p class="section-empty">No servers match "{registrySearch}"</p>
+                {/if}
+              </div>
+
+              {#if !registrySearch.trim() && mcp.registry.length > 20}
+                <p class="registry-hint">
+                  Showing 20 of {mcp.registry.length}. Use the filter to find more.
+                </p>
+              {/if}
+            {/if}
+          {/if}
+        </section>
+
+        <!-- Add Custom -->
+        <button class="add-custom-btn" onclick={openAddForm}>+ Add Custom Server</button>
       {/if}
-    {/if}
+    </div>
   </div>
-</div>
+{/if}
 
 <style>
   .mcp-settings {
@@ -487,6 +426,16 @@
     margin: 0 0 var(--spacing-sm) 0;
   }
 
+  .section-desc {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+    margin: 0 0 var(--spacing-sm) 0;
+  }
+  .section-desc a {
+    color: var(--color-accent-copper);
+    text-decoration: underline;
+  }
+
   .section-empty {
     color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
@@ -539,6 +488,13 @@
     background: var(--color-bg-tertiary);
     padding: 2px var(--spacing-xs);
     border-radius: var(--radius-sm);
+  }
+
+  .url-tag {
+    max-width: 300px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .catalog-tag {
@@ -624,14 +580,6 @@
     opacity: 0.5;
     cursor: not-allowed;
   }
-  .action-btn.primary {
-    background: var(--color-text-primary);
-    color: var(--color-bg-primary);
-    border-color: var(--color-text-primary);
-  }
-  .action-btn.primary:hover {
-    opacity: 0.9;
-  }
   .action-btn.danger:hover {
     color: var(--color-error);
     border-color: var(--color-error);
@@ -688,7 +636,115 @@
     font-style: italic;
   }
 
-  /* ── Add Form ── */
+  /* ── MCP Registry ── */
+
+  .browse-btn {
+    display: block;
+    width: 100%;
+    padding: var(--spacing-md);
+    border: 1px solid var(--color-border-primary);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-secondary);
+    color: var(--color-accent-copper);
+    cursor: pointer;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    transition: all var(--transition-fast);
+  }
+  .browse-btn:hover {
+    background: var(--color-bg-hover);
+  }
+
+  .registry-search {
+    margin-bottom: var(--spacing-sm);
+  }
+
+  .search-input {
+    width: 100%;
+    padding: var(--spacing-sm);
+    border: 1px solid var(--color-border-primary);
+    border-radius: var(--radius-sm);
+    background: var(--color-bg-primary);
+    color: var(--color-text-primary);
+    font-size: var(--font-size-sm);
+    font-family: var(--font-body);
+    box-sizing: border-box;
+  }
+  .search-input:focus {
+    outline: none;
+    border-color: var(--color-accent-copper);
+    box-shadow: var(--shadow-input-focus);
+  }
+
+  .registry-loading {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    font-style: italic;
+    padding: var(--spacing-md) 0;
+  }
+
+  .registry-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+  }
+
+  .registry-entry {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border-secondary);
+    border-radius: var(--radius-md);
+  }
+
+  .registry-info {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    flex: 1;
+    min-width: 0;
+  }
+
+  .registry-name {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-primary);
+  }
+
+  .registry-transport {
+    font-size: 10px;
+    color: var(--color-text-tertiary);
+    background: var(--color-bg-tertiary);
+    padding: 1px var(--spacing-xs);
+    border-radius: var(--radius-sm);
+    text-transform: uppercase;
+  }
+
+  .registry-desc {
+    width: 100%;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+    margin: 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .registry-actions {
+    flex-shrink: 0;
+  }
+
+  .registry-hint {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-tertiary);
+    font-style: italic;
+    margin-top: var(--spacing-sm);
+  }
+
+  /* ── Add Custom ── */
 
   .add-custom-btn {
     display: block;
@@ -705,69 +761,5 @@
   .add-custom-btn:hover {
     border-color: var(--color-accent-copper);
     color: var(--color-accent-copper);
-  }
-
-  .add-form {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-md);
-  }
-
-  .form-field {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-xs);
-    border: none;
-    padding: 0;
-    margin: 0;
-  }
-
-  .field-label {
-    font-size: var(--font-size-xs);
-    font-weight: var(--font-weight-medium);
-    color: var(--color-text-secondary);
-  }
-
-  .form-field input[type="text"],
-  .form-field input[type="url"] {
-    padding: var(--spacing-sm);
-    border: 1px solid var(--color-border-primary);
-    border-radius: var(--radius-sm);
-    background: var(--color-bg-primary);
-    color: var(--color-text-primary);
-    font-size: var(--font-size-sm);
-    font-family: var(--font-body);
-  }
-  .form-field input:focus {
-    outline: none;
-    border-color: var(--color-accent-copper);
-    box-shadow: var(--shadow-input-focus);
-  }
-
-  .radio-group {
-    display: flex;
-    gap: var(--spacing-md);
-    font-size: var(--font-size-sm);
-    color: var(--color-text-primary);
-  }
-  .radio-group label {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-xs);
-    cursor: pointer;
-  }
-
-  .form-error {
-    color: var(--color-danger, #dc2626);
-    font-size: var(--font-size-sm);
-    padding: var(--spacing-xs) var(--spacing-sm);
-    background: color-mix(in srgb, var(--color-danger, #dc2626) 8%, transparent);
-    border-radius: var(--radius-sm);
-  }
-
-  .form-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: var(--spacing-sm);
   }
 </style>

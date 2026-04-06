@@ -8,11 +8,13 @@
 pub mod catalog;
 pub mod client;
 pub mod manager;
+pub mod registry;
 pub mod types;
 
 pub use catalog::{CatalogEntry, CATALOG};
 pub use client::McpConnection;
 pub use manager::McpManager;
+pub use registry::{fetch_registry, RegistryRemote, RegistryServer};
 pub use types::{
     McpClientError, McpConnectionInfo, McpServerConfig, McpServerStatus, McpToolInfo, McpToolResult,
 };

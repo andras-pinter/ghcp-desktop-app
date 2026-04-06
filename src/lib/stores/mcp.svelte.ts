@@ -1,6 +1,12 @@
 /** MCP server connection state management. */
 
-import type { McpConnectionInfo, McpServerConfig, McpToolInfo, CatalogEntry } from "$lib/types/mcp";
+import type {
+  McpConnectionInfo,
+  McpServerConfig,
+  McpToolInfo,
+  CatalogEntry,
+  RegistryServer,
+} from "$lib/types/mcp";
 import {
   getMcpServers,
   addMcpServer,
@@ -11,6 +17,7 @@ import {
   testMcpConnection,
   getMcpTools,
   getMcpCatalog,
+  fetchMcpRegistry,
 } from "$lib/utils/commands";
 import { logFrontend } from "$lib/utils/commands";
 
@@ -21,6 +28,12 @@ let servers = $state<McpConnectionInfo[]>([]);
 
 /** The built-in catalog of MCP servers. */
 let catalog = $state<CatalogEntry[]>([]);
+
+/** Servers from the official MCP Registry. */
+let registry = $state<RegistryServer[]>([]);
+
+/** Whether the registry is being fetched. */
+let registryLoading = $state(false);
 
 /** Whether the store is loading. */
 let loading = $state(false);
@@ -44,6 +57,20 @@ export async function initMcp(): Promise<void> {
     logFrontend("error", `Failed to load MCP servers: ${msg}`);
   } finally {
     loading = false;
+  }
+}
+
+/** Fetch MCP servers from the official registry. */
+export async function loadRegistry(): Promise<void> {
+  if (registryLoading || registry.length > 0) return;
+  registryLoading = true;
+  try {
+    registry = await fetchMcpRegistry(200);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    logFrontend("warn", `Failed to fetch MCP registry: ${msg}`);
+  } finally {
+    registryLoading = false;
   }
 }
 
@@ -136,6 +163,12 @@ export function getMcpState() {
     },
     get catalog() {
       return catalog;
+    },
+    get registry() {
+      return registry;
+    },
+    get registryLoading() {
+      return registryLoading;
     },
     get loading() {
       return loading;
