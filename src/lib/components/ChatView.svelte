@@ -1,6 +1,7 @@
 <script lang="ts">
   import InputArea from "./InputArea.svelte";
   import MessageBubble from "./MessageBubble.svelte";
+  import SearchOverlay from "./SearchOverlay.svelte";
   import type { Message, ChatMessage } from "$lib/types/message";
   import { sendMessage, stopStreaming, updateConversation } from "$lib/utils/commands";
   import { onStreamingToken, onStreamingComplete, onStreamingError } from "$lib/utils/events";
@@ -10,13 +11,14 @@
     getConversationStore,
     newConversation,
     addMessage,
-    updateMessageContent,
+    updateMessageContent as updateMessageContentStore,
     appendStreamingToken,
     touchConversation,
     setConversationTitle,
     saveDraft,
     loadDraft,
     clearDraft,
+    deleteMessagesAfter,
   } from "$lib/stores/conversations.svelte";
   import { getModelStore, setDefaultModel } from "$lib/stores/models.svelte";
 
@@ -38,6 +40,7 @@
   let selectedModel = $state("gpt-4o");
   let draftText = $state("");
   let draftTimer: ReturnType<typeof setTimeout> | undefined;
+  let showSearch = $state(false);
   const greeting = greetings[Math.floor(Math.random() * greetings.length)];
 
   let unlistenToken: UnlistenFn | undefined;
@@ -82,7 +85,7 @@
       if (streamingAssistantId) {
         const msg = store.messages.find((m) => m.id === streamingAssistantId);
         if (msg && msg.content) {
-          await updateMessageContent(msg.id, msg.content, msg.thinkingContent);
+          await updateMessageContentStore(msg.id, msg.content, msg.thinkingContent);
           // Auto-generate title if this is the first exchange (best-effort)
           if (store.activeConversationId && store.messages.length <= 2) {
             generateTitle(store.activeConversationId, store.messages).catch(() => {});
@@ -98,7 +101,7 @@
       const msgs = store.messages;
       const last = msgs[msgs.length - 1];
       if (last && last.role === "assistant" && !last.content) {
-        updateMessageContent(last.id, `⚠️ Error: ${error}`);
+        updateMessageContentStore(last.id, `⚠️ Error: ${error}`);
       }
     });
   });
@@ -165,7 +168,7 @@
       const last = msgs[msgs.length - 1];
       if (last && last.role === "assistant" && !last.content) {
         const errContent = `⚠️ Error: ${e instanceof Error ? e.message : String(e)}`;
-        await updateMessageContent(last.id, errContent);
+        await updateMessageContentStore(last.id, errContent);
       }
     }
   }
@@ -207,9 +210,99 @@
       console.error("Failed to set conversation title:", e);
     }
   }
+
+  /** Edit a user message: discard it and everything after, load content into input. */
+  async function handleEdit(msg: Message) {
+    if (streaming || !store.activeConversationId) return;
+
+    // Delete the edited message AND all messages after it (sortOrder - 1 keeps msgs before)
+    await deleteMessagesAfter(store.activeConversationId, msg.sortOrder - 1);
+
+    // Put the edited message content back in the input for the user to modify
+    draftText = msg.content;
+  }
+
+  /** Regenerate the last assistant response. */
+  async function handleRegenerate() {
+    if (streaming || !store.activeConversationId) return;
+
+    // Defensively stop any in-flight stream before starting a new one
+    try {
+      await stopStreaming();
+    } catch {
+      // ignore — may not be streaming
+    }
+
+    const msgs = store.messages;
+    const lastAssistant = [...msgs].reverse().find((m) => m.role === "assistant");
+    if (!lastAssistant) return;
+
+    // Delete the last assistant message (and anything after it)
+    await deleteMessagesAfter(store.activeConversationId, lastAssistant.sortOrder - 1);
+
+    // Re-create a placeholder assistant message for streaming
+    const assistantMessage: Message = {
+      id: crypto.randomUUID(),
+      conversationId: store.activeConversationId,
+      role: "assistant",
+      content: "",
+      createdAt: new Date().toISOString(),
+      sortOrder: store.messages.length,
+    };
+    await addMessage(assistantMessage);
+    streamingAssistantId = assistantMessage.id;
+    streaming = true;
+
+    requestAnimationFrame(() => {
+      chatContainer?.scrollTo({ top: chatContainer.scrollHeight, behavior: "smooth" });
+    });
+
+    // Build API messages from what remains
+    const apiMessages: ChatMessage[] = store.messages
+      .filter((m) => m.role === "user" || (m.role === "assistant" && m.content))
+      .map((m) => ({ role: m.role, content: m.content }));
+
+    try {
+      await sendMessage(apiMessages, selectedModel);
+    } catch (e) {
+      streaming = false;
+      streamingAssistantId = null;
+      const last = store.messages[store.messages.length - 1];
+      if (last && last.role === "assistant" && !last.content) {
+        const errContent = `⚠️ Error: ${e instanceof Error ? e.message : String(e)}`;
+        await updateMessageContentStore(last.id, errContent);
+      }
+    }
+  }
+
+  /** Handle Cmd/Ctrl+F to open search overlay. */
+  function handleGlobalKeydown(e: KeyboardEvent) {
+    const mod = e.metaKey || e.ctrlKey;
+    if (mod && e.key === "f" && store.messages.length > 0) {
+      e.preventDefault();
+      showSearch = true;
+    }
+  }
+
+  /** Compute index of last assistant message. */
+  let lastAssistantIndex = $derived(
+    (() => {
+      for (let i = store.messages.length - 1; i >= 0; i--) {
+        if (store.messages[i].role === "assistant") return i;
+      }
+      return -1;
+    })(),
+  );
 </script>
 
-<div class="chat-view">
+<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+<div
+  class="chat-view"
+  role="region"
+  aria-label="Chat"
+  tabindex="-1"
+  onkeydown={handleGlobalKeydown}
+>
   {#if store.messages.length === 0}
     <div class="welcome-container">
       <div class="welcome">
@@ -232,15 +325,21 @@
       </div>
     </div>
   {:else}
+    {#if showSearch}
+      <SearchOverlay {chatContainer} onClose={() => (showSearch = false)} />
+    {/if}
     <div class="chat-messages" bind:this={chatContainer} role="log" aria-label="Chat messages">
       <div class="messages-inner">
         {#each store.messages as message, i (message.id)}
-          <div class="message-entry" style="animation-delay: {Math.min(i * 40, 200)}ms">
+          <div class="message-entry" style:animation-delay="{Math.min(i * 40, 200)}ms">
             <MessageBubble
               {message}
               isStreaming={streaming &&
                 i === store.messages.length - 1 &&
                 message.role === "assistant"}
+              isLastAssistant={i === lastAssistantIndex}
+              onEdit={handleEdit}
+              onRegenerate={handleRegenerate}
             />
           </div>
         {/each}
