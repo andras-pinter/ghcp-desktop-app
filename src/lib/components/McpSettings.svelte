@@ -2,6 +2,7 @@
   import {
     getMcpState,
     initMcp,
+    addServer,
     removeServer,
     connectServer,
     disconnectServer,
@@ -10,7 +11,7 @@
     loadRegistry,
     searchRegistry,
   } from "$lib/stores/mcp.svelte";
-  import type { McpConnectionInfo, RegistryServer } from "$lib/types/mcp";
+  import type { McpConnectionInfo, McpServerConfig, RegistryServer } from "$lib/types/mcp";
   import McpServerForm from "./McpServerForm.svelte";
   import { onMount } from "svelte";
 
@@ -89,6 +90,72 @@
 
   function openRegistryForm(entry: RegistryServer) {
     view = { kind: "form", registryEntry: entry };
+  }
+
+  /** Build a config and add the server in one click — no form needed. */
+  let quickAdding = $state(false);
+  async function quickAddFromRegistry(entry: RegistryServer) {
+    quickAdding = true;
+    try {
+      const config: McpServerConfig = {
+        id: "",
+        name: entry.name,
+        transport: "stdio",
+        url: null,
+        binaryPath: null,
+        args: null,
+        authHeader: null,
+        fromCatalog: false,
+        enabled: true,
+      };
+
+      // Determine transport + command from packages / remotes
+      const npmPkg = entry.packages.find((p) => p.registryType === "npm");
+      const pypiPkg = entry.packages.find((p) => p.registryType === "pypi");
+      const nugetPkg = entry.packages.find((p) => p.registryType === "nuget");
+
+      if (npmPkg) {
+        const pkgRef = npmPkg.version
+          ? `${npmPkg.identifier}@${npmPkg.version}`
+          : npmPkg.identifier;
+        config.binaryPath = "npx";
+        config.args = JSON.stringify(["-y", pkgRef]);
+      } else if (pypiPkg) {
+        const pkgRef = pypiPkg.version
+          ? `${pypiPkg.identifier}==${pypiPkg.version}`
+          : pypiPkg.identifier;
+        config.binaryPath = "uvx";
+        config.args = JSON.stringify([pkgRef]);
+      } else if (nugetPkg) {
+        config.binaryPath = "dotnet";
+        config.args = JSON.stringify(["tool", "run", nugetPkg.identifier]);
+      } else if (!entry.isStdioOnly && entry.remotes.length > 0) {
+        // HTTP server — use the first remote
+        config.transport = "http";
+        config.url = entry.remotes[0]?.url ?? null;
+      } else {
+        // No package info and no remote — fall back to form
+        openRegistryForm(entry);
+        quickAdding = false;
+        return;
+      }
+
+      await addServer(config);
+      view = { kind: "list" };
+    } catch {
+      // On failure, fall back to form so user can adjust
+      openRegistryForm(entry);
+    } finally {
+      quickAdding = false;
+    }
+  }
+
+  /** Can this registry entry be one-click added (has packages or HTTP remote)? */
+  function canQuickAdd(entry: RegistryServer): boolean {
+    return (
+      entry.packages.some((p) => ["npm", "pypi", "nuget"].includes(p.registryType)) ||
+      (!entry.isStdioOnly && entry.remotes.length > 0)
+    );
   }
 
   function openDetail(entry: RegistryServer) {
@@ -248,12 +315,19 @@
           </section>
         {/if}
 
-        <!-- Setup Guide (stdio servers) -->
+        <!-- Run Command (package-based stdio servers — one-click add) -->
         {#if view.entry.isStdioOnly && view.entry.packages.length > 0}
           <section class="detail-section">
             <h3 class="detail-section-heading">Run Command</h3>
             <p class="setup-hint">
-              Click <strong>Add Server</strong> below — the command will be pre-filled automatically.
+              Click <strong>Add Server</strong> below to configure automatically. Requires
+              <code class="inline-code"
+                >{view.entry.packages.find((p) => p.registryType === "npm")
+                  ? "npx"
+                  : view.entry.packages.find((p) => p.registryType === "pypi")
+                    ? "uvx"
+                    : "dotnet"}</code
+              > in your PATH.
             </p>
             <div class="setup-commands">
               {#each view.entry.packages as pkg (pkg.identifier + "-guide")}
@@ -292,37 +366,22 @@
             </div>
           </section>
         {:else if view.entry.isStdioOnly}
+          <!-- Stdio with no packages — manual setup -->
           <section class="detail-section">
-            <h3 class="detail-section-heading">Setup Guide</h3>
-            <div class="setup-guide">
-              <p class="setup-step">
-                <span class="step-num">1</span> Install the server binary from the repository link above.
-              </p>
-              <p class="setup-step">
-                <span class="step-num">2</span> Click <strong>Add Server</strong> below, select
-                <em>Stdio</em> transport, and enter the full path to the binary.
-              </p>
-              <p class="setup-step">
-                <span class="step-num">3</span> Use <strong>Test Connection</strong> to verify it works.
-              </p>
-            </div>
+            <h3 class="detail-section-heading">Setup</h3>
+            <p class="setup-hint">
+              This server requires a manually installed binary. Check the repository link for
+              installation instructions, then click <strong>Configure Server</strong> below.
+            </p>
           </section>
         {:else if view.entry.remotes.length > 0 && view.entry.remotes.some((r) => r.requiresAuth)}
+          <!-- HTTP with auth — needs manual API key -->
           <section class="detail-section">
-            <h3 class="detail-section-heading">Setup Guide</h3>
-            <div class="setup-guide">
-              <p class="setup-step">
-                <span class="step-num">1</span> This server requires authentication. Obtain an API key
-                from the provider.
-              </p>
-              <p class="setup-step">
-                <span class="step-num">2</span> Click <strong>Add Server</strong> below — the URL will
-                be pre-filled. Add your API key in the auth header field.
-              </p>
-              <p class="setup-step">
-                <span class="step-num">3</span> Use <strong>Test Connection</strong> to verify it works.
-              </p>
-            </div>
+            <h3 class="detail-section-heading">Setup</h3>
+            <p class="setup-hint">
+              This server requires authentication. Obtain an API key from the provider, then click
+              <strong>Configure Server</strong> below to add it.
+            </p>
           </section>
         {/if}
 
@@ -347,14 +406,26 @@
 
         <!-- Bottom CTA -->
         {#if !isRegistryAdded(view.entry)}
-          <button
-            class="detail-add-btn"
-            onclick={() => {
-              if (view.kind === "detail") openRegistryForm(view.entry);
-            }}
-          >
-            + Add Server
-          </button>
+          {#if canQuickAdd(view.entry)}
+            <button
+              class="detail-add-btn"
+              disabled={quickAdding}
+              onclick={() => {
+                if (view.kind === "detail") quickAddFromRegistry(view.entry);
+              }}
+            >
+              {quickAdding ? "Adding…" : "+ Add Server"}
+            </button>
+          {:else}
+            <button
+              class="detail-add-btn"
+              onclick={() => {
+                if (view.kind === "detail") openRegistryForm(view.entry);
+              }}
+            >
+              + Configure Server
+            </button>
+          {/if}
         {:else}
           <div class="detail-already-added">✓ This server is already configured</div>
         {/if}
@@ -1043,40 +1114,6 @@
 
   /* ── Setup Guide ── */
 
-  .setup-guide {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-sm);
-    padding: var(--spacing-md);
-    background: var(--color-bg-secondary);
-    border: 1px solid var(--color-border-secondary);
-    border-radius: var(--radius-md);
-  }
-
-  .setup-step {
-    font-size: var(--font-size-sm);
-    color: var(--color-text-secondary);
-    margin: 0;
-    display: flex;
-    align-items: baseline;
-    gap: var(--spacing-sm);
-    line-height: 1.5;
-  }
-
-  .step-num {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    background: color-mix(in srgb, var(--color-accent-copper) 15%, transparent);
-    color: var(--color-accent-copper);
-    font-size: 11px;
-    font-weight: var(--font-weight-semibold);
-    flex-shrink: 0;
-  }
-
   .setup-commands {
     display: flex;
     flex-direction: column;
@@ -1088,6 +1125,14 @@
     color: var(--color-text-secondary);
     margin: 0 0 var(--spacing-sm);
     line-height: var(--leading-relaxed);
+  }
+
+  .inline-code {
+    font-family: var(--font-mono);
+    font-size: 0.9em;
+    background: var(--color-bg-tertiary);
+    padding: 1px 5px;
+    border-radius: var(--radius-sm);
   }
 
   .setup-code-block {
