@@ -308,7 +308,9 @@
     flex: 1;
     overflow-y: auto;
     padding: var(--spacing-lg);
-    max-width: 560px;
+    max-width: 640px;
+    margin: 0 auto;
+    width: 100%;
   }
 
   .prefill-notice {

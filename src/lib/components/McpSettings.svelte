@@ -42,6 +42,19 @@
   let expandedTools = $state<string | null>(null);
   let registrySearch = $state("");
   let searchDebounce: ReturnType<typeof setTimeout> | null = null;
+  let copiedCommand = $state<string | null>(null);
+
+  async function copyCommand(text: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      copiedCommand = text;
+      setTimeout(() => {
+        copiedCommand = null;
+      }, 2000);
+    } catch {
+      // Clipboard not available
+    }
+  }
 
   // Debounced server-side search
   function handleSearchInput(value: string) {
@@ -246,15 +259,35 @@
               <div class="setup-commands">
                 {#each view.entry.packages as pkg (pkg.identifier + "-guide")}
                   {#if pkg.registryType === "npm"}
-                    <code class="setup-code"
-                      >npx {pkg.identifier}{pkg.version ? `@${pkg.version}` : ""}</code
-                    >
+                    {@const cmd = `npx ${pkg.identifier}${pkg.version ? `@${pkg.version}` : ""}`}
+                    <div class="setup-code-row">
+                      <code class="setup-code">{cmd}</code>
+                      <button
+                        class="copy-cmd-btn"
+                        onclick={() => copyCommand(cmd)}
+                        aria-label="Copy command">{copiedCommand === cmd ? "✓" : "📋"}</button
+                      >
+                    </div>
                   {:else if pkg.registryType === "pypi"}
-                    <code class="setup-code"
-                      >uvx {pkg.identifier}{pkg.version ? `==${pkg.version}` : ""}</code
-                    >
+                    {@const cmd = `uvx ${pkg.identifier}${pkg.version ? `==${pkg.version}` : ""}`}
+                    <div class="setup-code-row">
+                      <code class="setup-code">{cmd}</code>
+                      <button
+                        class="copy-cmd-btn"
+                        onclick={() => copyCommand(cmd)}
+                        aria-label="Copy command">{copiedCommand === cmd ? "✓" : "📋"}</button
+                      >
+                    </div>
                   {:else if pkg.registryType === "nuget"}
-                    <code class="setup-code">dotnet tool run {pkg.identifier}</code>
+                    {@const cmd = `dotnet tool run ${pkg.identifier}`}
+                    <div class="setup-code-row">
+                      <code class="setup-code">{cmd}</code>
+                      <button
+                        class="copy-cmd-btn"
+                        onclick={() => copyCommand(cmd)}
+                        aria-label="Copy command">{copiedCommand === cmd ? "✓" : "📋"}</button
+                      >
+                    </div>
                   {/if}
                 {/each}
               </div>
@@ -468,13 +501,13 @@
               class="search-input"
             />
             {#if mcp.registryLoading}
-              <span class="search-spinner" aria-label="Searching">⟳</span>
+              <span class="search-spinner" aria-label="Searching"></span>
             {/if}
           </div>
 
           {#if mcp.registryLoading && mcp.registry.length === 0}
             <div class="registry-loading">
-              <span class="loading-spinner">⟳</span> Fetching from registry...
+              <span class="loading-spinner"></span> Fetching from registry...
             </div>
           {:else if mcp.registry.length > 0}
             <div class="registry-list">
@@ -787,18 +820,18 @@
     position: absolute;
     right: var(--spacing-sm);
     top: 50%;
-    transform: translateY(-50%);
-    font-size: var(--font-size-sm);
-    color: var(--color-accent-copper);
-    animation: spin 1s linear infinite;
+    width: 14px;
+    height: 14px;
+    margin-top: -7px;
+    border: 2px solid var(--color-border-primary);
+    border-top-color: var(--color-accent-copper);
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
   }
 
   @keyframes spin {
-    from {
-      transform: translateY(-50%) rotate(0deg);
-    }
     to {
-      transform: translateY(-50%) rotate(360deg);
+      transform: rotate(360deg);
     }
   }
 
@@ -813,14 +846,14 @@
   }
 
   .loading-spinner {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 1em;
-    height: 1em;
-    animation: spin 1s linear infinite;
-    color: var(--color-accent-copper);
-    line-height: 1;
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid var(--color-border-primary);
+    border-top-color: var(--color-accent-copper);
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    flex-shrink: 0;
   }
 
   .registry-list {
@@ -1067,8 +1100,33 @@
     background: var(--color-bg-tertiary);
     padding: var(--spacing-xs) var(--spacing-sm);
     border-radius: var(--radius-sm);
-    display: inline-block;
+    flex: 1;
     word-break: break-all;
+  }
+
+  .setup-code-row {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+  }
+
+  .copy-cmd-btn {
+    background: none;
+    border: 1px solid var(--color-border-secondary);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    padding: 2px 6px;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-tertiary);
+    transition:
+      color var(--transition-fast),
+      border-color var(--transition-fast);
+    flex-shrink: 0;
+    line-height: 1;
+  }
+  .copy-cmd-btn:hover {
+    color: var(--color-accent-copper);
+    border-color: var(--color-accent-copper);
   }
 
   /* ── Detail CTA ── */
