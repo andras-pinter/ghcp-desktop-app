@@ -983,6 +983,15 @@ copilot-desktop/
 
 ### Git Conventions
 
+#### ⛔ Always Branch First
+
+**Agents must ALWAYS create a new branch before starting work.** No commits on `main` — ever.
+
+- Before making any changes, create a descriptive branch: `git checkout -b <type>/<short-description>` (e.g., `feat/mcp-settings`, `fix/streaming-crash`, `docs/update-agents-md`)
+- Branch naming follows the same `<type>` prefixes as Conventional Commits (see below)
+- If the agent is resuming work on an existing task branch, it may reuse that branch instead of creating a new one
+- **Never commit directly to `main`** — this applies to all agents, all tasks, all circumstances
+
 #### ⛔ Never Push
 
 **Agents must NEVER push to any remote.** Commit locally only. The human reviews and pushes.
