@@ -20,6 +20,8 @@
     if (auth.authenticated && !dataLoaded) {
       dataLoaded = true;
       Promise.all([initConversations(), initModels()]);
+    } else if (!auth.authenticated) {
+      dataLoaded = false;
     }
   });
 
