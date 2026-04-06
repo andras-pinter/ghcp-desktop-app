@@ -2,7 +2,7 @@
 
 use crate::auth::{AuthError, DeviceFlowAuth};
 use crate::types::{ChatRequest, Model, ModelsResponse, StreamingChatResponse};
-use crate::{user_agent, APP_VERSION};
+use crate::{editor_plugin_version, editor_version, user_agent};
 use reqwest_eventsource::{Event, EventSource};
 use thiserror::Error;
 use tokio::sync::mpsc;
@@ -106,8 +106,8 @@ impl CopilotClient {
             .header("Content-Type", "application/json")
             .header("Accept", "text/event-stream")
             .header("User-Agent", &ua)
-            .header("Editor-Version", format!("Chuck/{APP_VERSION}"))
-            .header("Editor-Plugin-Version", format!("copilot/{APP_VERSION}"))
+            .header("Editor-Version", editor_version())
+            .header("Editor-Plugin-Version", editor_plugin_version())
             .header("Openai-Intent", "conversation-panel")
             .json(&request);
 
@@ -192,6 +192,8 @@ impl CopilotClient {
             .header("Authorization", format!("Bearer {copilot_token}"))
             .header("Accept", "application/json")
             .header("User-Agent", user_agent())
+            .header("Editor-Version", editor_version())
+            .header("Editor-Plugin-Version", editor_plugin_version())
             .send()
             .await?;
 

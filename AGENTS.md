@@ -788,18 +788,19 @@ and **events** (`listen()`/`emit()`). This is the only bridge between the two la
 
 **Commands** (frontend → backend, request/response):
 
-| Module | Commands |
-|---|---|
-| `chat.rs` | `send_message` — send chat message, returns streaming event channel; `stop_streaming` — cancel in-flight SSE stream; `regenerate` — re-send last user message for fresh response |
-| `auth.rs` | `authenticate` — initiate OAuth device flow; `logout` — clear token from keychain; `get_auth_state` — check current auth status |
-| `conversations.rs` | `get_conversations` — list from SQLite; `create_conversation` — new conversation; `update_conversation` — rename/update metadata; `delete_conversation` — remove conversation + messages |
-| `agents.rs` | `get_agents` — list agent personas; `create_agent` — new agent; `update_agent` — edit agent; `delete_agent` — remove agent |
-| `skills.rs` | `get_skills` — list all skills (MCP tools + extensions); `toggle_skill` — enable/disable; `configure_skill` — update skill config |
-| `projects.rs` | `get_projects` — list projects; `create_project` — new project; `update_project` — edit instructions/name; `delete_project` — remove project; `add_project_file` — attach file (BLOB); `remove_project_file` — detach file |
-| `mcp.rs` | `get_mcp_servers` — list configured servers; `add_mcp_server` — register new server; `remove_mcp_server` — delete server; `test_mcp_connection` — verify server responds; `mcp_invoke_tool` — call an MCP tool |
-| `web_research.rs` | `web_search` — trigger web search via API; `fetch_url` — fetch + extract URL content |
-| `models.rs` | `get_models` — fetch available Copilot models |
-| `settings.rs` | `get_settings` — read config table; `update_settings` — write config key-value; `export_conversations` — export as JSON/Markdown to user-chosen path; `delete_old_conversations` — cleanup by age; `get_db_size` — return database file size |
+| Module | Commands | Status |
+|---|---|---|
+| `mod.rs` | `get_app_info` — return app name + version; `log_frontend` — surface frontend log messages to Rust console | ✅ |
+| `chat.rs` | `send_message` — send chat message, starts streaming via events; `stop_streaming` — cancel in-flight SSE stream | ✅ |
+| `auth.rs` | `authenticate` — initiate OAuth device flow; `poll_auth_token` — poll for token after user authorizes; `logout` — clear token from keychain; `get_auth_state` — check current auth status | ✅ |
+| `conversations.rs` | `get_conversations` — list from SQLite; `get_conversation` — single by ID; `create_conversation` — new conversation; `update_conversation` — rename/update metadata; `delete_conversation` — remove conversation + messages; `get_messages` — messages for a conversation; `create_message` — insert message; `update_message_content` — update after streaming/edit; `delete_messages_after` — discard messages after sort order (for editing) | ✅ |
+| `models.rs` | `get_models` — fetch available Copilot models (deduplicates API response) | ✅ |
+| `settings.rs` | `get_setting` — read config key; `update_setting` — write config key-value; `get_db_size` — return database file size; `save_draft` — persist input draft; `get_draft` — retrieve draft for conversation; `delete_draft` — clear draft | ✅ |
+| `agents.rs` | `get_agents` — list agent personas; `create_agent` — new agent; `update_agent` — edit agent; `delete_agent` — remove agent | ⬚ stub |
+| `skills.rs` | `get_skills` — list all skills (MCP tools + extensions); `toggle_skill` — enable/disable; `configure_skill` — update skill config | ⬚ stub |
+| `projects.rs` | `get_projects` — list projects; `create_project` — new project; `update_project` — edit instructions/name; `delete_project` — remove project; `add_project_file` — attach file (BLOB); `remove_project_file` — detach file | ⬚ stub |
+| `mcp.rs` | `get_mcp_servers` — list configured servers; `add_mcp_server` — register new server; `remove_mcp_server` — delete server; `test_mcp_connection` — verify server responds; `mcp_invoke_tool` — call an MCP tool | ⬚ stub |
+| `web_research.rs` | `web_search` — trigger web search via API; `fetch_url` — fetch + extract URL content | ⬚ stub |
 
 **Events** (backend → frontend, push):
 - `streaming-token` — individual SSE tokens during chat
@@ -1558,22 +1559,22 @@ INSERT INTO config (key, value) VALUES ('schema_version', '1');
 6. ✅ **chat-completions-client** — `/v1/chat/completions` with SSE streaming + file context in `copilot-api` crate
 7. ✅ **model-discovery** — Query API for available models at startup, cache list, fallback to default
 
-### Phase 3: Persistence & Data Layer
-8. ⬚ **sqlite-setup** — Initialize SQLite database with full schema (see Data Model section). Migrations support. Tauri app data directory via `app.path().app_data_dir()`. *(Note: schema + migrations are already implemented in `src-tauri/src/db/migrations.rs` as part of Phase 1. This task covers query functions in `db/queries.rs` and wiring CRUD operations.)*
-9. ⬚ **conversation-persistence** — CRUD for conversations + messages via Tauri commands. Load on startup, lazy-load older messages. Auto-generate conversation titles via lightweight API call after first response.
-10. ⬚ **draft-auto-save** — Persist input text to `drafts` table every few seconds. Restore on launch. Clear on successful send.
+### Phase 3: Persistence & Data Layer ✅
+8. ✅ **sqlite-setup** — SQLite database with full schema (11 tables), migrations support, 500+ line `queries.rs` with complete CRUD, Tauri app data directory. Unit tests for all query functions.
+9. ✅ **conversation-persistence** — CRUD for conversations + messages via Tauri commands. Reactive Svelte store with `initConversations()`, `switchConversation()`, `newConversation()`, `renameConversation()`, `toggleFavourite()`, `removeConversation()`. Auto-generate titles from first user message.
+10. ✅ **draft-auto-save** — 3-second debounced auto-save to `drafts` table. Restore on conversation switch and app launch. Clear on successful send. Backend commands + frontend store functions.
 
-### Phase 4: Core Chat UI
-11. ⬚ **sidebar** — `Sidebar.svelte`: conversation list grouped by date, new chat, favourites (pinned), projects, agents, search, collapsible sections *(Note: basic sidebar skeleton with search + settings is already implemented. This task adds real data binding, grouped conversation list, favourites, and collapsible sections.)*
-12. ⬚ **chat-view** — `ChatView.svelte` + `MessageBubble.svelte` + `ThinkingSection.svelte`: message list with avatars, timestamps, collapsible reasoning/thinking sections, context summarization banner *(Note: basic chat view with demo responses exists. This task replaces demo with real API streaming, adds ThinkingSection and summarization banner.)*
-13. ⬚ **input-area** — `InputArea.svelte`: multi-line `<textarea>`, file drop zone, attachment pills, agent selector, model selector, loading state *(Note: basic input with textarea and model selector exists. This task adds file drop zone, attachment pills, agent selector, and loading state.)*
-14. ⬚ **streaming-display** — Token-by-token rendering via Tauri events, typing cursor animation, stop button. Save partial response on interruption.
-15. ⬚ **message-actions** — Edit sent messages (discard + re-send), regenerate last response, copy individual messages
+### Phase 4: Core Chat UI 🔧
+11. ✅ **sidebar** — `Sidebar.svelte` (444 lines): conversation list grouped by date, new chat, favourites with star icon, context menu (rename, favourite toggle, delete), inline rename editing, real data binding via conversation store. *(Search button exists but handler not yet wired.)*
+12. 🔧 **chat-view** — `ChatView.svelte` (341 lines) + `MessageBubble.svelte` (109 lines): message list with streaming, welcome screen with random greetings, draft loading/saving, auto-title generation, persisted default model selection. *(ThinkingSection not yet implemented. No timestamps on messages. No summarization banner yet.)*
+13. ✅ **input-area** — `InputArea.svelte` (504 lines): multi-line textarea with auto-height, custom popover model dropdown (replaces native `<select>`) with fade animation, shift+click to set default model (persisted to SQLite via settings), default model marked with copper star (★), send/stop buttons, Enter-to-send. *(File drop zone, attachment pills, and agent selector not yet implemented.)*
+14. ✅ **streaming-display** — Token-by-token rendering via Tauri events (`streaming-token`, `streaming-complete`, `streaming-error`), blinking cursor animation, stop button. Event-driven architecture with proper cleanup on unmount. Messages saved on stream complete.
+15. ⬚ **message-actions** — Edit sent messages (discard + re-send), regenerate last response, copy individual messages. *(Backend infrastructure exists: `delete_messages_after` command. No UI yet.)*
 16. ⬚ **in-conversation-search** — `SearchOverlay.svelte`: Cmd+F / Ctrl+F to find text, highlight matches, navigate with arrows
 
 ### Phase 5: Markdown & Code Rendering
-17. ⬚ **markdown-rendering** — Render assistant messages with `marked` + `DOMPurify`. Bold, italic, headers, lists, links, blockquotes, tables.
-18. ⬚ **code-blocks** — `CodeBlock.svelte`: syntax-highlighted fenced blocks via `shiki`, copy button, language label
+17. ⬚ **markdown-rendering** — Render assistant messages with `marked` + `DOMPurify`. Bold, italic, headers, lists, links, blockquotes, tables. *(Dependencies installed: `marked` v15, `dompurify` v3. Not yet integrated — messages currently render as raw text.)*
+18. ⬚ **code-blocks** — `CodeBlock.svelte`: syntax-highlighted fenced blocks via `shiki`, copy button, language label *(Dependency installed: `shiki` v3. Not yet integrated.)*
 
 ### Phase 6: Web Research
 19. ⬚ **web-search** — `web-research` crate: Bing Web Search API integration. Tauri command `web_search`. `WebResultCard.svelte` for displaying results as cited cards. API key stored in keychain.
@@ -1623,6 +1624,9 @@ pnpm install
 
 # Development (hot-reload frontend + Rust backend)
 cargo tauri dev
+
+# Development with forced logout (clears stored tokens)
+cargo tauri dev -- -- --logout
 
 # Build for production (current platform)
 cargo tauri build

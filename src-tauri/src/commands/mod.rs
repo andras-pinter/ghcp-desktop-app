@@ -11,12 +11,6 @@ pub mod settings;
 pub mod skills;
 pub mod web_research;
 
-/// Temporary greeting command for verifying IPC works.
-#[tauri::command]
-pub fn greet(name: &str) -> String {
-    format!("Hello, {}! Welcome to Chuck.", name)
-}
-
 /// Return basic application info.
 #[tauri::command]
 pub fn get_app_info() -> serde_json::Value {
@@ -24,4 +18,21 @@ pub fn get_app_info() -> serde_json::Value {
         "name": "Chuck",
         "version": env!("CARGO_PKG_VERSION"),
     })
+}
+
+/// Log a message from the frontend to the Rust console.
+#[tauri::command]
+pub fn log_frontend(level: &str, message: &str) {
+    // Cap length to prevent log flooding from the frontend
+    let msg = if message.len() > 1024 {
+        &message[..1024]
+    } else {
+        message
+    };
+    match level {
+        "error" => log::error!("[frontend] {}", msg),
+        "warn" => log::warn!("[frontend] {}", msg),
+        "debug" => log::debug!("[frontend] {}", msg),
+        _ => log::info!("[frontend] {}", msg),
+    }
 }

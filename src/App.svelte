@@ -3,13 +3,18 @@
   import ChatView from "$lib/components/ChatView.svelte";
   import AuthScreen from "$lib/components/AuthScreen.svelte";
   import { initAuth, getAuth } from "$lib/stores/auth.svelte";
+  import { initModels } from "$lib/stores/models.svelte";
+  import { initConversations } from "$lib/stores/conversations.svelte";
   import { onMount } from "svelte";
 
   let sidebarCollapsed = $state(false);
   const auth = getAuth();
 
-  onMount(() => {
-    initAuth();
+  onMount(async () => {
+    await initAuth();
+    if (auth.authenticated) {
+      await Promise.all([initConversations(), initModels()]);
+    }
   });
 
   function toggleSidebar() {
@@ -28,6 +33,7 @@
 
 {#if auth.loading}
   <div class="loading-screen">
+    <div class="loading-drag-region" data-tauri-drag-region></div>
     <div class="loading-spinner"></div>
   </div>
 {:else if !auth.authenticated}
@@ -182,6 +188,16 @@
     justify-content: center;
     height: 100vh;
     background: var(--color-bg-primary);
+    position: relative;
+  }
+
+  .loading-drag-region {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: var(--titlebar-height);
+    -webkit-app-region: drag;
   }
 
   .loading-spinner {

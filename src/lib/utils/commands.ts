@@ -2,7 +2,15 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import type { AuthState, DeviceCodeResponse, GitHubUser } from "$lib/types/auth";
-import type { ChatMessage, Model } from "$lib/types/message";
+import type { Conversation } from "$lib/types/conversation";
+import type { Message, ChatMessage, Model } from "$lib/types/message";
+
+// ── Logging ─────────────────────────────────────────────────────
+
+/** Log a message from the frontend to the Rust console. Best-effort — IPC failures are ignored. */
+export function logFrontend(level: "info" | "warn" | "error" | "debug", message: string): void {
+  invoke("log_frontend", { level, message }).catch(() => {});
+}
 
 // ── Auth ────────────────────────────────────────────────────────
 
@@ -43,4 +51,122 @@ export async function stopStreaming(): Promise<void> {
 /** Fetch available Copilot models. */
 export async function getModels(): Promise<Model[]> {
   return invoke<Model[]>("get_models");
+}
+
+// ── Conversations ───────────────────────────────────────────────
+
+/** List all conversations (ordered by most recent). */
+export async function getConversations(): Promise<Conversation[]> {
+  return invoke<Conversation[]>("get_conversations");
+}
+
+/** Get a single conversation by ID. */
+export async function getConversation(id: string): Promise<Conversation | null> {
+  return invoke<Conversation | null>("get_conversation", { id });
+}
+
+/** Create a new conversation. */
+export async function createConversation(
+  id: string,
+  title?: string | null,
+  agentId?: string | null,
+  projectId?: string | null,
+  model?: string | null,
+): Promise<Conversation> {
+  return invoke<Conversation>("create_conversation", {
+    id,
+    title: title ?? null,
+    agentId: agentId ?? null,
+    projectId: projectId ?? null,
+    model: model ?? null,
+  });
+}
+
+/** Update a conversation's fields. */
+export async function updateConversation(
+  id: string,
+  title?: string | null,
+  isFavourite?: boolean | null,
+  model?: string | null,
+): Promise<void> {
+  return invoke("update_conversation", {
+    id,
+    title: title ?? null,
+    isFavourite: isFavourite ?? null,
+    model: model ?? null,
+  });
+}
+
+/** Delete a conversation (messages + drafts cascade). */
+export async function deleteConversation(id: string): Promise<void> {
+  return invoke("delete_conversation", { id });
+}
+
+// ── Messages ────────────────────────────────────────────────────
+
+/** Get all messages for a conversation. */
+export async function getMessages(conversationId: string): Promise<Message[]> {
+  return invoke<Message[]>("get_messages", { conversationId });
+}
+
+/** Insert a message into the database. */
+export async function createMessage(message: Message): Promise<void> {
+  return invoke("create_message", { message });
+}
+
+/** Update a message's content (after streaming or edit). */
+export async function updateMessageContent(
+  id: string,
+  content: string,
+  thinkingContent?: string | null,
+): Promise<void> {
+  return invoke("update_message_content", {
+    id,
+    content,
+    thinkingContent: thinkingContent ?? null,
+  });
+}
+
+/** Delete all messages after a given sort order (for editing). */
+export async function deleteMessagesAfter(
+  conversationId: string,
+  afterSortOrder: number,
+): Promise<void> {
+  return invoke("delete_messages_after", { conversationId, afterSortOrder });
+}
+
+// ── Settings ────────────────────────────────────────────────────
+
+/** Get a config value. */
+export async function getSetting(key: string): Promise<string | null> {
+  return invoke<string | null>("get_setting", { key });
+}
+
+/** Set a config value. */
+export async function updateSetting(key: string, value: string): Promise<void> {
+  return invoke("update_setting", { key, value });
+}
+
+/** Get the database file size in bytes. */
+export async function getDbSize(): Promise<number> {
+  return invoke<number>("get_db_size");
+}
+
+// ── Drafts ──────────────────────────────────────────────────────
+
+/** Save a draft for a conversation. */
+export async function saveDraft(conversationId: string, content: string): Promise<void> {
+  return invoke("save_draft", { conversationId, content });
+}
+
+/** Get the draft for a conversation, if any. */
+export async function getDraft(
+  conversationId: string,
+): Promise<{ conversationId: string; content: string; updatedAt: string } | null> {
+  return invoke("get_draft", { conversationId });
+}
+
+/** Delete the draft for a conversation. */
+export async function deleteDraft(conversationId: string): Promise<void> {
+  return invoke("delete_draft", { conversationId });
 }
