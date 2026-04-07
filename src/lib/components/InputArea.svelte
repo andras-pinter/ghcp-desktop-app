@@ -59,6 +59,7 @@
   // File attachment state
   let attachedFiles: ChatFileData[] = $state([]);
   let fileDropActive = $state(false);
+  let fileError = $state("");
 
   // Sync initialValue prop on first mount
   $effect(() => {
@@ -215,6 +216,7 @@
 
   /** Open file dialog (Rust-side) and attach the selected file. */
   async function handleAttachFile() {
+    fileError = "";
     try {
       const data = await pickFileForChat();
       if (!data) return; // user cancelled
@@ -222,7 +224,7 @@
         attachedFiles = [...attachedFiles, data];
       }
     } catch (e) {
-      console.error("File attach error:", e);
+      fileError = String(e);
     }
   }
 
@@ -244,11 +246,17 @@
   async function handleDrop(event: DragEvent) {
     event.preventDefault();
     fileDropActive = false;
+    fileError = "";
     const files = event.dataTransfer?.files;
     if (!files || files.length === 0) return;
 
+    const MAX_FILE_SIZE = 50 * 1024 * 1024;
     for (const file of files) {
       if (attachedFiles.some((f) => f.name === file.name)) continue;
+      if (file.size > MAX_FILE_SIZE) {
+        fileError = `"${file.name}" is too large (${formatBytes(file.size)}). Maximum is 50 MB.`;
+        continue;
+      }
       const arrayBuf = await file.arrayBuffer();
       const bytes = new Uint8Array(arrayBuf);
       let binary = "";
@@ -297,6 +305,14 @@
   aria-label="Message input area"
 >
   <div class="input-box">
+    {#if fileError}
+      <div class="file-error" role="alert">
+        <span>⚠️ {fileError}</span>
+        <button class="file-error-dismiss" onclick={() => (fileError = "")} aria-label="Dismiss"
+          >✕</button
+        >
+      </div>
+    {/if}
     {#if attachedFiles.length > 0}
       <div class="file-pills">
         {#each attachedFiles as file (file.name)}
@@ -1140,6 +1156,34 @@
     outline: 2px dashed var(--color-accent-copper);
     outline-offset: -2px;
     background: color-mix(in srgb, var(--color-accent-copper) 5%, transparent);
+  }
+
+  /* ── File error ── */
+
+  .file-error {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 12px;
+    font-size: 0.8rem;
+    color: var(--color-error, #b91c1c);
+    background: var(--color-error-bg, #fef2f2);
+    border-radius: 6px;
+    margin: 8px 12px 0;
+  }
+
+  .file-error-dismiss {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: inherit;
+    font-size: 0.85rem;
+    padding: 0 0 0 8px;
+    opacity: 0.7;
+  }
+
+  .file-error-dismiss:hover {
+    opacity: 1;
   }
 
   /* ── File pills ── */
