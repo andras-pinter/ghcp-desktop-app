@@ -35,6 +35,7 @@
 
   let gitUrl = $state("");
   let gitError = $state<string | null>(null);
+  let gitScanned = $state(false);
 
   let registryExpanded = $state(true);
   let gitExpanded = $state(false);
@@ -150,11 +151,13 @@
     const url = gitUrl.trim();
     if (!url) return;
     gitError = null;
+    gitScanned = false;
     try {
       await discoverGitSkills(url);
     } catch (e) {
       gitError = e instanceof Error ? e.message : String(e);
     }
+    gitScanned = true;
   }
 
   async function handleGitImport(file: GitSkillFile) {
@@ -861,7 +864,7 @@
                   </article>
                 {/each}
               </div>
-            {:else if gitUrl.trim() && !store.gitImporting && !gitError}
+            {:else if gitScanned && gitUrl.trim() && !store.gitImporting && !gitError}
               <p class="section-empty">No SKILL.md files found in this repository.</p>
             {/if}
           </div>

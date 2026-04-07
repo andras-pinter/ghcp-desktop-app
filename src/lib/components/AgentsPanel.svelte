@@ -90,6 +90,7 @@
   let registrySearchDebounce: ReturnType<typeof setTimeout> | null = null;
   let gitUrl = $state("");
   let gitError = $state<string | null>(null);
+  let gitScanned = $state(false);
   let installingId = $state<string | null>(null);
   let installedId = $state<string | null>(null);
   let importingPath = $state<string | null>(null);
@@ -180,12 +181,14 @@
 
   async function handleGitDiscover() {
     gitError = null;
+    gitScanned = false;
     if (!gitUrl.trim()) return;
     try {
       await discoverGitAgents(gitUrl.trim());
     } catch (e: unknown) {
       gitError = e instanceof Error ? e.message : String(e);
     }
+    gitScanned = true;
   }
 
   async function handleGitImport(file: GitSkillFile) {
@@ -669,8 +672,8 @@
                   </article>
                 {/each}
               </div>
-            {:else if gitUrl.trim() && !agentStore.gitImporting && !gitError}
-              <p class="section-empty">No SKILL.md files found in this repository.</p>
+            {:else if gitScanned && gitUrl.trim() && !agentStore.gitImporting && !gitError}
+              <p class="section-empty">No agent files found in this repository.</p>
             {/if}
           </div>
         {/if}
