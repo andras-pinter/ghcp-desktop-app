@@ -156,9 +156,6 @@
     try {
       await installAgentFromRegistry(item);
       installedId = item.id;
-      setTimeout(() => {
-        installedId = null;
-      }, 2000);
     } catch {
       // Error logged in store
     } finally {

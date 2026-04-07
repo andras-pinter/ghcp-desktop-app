@@ -115,9 +115,6 @@
       const result = await installFromRegistry(item);
       if (result) {
         installedId = item.id;
-        setTimeout(() => {
-          installedId = null;
-        }, 2000);
       }
     } catch {
       // Error logged in store
@@ -253,7 +250,9 @@
   }
 
   function isAlreadyInstalled(item: RegistryItem): boolean {
-    return store.skills.some((s) => s.id === item.id);
+    return store.skills.some(
+      (s) => s.id === item.id || s.id === `reg-aitmpl-${item.id}` || s.name === item.name,
+    );
   }
 
   onMount(() => {
