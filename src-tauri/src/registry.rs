@@ -263,13 +263,21 @@ fn clean_description(raw: &str) -> String {
 }
 
 fn aitmpl_to_registry_item(item: &AitmplComponent, kind: RegistryItemKind) -> RegistryItem {
-    let url = item
-        .path
-        .as_ref()
-        .map(|p| format!("https://www.aitmpl.com/{}", p.replace(".md", "")));
+    // Link to the GitHub source file (aitmpl.com is a SPA — direct paths 404)
+    let url = item.path.as_ref().map(|p| {
+        format!(
+            "https://github.com/davila7/claude-code-templates/blob/main/{}",
+            p
+        )
+    });
 
-    // Use the description from JSON, cleaned up for display
-    let description = item.description.as_ref().map(|d| clean_description(d));
+    // Extract first paragraph of the markdown body as description
+    // (frontmatter descriptions are often long/verbose with XML tags)
+    let description = item
+        .content
+        .as_ref()
+        .and_then(|c| extract_body_description(c))
+        .or_else(|| item.description.as_ref().map(|d| clean_description(d)));
 
     RegistryItem {
         id: item.name.clone(),
@@ -281,6 +289,52 @@ fn aitmpl_to_registry_item(item: &AitmplComponent, kind: RegistryItemKind) -> Re
         kind,
         source_repo: None,
     }
+}
+
+/// Extract the first meaningful paragraph from the markdown body
+/// (after YAML frontmatter) as a description.
+fn extract_body_description(content: &str) -> Option<String> {
+    let trimmed = content.trim_start();
+
+    // Skip YAML frontmatter
+    let body = if let Some(after) = trimmed.strip_prefix("---") {
+        let after_first = after
+            .strip_prefix('\n')
+            .unwrap_or(after.strip_prefix("\r\n").unwrap_or(after));
+        if let Some(closing) = after_first.find("\n---") {
+            let rest = &after_first[closing + 4..];
+            rest.strip_prefix('\n')
+                .unwrap_or(rest.strip_prefix("\r\n").unwrap_or(rest))
+        } else {
+            return None;
+        }
+    } else {
+        trimmed
+    };
+
+    // Take the first non-empty paragraph (split by blank lines)
+    let first_para = body
+        .split("\n\n")
+        .map(|p| p.trim())
+        .find(|p| !p.is_empty() && !p.starts_with('#'))?;
+
+    // Clean and truncate
+    let cleaned: String = first_para
+        .lines()
+        .map(|l| l.trim())
+        .collect::<Vec<_>>()
+        .join(" ");
+
+    if cleaned.is_empty() {
+        return None;
+    }
+
+    Some(if cleaned.len() > 200 {
+        let end = cleaned[..200].rfind(' ').unwrap_or(200);
+        format!("{}…", &cleaned[..end])
+    } else {
+        cleaned
+    })
 }
 
 // ── Unified search ─────────────────────────────────────────────

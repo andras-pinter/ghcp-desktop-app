@@ -33,7 +33,7 @@
   let gitUrl = $state("");
   let gitError = $state<string | null>(null);
 
-  let registryExpanded = $state(false);
+  let registryExpanded = $state(true);
   let gitExpanded = $state(false);
 
   let installingId = $state<string | null>(null);
@@ -671,7 +671,7 @@
                 </p>
               {/if}
               <div class="registry-list">
-                {#each store.registryResults as item (item.id)}
+                {#each store.registryResults as item (item.id + item.source)}
                   <div class="registry-item">
                     <div class="registry-item-info">
                       <strong class="registry-item-name">{item.name}</strong>

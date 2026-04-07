@@ -81,7 +81,7 @@
 
   // ── Registry / Git state ──────────────────────────────────────
 
-  let registryExpanded = $state(false);
+  let registryExpanded = $state(true);
   let gitExpanded = $state(false);
   let registrySearchInput = $state("");
   let registrySearchDebounce: ReturnType<typeof setTimeout> | null = null;
@@ -91,6 +91,9 @@
   let installedId = $state<string | null>(null);
   let importingPath = $state<string | null>(null);
   let importedPath = $state<string | null>(null);
+
+  // Expand/collapse for individual agent cards
+  let expandedAgentId = $state<string | null>(null);
 
   // ── Derived ─────────────────────────────────────────────────
 
@@ -259,6 +262,10 @@
     confirmDelete = agent;
   }
 
+  function toggleExpandAgent(id: string) {
+    expandedAgentId = expandedAgentId === id ? null : id;
+  }
+
   function cancelDelete() {
     confirmDelete = null;
   }
@@ -352,13 +359,36 @@
       <div class="agents-list" role="list">
         <!-- Default agent -->
         {#if defaultAgent}
-          <div class="agent-card default-card" role="listitem">
+          <div
+            class="agent-card default-card"
+            role="listitem"
+            ondblclick={() => toggleExpandAgent(defaultAgent.id)}
+            title="Double-click to expand"
+          >
             <div class="agent-header">
+              <button
+                class="agent-expand-btn"
+                class:expanded={expandedAgentId === defaultAgent.id}
+                onclick={(e: MouseEvent) => {
+                  e.stopPropagation();
+                  toggleExpandAgent(defaultAgent.id);
+                }}
+                aria-label={expandedAgentId === defaultAgent.id
+                  ? "Collapse details"
+                  : "Expand details"}>▶</button
+              >
               <span class="agent-avatar">{defaultAgent.avatar ?? "🤖"}</span>
               <span class="agent-name">{defaultAgent.name}</span>
               <span class="badge built-in-badge">built-in</span>
             </div>
-            <p class="agent-desc">{truncatePrompt(defaultAgent.systemPrompt)}</p>
+            {#if expandedAgentId !== defaultAgent.id}
+              <p class="agent-desc">{truncatePrompt(defaultAgent.systemPrompt)}</p>
+            {/if}
+            {#if expandedAgentId === defaultAgent.id}
+              <div class="agent-details">
+                <pre class="agent-prompt-full">{defaultAgent.systemPrompt}</pre>
+              </div>
+            {/if}
             <div class="agent-meta">
               <span class="meta-tag">Default for new conversations</span>
             </div>
@@ -369,8 +399,23 @@
         {#if customAgents.length > 0}
           <h2 class="section-heading">Custom Agents</h2>
           {#each customAgents as agent (agent.id)}
-            <div class="agent-card" role="listitem">
+            <div
+              class="agent-card"
+              role="listitem"
+              ondblclick={() => toggleExpandAgent(agent.id)}
+              title="Double-click to expand"
+            >
               <div class="agent-header">
+                <button
+                  class="agent-expand-btn"
+                  class:expanded={expandedAgentId === agent.id}
+                  onclick={(e: MouseEvent) => {
+                    e.stopPropagation();
+                    toggleExpandAgent(agent.id);
+                  }}
+                  aria-label={expandedAgentId === agent.id ? "Collapse details" : "Expand details"}
+                  >▶</button
+                >
                 <span class="agent-avatar">{agent.avatar ?? "🤖"}</span>
                 <span class="agent-name">{agent.name}</span>
                 {#if sourceLabel(agent)}
@@ -393,7 +438,25 @@
                   </button>
                 </div>
               </div>
-              <p class="agent-desc">{truncatePrompt(agent.systemPrompt)}</p>
+              {#if expandedAgentId !== agent.id}
+                <p class="agent-desc">{truncatePrompt(agent.systemPrompt)}</p>
+              {/if}
+              {#if expandedAgentId === agent.id}
+                <div class="agent-details">
+                  <pre class="agent-prompt-full">{agent.systemPrompt}</pre>
+                  {#if agent.sourceUrl}
+                    <div class="agent-detail-row">
+                      <span>Source:</span>
+                      <a
+                        href={agent.sourceUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="agent-detail-link">{agent.sourceUrl}</a
+                      >
+                    </div>
+                  {/if}
+                </div>
+              {/if}
             </div>
           {/each}
         {:else if !defaultAgent}
@@ -857,6 +920,70 @@
     color: var(--color-text-secondary);
     margin: var(--spacing-xs) 0 0;
     line-height: var(--line-height-normal);
+  }
+
+  .agent-expand-btn {
+    all: unset;
+    font-size: 10px;
+    color: var(--color-text-tertiary);
+    flex-shrink: 0;
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: var(--radius-sm);
+    transition:
+      transform 0.2s ease,
+      color 0.15s,
+      background 0.15s;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .agent-expand-btn:hover {
+    color: var(--color-text-secondary);
+    background: var(--color-bg-tertiary, rgba(0, 0, 0, 0.05));
+  }
+  .agent-expand-btn.expanded {
+    transform: rotate(90deg);
+    color: var(--color-accent-copper);
+  }
+
+  .agent-details {
+    margin-top: var(--spacing-sm);
+    padding: var(--spacing-sm);
+    background: var(--color-bg-primary);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--color-border-primary);
+    animation: fadeIn 150ms ease both;
+  }
+
+  .agent-prompt-full {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+    white-space: pre-wrap;
+    word-break: break-word;
+    line-height: var(--line-height-relaxed);
+    max-height: 300px;
+    overflow-y: auto;
+    margin: 0;
+    font-family: var(--font-mono);
+  }
+
+  .agent-detail-row {
+    display: flex;
+    gap: var(--spacing-xs);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-tertiary);
+    margin-top: var(--spacing-xs);
+  }
+
+  .agent-detail-link {
+    color: var(--color-accent-copper);
+    text-decoration: none;
+    word-break: break-all;
+  }
+  .agent-detail-link:hover {
+    text-decoration: underline;
   }
 
   .agent-meta {
