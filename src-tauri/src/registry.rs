@@ -594,51 +594,81 @@ pub async fn fetch_git_skills(client: &Client, git_url: &str) -> Result<Vec<GitS
         }]);
     }
 
-    // Try standard locations for SKILL.md files
-    let search_paths = vec!["SKILL.md", "skills", ".agents/skills", ".copilot/skills"];
+    // Use the GitHub tree API to recursively find all SKILL.md files
+    let tree_url = format!(
+        "https://api.github.com/repos/{}/{}/git/trees/main?recursive=1",
+        parsed.owner, parsed.repo
+    );
+    let resp = client
+        .get(&tree_url)
+        .header("Accept", "application/vnd.github+json")
+        .header("User-Agent", "Chuck-Desktop/0.1")
+        .send()
+        .await
+        .map_err(|e| format!("GitHub tree API failed: {e}"))?;
+
+    if !resp.status().is_success() {
+        return Err(format!(
+            "Could not list repository {}/{}  (HTTP {})",
+            parsed.owner,
+            parsed.repo,
+            resp.status()
+        ));
+    }
+
+    #[derive(Deserialize)]
+    struct TreeItem {
+        path: String,
+        #[serde(rename = "type")]
+        item_type: String,
+    }
+    #[derive(Deserialize)]
+    struct TreeResponse {
+        tree: Vec<TreeItem>,
+    }
+
+    let tree: TreeResponse = resp
+        .json()
+        .await
+        .map_err(|e| format!("Failed to parse tree response: {e}"))?;
+
+    // Collect all SKILL.md / SKILL.MD paths (cap at 50 to avoid huge repos)
+    let skill_paths: Vec<String> = tree
+        .tree
+        .iter()
+        .filter(|t| {
+            t.item_type == "blob" && {
+                let name = t.path.rsplit('/').next().unwrap_or(&t.path);
+                name.eq_ignore_ascii_case("SKILL.md")
+            }
+        })
+        .take(50)
+        .map(|t| t.path.clone())
+        .collect();
+
+    if skill_paths.is_empty() {
+        return Err(format!(
+            "No SKILL.md files found in {}/{}",
+            parsed.owner, parsed.repo
+        ));
+    }
 
     let mut found = Vec::new();
-
-    for search_path in search_paths {
-        if search_path.contains('.') {
-            // Direct file path
-            if let Ok(content) =
-                fetch_github_file(client, &parsed.owner, &parsed.repo, search_path).await
-            {
-                found.push(GitSkillFile {
-                    path: search_path.to_string(),
-                    content,
-                    repo_url: repo_url.clone(),
-                });
-            }
-        } else {
-            // Directory — list contents
-            if let Ok(entries) =
-                list_github_dir(client, &parsed.owner, &parsed.repo, search_path).await
-            {
-                for entry in entries {
-                    if entry.name.ends_with(".md")
-                        && (entry.name == "SKILL.md" || entry.name.to_lowercase().contains("skill"))
-                    {
-                        if let Ok(content) =
-                            fetch_github_file(client, &parsed.owner, &parsed.repo, &entry.path)
-                                .await
-                        {
-                            found.push(GitSkillFile {
-                                path: entry.path,
-                                content,
-                                repo_url: repo_url.clone(),
-                            });
-                        }
-                    }
-                }
-            }
+    for path in skill_paths {
+        if let Ok(content) =
+            fetch_github_file(client, &parsed.owner, &parsed.repo, &path).await
+        {
+            found.push(GitSkillFile {
+                path,
+                content,
+                repo_url: repo_url.clone(),
+            });
         }
     }
 
     if found.is_empty() {
         Err(format!(
-            "No SKILL.md files found in {}/{}. Searched: SKILL.md, skills/, .agents/skills/, .copilot/skills/",
+            "Found SKILL.md files but could not fetch their content in {}/{}",
             parsed.owner, parsed.repo
         ))
     } else {
@@ -672,46 +702,6 @@ async fn fetch_github_file(
         .map_err(|e| format!("Failed to read file content: {e}"))
 }
 
-/// A file/directory entry from the GitHub Contents API.
-#[derive(Debug, Deserialize)]
-struct GitHubEntry {
-    name: String,
-    path: String,
-    #[serde(rename = "type")]
-    entry_type: String,
-}
-
-/// List directory contents from GitHub.
-async fn list_github_dir(
-    client: &Client,
-    owner: &str,
-    repo: &str,
-    path: &str,
-) -> Result<Vec<GitHubEntry>, String> {
-    let url = format!("https://api.github.com/repos/{owner}/{repo}/contents/{path}");
-
-    let resp = client
-        .get(&url)
-        .header("Accept", "application/vnd.github+json")
-        .header("User-Agent", "Chuck-Desktop/0.1")
-        .send()
-        .await
-        .map_err(|e| format!("GitHub API request failed: {e}"))?;
-
-    if !resp.status().is_success() {
-        return Err(format!("Directory not found: {path}"));
-    }
-
-    let entries: Vec<GitHubEntry> = resp
-        .json()
-        .await
-        .map_err(|e| format!("Failed to parse directory listing: {e}"))?;
-
-    Ok(entries
-        .into_iter()
-        .filter(|e| e.entry_type == "file")
-        .collect())
-}
 
 #[cfg(test)]
 mod tests {
