@@ -124,7 +124,8 @@
       convId = conv.id;
     }
 
-    // Clear draft
+    // Clear draft and cancel any pending save
+    if (draftTimer) clearTimeout(draftTimer);
     clearDraft(convId);
     draftText = "";
 
