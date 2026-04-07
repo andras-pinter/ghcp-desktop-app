@@ -45,7 +45,9 @@
 
   let expandedSkillId = $state<string | null>(null);
 
-  let createExpanded = $state(false);
+  type SkillViewState = "list" | "create";
+  let skillView = $state<SkillViewState>("list");
+
   let createName = $state("");
   let createDescription = $state("");
   let createInstructions = $state("");
@@ -174,6 +176,19 @@
     expandedSkillId = expandedSkillId === id ? null : id;
   }
 
+  function openCreateForm() {
+    createName = "";
+    createDescription = "";
+    createInstructions = "";
+    createSourceUrl = "";
+    createError = null;
+    skillView = "create";
+  }
+
+  function cancelCreateForm() {
+    skillView = "list";
+  }
+
   async function handleCreateSkill() {
     const name = createName.trim();
     if (!name) {
@@ -197,11 +212,7 @@
         "local",
       );
       await initSkills();
-      createName = "";
-      createDescription = "";
-      createInstructions = "";
-      createSourceUrl = "";
-      createExpanded = false;
+      skillView = "list";
     } catch (err: unknown) {
       createError = err instanceof Error ? err.message : String(err);
     } finally {
@@ -248,14 +259,21 @@
 <div class="skills-panel">
   <!-- Header -->
   <header class="panel-header">
-    <button class="back-btn" onclick={onBack} aria-label="Go back">← Back</button>
-    <h2 class="panel-title">Skills</h2>
+    <button
+      class="back-btn"
+      onclick={skillView === "create" ? cancelCreateForm : onBack}
+      aria-label="Go back">← Back</button
+    >
+    <h2 class="panel-title">{skillView === "create" ? "Create Skill" : "Skills"}</h2>
+    {#if skillView === "list"}
+      <button class="header-add-btn" onclick={openCreateForm}>+ New Skill</button>
+    {/if}
   </header>
 
   <div class="panel-content">
     {#if !store.loaded}
       <div class="panel-loading">Loading skills…</div>
-    {:else}
+    {:else if skillView === "list"}
       <!-- ── Installed Skills ────────────────────────────────── -->
       <section class="panel-section">
         <h3 class="section-heading">Installed Skills</h3>
@@ -748,85 +766,86 @@
           </div>
         {/if}
       </section>
-
-      <!-- ── Create Custom Skill ──────────────────────────────── -->
-      <section class="panel-section">
-        <button
-          class="collapsible-heading"
-          onclick={() => (createExpanded = !createExpanded)}
-          aria-expanded={createExpanded}
-        >
-          <span class="collapse-arrow" class:expanded={createExpanded}>▶</span>
-          <h3 class="section-heading inline">Create Custom Skill</h3>
-        </button>
-
-        {#if createExpanded}
-          <div class="section-content create-skill-form">
-            {#if createError}
-              <div class="create-error" role="alert">{createError}</div>
-            {/if}
-
-            <div class="create-field">
-              <label class="create-label" for="create-name">Name</label>
-              <input
-                id="create-name"
-                class="create-input"
-                type="text"
-                bind:value={createName}
-                placeholder="e.g. Code Reviewer"
-              />
-            </div>
-
-            <div class="create-field">
-              <label class="create-label" for="create-desc">Description</label>
-              <textarea
-                id="create-desc"
-                class="create-textarea"
-                rows={2}
-                bind:value={createDescription}
-                placeholder="Brief description of what this skill does…"
-              ></textarea>
-            </div>
-
-            <div class="create-field">
-              <label class="create-label" for="create-instructions">
-                Instructions / System Prompt
-                <span class="create-hint">Markdown supported</span>
-              </label>
-              <textarea
-                id="create-instructions"
-                class="create-textarea mono"
-                rows={8}
-                bind:value={createInstructions}
-                placeholder="Describe the skill's behaviour, rules, and capabilities…"
-              ></textarea>
-            </div>
-
-            <div class="create-field">
-              <label class="create-label" for="create-source"
-                >Source URL <span class="create-hint">optional</span></label
-              >
-              <input
-                id="create-source"
-                class="create-input"
-                type="url"
-                bind:value={createSourceUrl}
-                placeholder="https://example.com/my-skill"
-              />
-            </div>
-
-            <div class="create-actions">
-              <button
-                class="action-btn primary"
-                onclick={handleCreateSkill}
-                disabled={createSaving || !createName.trim()}
-              >
-                {createSaving ? "Creating…" : "Create Skill"}
-              </button>
-            </div>
-          </div>
+    {:else if skillView === "create"}
+      <!-- ── Create Skill Form ────────────────────────────────── -->
+      <div class="create-skill-form">
+        {#if createError}
+          <div class="create-error" role="alert">{createError}</div>
         {/if}
-      </section>
+
+        <div class="create-field">
+          <label class="create-label" for="create-name">Name</label>
+          <input
+            id="create-name"
+            class="create-input"
+            type="text"
+            bind:value={createName}
+            placeholder="e.g. Code Reviewer"
+          />
+        </div>
+
+        <div class="create-field">
+          <label class="create-label" for="create-desc">Description</label>
+          <textarea
+            id="create-desc"
+            class="create-textarea"
+            rows={2}
+            bind:value={createDescription}
+            placeholder="Brief description of what this skill does…"
+          ></textarea>
+        </div>
+
+        <div class="create-field">
+          <label class="create-label" for="create-instructions">
+            Instructions / System Prompt
+            <span class="create-hint">Markdown supported</span>
+          </label>
+          <textarea
+            id="create-instructions"
+            class="create-textarea mono"
+            rows={8}
+            bind:value={createInstructions}
+            placeholder="Describe the skill's behaviour, rules, and capabilities…"
+            onkeydown={(e) => {
+              if (e.key === "Tab") {
+                e.preventDefault();
+                const t = e.currentTarget;
+                const start = t.selectionStart;
+                const end = t.selectionEnd;
+                createInstructions =
+                  createInstructions.substring(0, start) + "  " + createInstructions.substring(end);
+                requestAnimationFrame(() => {
+                  t.selectionStart = t.selectionEnd = start + 2;
+                });
+              }
+            }}
+          ></textarea>
+        </div>
+
+        <div class="create-field">
+          <label class="create-label" for="create-source"
+            >Source URL <span class="create-hint">optional</span></label
+          >
+          <input
+            id="create-source"
+            class="create-input"
+            type="url"
+            bind:value={createSourceUrl}
+            placeholder="https://example.com/my-skill"
+          />
+        </div>
+
+        <div class="create-actions">
+          <button class="action-btn" onclick={cancelCreateForm}>Cancel</button>
+          <button
+            class="action-btn primary"
+            onclick={handleCreateSkill}
+            disabled={createSaving || !createName.trim()}
+          >
+            {createSaving ? "Creating…" : "Create Skill"}
+          </button>
+        </div>
+      </div>
     {/if}
   </div>
 </div>
@@ -872,6 +891,25 @@
     color: var(--color-text-primary);
     margin: 0;
     flex: 1;
+  }
+
+  .header-add-btn {
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-medium);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border: 1px solid var(--color-border-primary, var(--color-border));
+    border-radius: var(--radius-sm);
+    background: var(--color-bg-primary);
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    transition: all var(--transition-fast, 0.15s);
+    white-space: nowrap;
+  }
+
+  .header-add-btn:hover {
+    background: var(--color-bg-hover, var(--color-bg-secondary));
+    color: var(--color-accent-copper, var(--color-accent));
+    border-color: var(--color-accent-copper, var(--color-accent));
   }
 
   .panel-content {
@@ -1429,18 +1467,20 @@
     background: none;
     border: none;
     cursor: pointer;
-    font-size: 10px;
-    color: var(--color-text-tertiary);
-    padding: 2px 4px;
+    font-size: 12px;
+    color: var(--color-text-secondary);
+    padding: 4px 6px;
     margin-right: var(--spacing-xs);
     transition:
       transform 0.2s ease,
       color 0.15s;
     flex-shrink: 0;
+    border-radius: var(--radius-sm);
   }
 
   .skill-expand-btn:hover {
     color: var(--color-text-primary);
+    background: var(--color-bg-tertiary, var(--color-bg-secondary));
   }
 
   .skill-expand-btn.expanded {

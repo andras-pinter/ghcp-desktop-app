@@ -18,6 +18,7 @@
   let sidebarCollapsed = $state(false);
   let dataLoaded = $state(false);
   let currentView = $state<AppView>("chat");
+  let previousView = $state<AppView>("chat");
   const auth = getAuth();
 
   onMount(() => {
@@ -39,7 +40,14 @@
   }
 
   function navigateTo(view: string) {
+    previousView = currentView;
     currentView = view as AppView;
+  }
+
+  function navigateBack() {
+    const target = previousView;
+    previousView = "chat";
+    currentView = target;
   }
 
   function handleKeydown(event: KeyboardEvent) {
@@ -105,11 +113,11 @@
       </aside>
       <main class="main-container">
         {#if currentView === "mcp-settings"}
-          <McpSettings onBack={() => navigateTo("chat")} />
+          <McpSettings onBack={navigateBack} />
         {:else if currentView === "skills"}
-          <SkillsPanel onBack={() => navigateTo("chat")} />
+          <SkillsPanel onBack={navigateBack} />
         {:else if currentView === "agents"}
-          <AgentsPanel onBack={() => navigateTo("chat")} />
+          <AgentsPanel onBack={navigateBack} />
         {:else}
           <ChatView />
         {/if}

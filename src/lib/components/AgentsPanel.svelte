@@ -238,8 +238,20 @@
 <div class="agents-panel">
   <!-- ── Header ──────────────────────────────────────────── -->
   <header class="panel-header">
-    <button class="back-btn" onclick={onBack} aria-label="Go back">← Back</button>
-    <h1 class="panel-title">Agents</h1>
+    <button
+      class="back-btn"
+      onclick={view.kind === "form" ? () => (view = { kind: "list" }) : onBack}
+      aria-label="Go back">← Back</button
+    >
+    <h1 class="panel-title">
+      {#if view.kind === "form" && view.editing}
+        Edit {view.editing.name}
+      {:else if view.kind === "form"}
+        Create Agent
+      {:else}
+        Agents
+      {/if}
+    </h1>
     {#if view.kind === "list"}
       <button class="header-add-btn" onclick={openCreateForm}>+ New Agent</button>
     {/if}
@@ -305,9 +317,6 @@
         {:else if !defaultAgent}
           <p class="section-empty">No agents configured. Create one to get started.</p>
         {/if}
-
-        <!-- Create new CTA (bottom) -->
-        <button class="create-cta" onclick={openCreateForm}>+ Create New Agent</button>
       </div>
 
       <!-- ── Delete confirmation overlay ─────────────────── -->
@@ -343,10 +352,6 @@
     {:else if view.kind === "form"}
       <!-- ── Create / Edit Form ──────────────────────────── -->
       <div class="agent-form">
-        <h2 class="form-title">
-          {view.editing ? `Edit ${view.editing.name}` : "Create New Agent"}
-        </h2>
-
         {#if formError}
           <div class="form-error" role="alert">{formError}</div>
         {/if}
