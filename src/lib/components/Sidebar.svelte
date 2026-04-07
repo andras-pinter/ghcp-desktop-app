@@ -40,11 +40,13 @@
 
   function handleNewChat() {
     clearActiveConversation();
+    onNavigate?.("chat");
     onNewChat?.();
   }
 
   async function handleClick(id: string) {
     await switchConversation(id);
+    onNavigate?.("chat");
   }
 
   function handleContextMenu(event: MouseEvent, id: string) {
