@@ -196,7 +196,7 @@
     clearDraft(convId);
     draftText = "";
 
-    // Build user message content — append URL context if provided
+    // Build user message content — start with text + URL context
     let content = text;
     if (urls && urls.length > 0) {
       const urlContext = urls
@@ -212,8 +212,44 @@
       }
     }
 
-    // Append file content as context — use Rust text extraction for all formats
-    if (files && files.length > 0) {
+    const hasFiles = files && files.length > 0;
+
+    // Add user message immediately so the UI switches to chat view.
+    // If we have files to extract, show file names as placeholders.
+    const filePlaceholder = hasFiles
+      ? "\n\n" + files.map((f) => `📎 ${f.name} — extracting…`).join("\n")
+      : "";
+    const userMessage: Message = {
+      id: crypto.randomUUID(),
+      conversationId: convId,
+      role: "user",
+      content: content + filePlaceholder,
+      createdAt: new Date().toISOString(),
+      sortOrder: store.messages.length,
+    };
+    await addMessage(userMessage);
+
+    // Create a placeholder assistant message for streaming into
+    const assistantMessage: Message = {
+      id: crypto.randomUUID(),
+      conversationId: convId,
+      role: "assistant",
+      content: "",
+      createdAt: new Date().toISOString(),
+      sortOrder: store.messages.length,
+    };
+    await addMessage(assistantMessage);
+    streamingAssistantId = assistantMessage.id;
+    streaming = true;
+
+    touchConversation(convId);
+
+    requestAnimationFrame(() => {
+      chatContainer?.scrollTo({ top: chatContainer.scrollHeight, behavior: "smooth" });
+    });
+
+    // Extract file contents now (chat view is already showing)
+    if (hasFiles) {
       extractingFiles = true;
       const extractedParts: string[] = [];
       for (const f of files) {
@@ -242,40 +278,11 @@
         }
       }
       extractingFiles = false;
-      const fileContext = extractedParts.join("");
-      if (fileContext) {
-        content = content + fileContext;
-      }
+
+      // Replace placeholder content with extracted text
+      const finalContent = content + extractedParts.join("");
+      await updateMessageContentStore(userMessage.id, finalContent);
     }
-
-    const userMessage: Message = {
-      id: crypto.randomUUID(),
-      conversationId: convId,
-      role: "user",
-      content,
-      createdAt: new Date().toISOString(),
-      sortOrder: store.messages.length,
-    };
-    await addMessage(userMessage);
-
-    // Create a placeholder assistant message for streaming into
-    const assistantMessage: Message = {
-      id: crypto.randomUUID(),
-      conversationId: convId,
-      role: "assistant",
-      content: "",
-      createdAt: new Date().toISOString(),
-      sortOrder: store.messages.length,
-    };
-    await addMessage(assistantMessage);
-    streamingAssistantId = assistantMessage.id;
-    streaming = true;
-
-    touchConversation(convId);
-
-    requestAnimationFrame(() => {
-      chatContainer?.scrollTo({ top: chatContainer.scrollHeight, behavior: "smooth" });
-    });
 
     // Build API message array — include all user + non-empty assistant messages
     const apiMessages: ChatMessage[] = store.messages
