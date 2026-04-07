@@ -69,11 +69,9 @@ pub fn parse(input: &str) -> Result<ParsedSkillMd, ParseError> {
     }
 
     let after_first = &trimmed[3..];
-    let after_first = after_first.strip_prefix('\n').unwrap_or(
-        after_first
-            .strip_prefix("\r\n")
-            .unwrap_or(after_first),
-    );
+    let after_first = after_first
+        .strip_prefix('\n')
+        .unwrap_or(after_first.strip_prefix("\r\n").unwrap_or(after_first));
 
     let closing = after_first.find("\n---");
     let closing_idx = closing.ok_or(ParseError::UnclosedFrontmatter)?;
@@ -81,13 +79,11 @@ pub fn parse(input: &str) -> Result<ParsedSkillMd, ParseError> {
     let yaml_str = &after_first[..closing_idx];
     let body_start = closing_idx + 4; // skip "\n---"
     let body = if body_start < after_first.len() {
-        after_first[body_start..]
-            .strip_prefix('\n')
-            .unwrap_or(
-                after_first[body_start..]
-                    .strip_prefix("\r\n")
-                    .unwrap_or(&after_first[body_start..]),
-            )
+        after_first[body_start..].strip_prefix('\n').unwrap_or(
+            after_first[body_start..]
+                .strip_prefix("\r\n")
+                .unwrap_or(&after_first[body_start..]),
+        )
     } else {
         ""
     };
@@ -155,14 +151,14 @@ Always be constructive and explain your reasoning.
     fn test_parse_valid_skill() {
         let result = parse(VALID_SKILL).unwrap();
         assert_eq!(result.name, "code-review");
-        assert_eq!(result.description, "Reviews code for quality and best practices");
+        assert_eq!(
+            result.description,
+            "Reviews code for quality and best practices"
+        );
         assert_eq!(result.license, Some("MIT".to_string()));
         assert_eq!(
             result.compatibility,
-            Some(vec![
-                "github-copilot".to_string(),
-                "cursor".to_string()
-            ])
+            Some(vec!["github-copilot".to_string(), "cursor".to_string()])
         );
         assert_eq!(
             result.allowed_tools,

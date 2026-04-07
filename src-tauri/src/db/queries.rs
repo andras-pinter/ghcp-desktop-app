@@ -522,7 +522,9 @@ pub fn list_agents(conn: &Connection) -> Result<Vec<Agent>, rusqlite::Error> {
             system_prompt: row.get(3)?,
             is_default: row.get(4)?,
             source_url: row.get(5)?,
-            source_type: row.get::<_, Option<String>>(6)?.unwrap_or("local".to_string()),
+            source_type: row
+                .get::<_, Option<String>>(6)?
+                .unwrap_or("local".to_string()),
             created_at: row.get(7)?,
             updated_at: row.get(8)?,
         })
@@ -545,7 +547,9 @@ pub fn get_agent(conn: &Connection, id: &str) -> Result<Option<Agent>, rusqlite:
             system_prompt: row.get(3)?,
             is_default: row.get(4)?,
             source_url: row.get(5)?,
-            source_type: row.get::<_, Option<String>>(6)?.unwrap_or("local".to_string()),
+            source_type: row
+                .get::<_, Option<String>>(6)?
+                .unwrap_or("local".to_string()),
             created_at: row.get(7)?,
             updated_at: row.get(8)?,
         })
@@ -601,7 +605,10 @@ pub fn delete_agent(conn: &Connection, id: &str) -> Result<bool, rusqlite::Error
 
 /// Get the skill IDs assigned to an agent.
 #[allow(dead_code)]
-pub fn get_agent_skill_ids(conn: &Connection, agent_id: &str) -> Result<Vec<String>, rusqlite::Error> {
+pub fn get_agent_skill_ids(
+    conn: &Connection,
+    agent_id: &str,
+) -> Result<Vec<String>, rusqlite::Error> {
     let mut stmt = conn.prepare("SELECT skill_id FROM agent_skills WHERE agent_id = ?1")?;
     let rows = stmt.query_map(params![agent_id], |row| row.get(0))?;
     rows.collect()
@@ -617,8 +624,7 @@ pub fn set_agent_skills(
         "DELETE FROM agent_skills WHERE agent_id = ?1",
         params![agent_id],
     )?;
-    let mut stmt =
-        conn.prepare("INSERT INTO agent_skills (agent_id, skill_id) VALUES (?1, ?2)")?;
+    let mut stmt = conn.prepare("INSERT INTO agent_skills (agent_id, skill_id) VALUES (?1, ?2)")?;
     for sid in skill_ids {
         stmt.execute(params![agent_id, sid])?;
     }
@@ -631,9 +637,8 @@ pub fn get_agent_mcp_ids(
     conn: &Connection,
     agent_id: &str,
 ) -> Result<Vec<String>, rusqlite::Error> {
-    let mut stmt = conn.prepare(
-        "SELECT mcp_server_id FROM agent_mcp_connections WHERE agent_id = ?1",
-    )?;
+    let mut stmt =
+        conn.prepare("SELECT mcp_server_id FROM agent_mcp_connections WHERE agent_id = ?1")?;
     let rows = stmt.query_map(params![agent_id], |row| row.get(0))?;
     rows.collect()
 }
@@ -648,9 +653,8 @@ pub fn set_agent_mcp_connections(
         "DELETE FROM agent_mcp_connections WHERE agent_id = ?1",
         params![agent_id],
     )?;
-    let mut stmt = conn.prepare(
-        "INSERT INTO agent_mcp_connections (agent_id, mcp_server_id) VALUES (?1, ?2)",
-    )?;
+    let mut stmt = conn
+        .prepare("INSERT INTO agent_mcp_connections (agent_id, mcp_server_id) VALUES (?1, ?2)")?;
     for mid in mcp_server_ids {
         stmt.execute(params![agent_id, mid])?;
     }
@@ -694,7 +698,9 @@ pub fn list_skills(conn: &Connection) -> Result<Vec<Skill>, rusqlite::Error> {
             config: row.get(5)?,
             instructions: row.get(6)?,
             source_url: row.get(7)?,
-            source_type: row.get::<_, Option<String>>(8)?.unwrap_or("builtin".to_string()),
+            source_type: row
+                .get::<_, Option<String>>(8)?
+                .unwrap_or("builtin".to_string()),
             enabled: row.get(9)?,
             created_at: row.get(10)?,
             updated_at: row.get(11)?,
@@ -720,7 +726,9 @@ pub fn get_skill(conn: &Connection, id: &str) -> Result<Option<Skill>, rusqlite:
             config: row.get(5)?,
             instructions: row.get(6)?,
             source_url: row.get(7)?,
-            source_type: row.get::<_, Option<String>>(8)?.unwrap_or("builtin".to_string()),
+            source_type: row
+                .get::<_, Option<String>>(8)?
+                .unwrap_or("builtin".to_string()),
             enabled: row.get(9)?,
             created_at: row.get(10)?,
             updated_at: row.get(11)?,
@@ -747,7 +755,17 @@ pub fn create_skill(
         "INSERT INTO skills (id, name, description, source, mcp_server_id, config,
                 instructions, source_url, source_type, enabled, created_at, updated_at)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 1, datetime('now'), datetime('now'))",
-        params![id, name, description, source, mcp_server_id, config, instructions, source_url, source_type],
+        params![
+            id,
+            name,
+            description,
+            source,
+            mcp_server_id,
+            config,
+            instructions,
+            source_url,
+            source_type
+        ],
     )?;
     get_skill(conn, id).map(|s| s.expect("just inserted"))
 }
@@ -805,7 +823,9 @@ pub fn get_agent_skills(conn: &Connection, agent_id: &str) -> Result<Vec<Skill>,
             config: row.get(5)?,
             instructions: row.get(6)?,
             source_url: row.get(7)?,
-            source_type: row.get::<_, Option<String>>(8)?.unwrap_or("builtin".to_string()),
+            source_type: row
+                .get::<_, Option<String>>(8)?
+                .unwrap_or("builtin".to_string()),
             enabled: row.get(9)?,
             created_at: row.get(10)?,
             updated_at: row.get(11)?,
@@ -1094,16 +1114,7 @@ mod tests {
         assert_eq!(updated.source_url, Some("https://example.com".to_string()));
 
         // Cannot update default agent
-        update_agent(
-            &conn,
-            "default",
-            "Hacked",
-            None,
-            "Hacked",
-            None,
-            "local",
-        )
-        .unwrap();
+        update_agent(&conn, "default", "Hacked", None, "Hacked", None, "local").unwrap();
         let default = get_agent(&conn, "default").unwrap().unwrap();
         assert_eq!(default.name, "Default"); // unchanged
 
@@ -1124,8 +1135,32 @@ mod tests {
 
         // Create agent and skills
         create_agent(&conn, "a1", "Test Agent", None, "prompt", None, "local").unwrap();
-        create_skill(&conn, "s1", "Skill 1", Some("desc1"), "builtin", None, None, None, None, "builtin").unwrap();
-        create_skill(&conn, "s2", "Skill 2", Some("desc2"), "builtin", None, None, None, None, "builtin").unwrap();
+        create_skill(
+            &conn,
+            "s1",
+            "Skill 1",
+            Some("desc1"),
+            "builtin",
+            None,
+            None,
+            None,
+            None,
+            "builtin",
+        )
+        .unwrap();
+        create_skill(
+            &conn,
+            "s2",
+            "Skill 2",
+            Some("desc2"),
+            "builtin",
+            None,
+            None,
+            None,
+            None,
+            "builtin",
+        )
+        .unwrap();
 
         // No skills initially
         let skill_ids = get_agent_skill_ids(&conn, "a1").unwrap();
@@ -1195,7 +1230,10 @@ mod tests {
         )
         .unwrap();
         assert_eq!(skill.name, "Code Review");
-        assert_eq!(skill.instructions, Some("You are a code reviewer.".to_string()));
+        assert_eq!(
+            skill.instructions,
+            Some("You are a code reviewer.".to_string())
+        );
         assert!(skill.enabled);
 
         // Get
@@ -1203,7 +1241,15 @@ mod tests {
         assert_eq!(found.source_type, "registry_skills_sh");
 
         // Update
-        update_skill(&conn, "sk1", "Updated Skill", Some("Updated desc"), Some("New instructions"), None).unwrap();
+        update_skill(
+            &conn,
+            "sk1",
+            "Updated Skill",
+            Some("Updated desc"),
+            Some("New instructions"),
+            None,
+        )
+        .unwrap();
         let updated = get_skill(&conn, "sk1").unwrap().unwrap();
         assert_eq!(updated.name, "Updated Skill");
         assert_eq!(updated.instructions, Some("New instructions".to_string()));
@@ -1227,7 +1273,10 @@ mod tests {
         let conn = setup_db();
 
         create_agent(&conn, "a1", "Agent", None, "prompt", None, "local").unwrap();
-        create_skill(&conn, "sk1", "Skill", None, "builtin", None, None, None, None, "builtin").unwrap();
+        create_skill(
+            &conn, "sk1", "Skill", None, "builtin", None, None, None, None, "builtin",
+        )
+        .unwrap();
 
         // Assign skill to agent
         set_agent_skills(&conn, "a1", &["sk1".to_string()]).unwrap();

@@ -43,5 +43,12 @@ rusqlite = { version = "0.33", features = ["bundled"] }
 # SKILL.md parsing
 serde_norway.workspace = true
 
+# URL encoding for registry API queries
+urlencoding = "2"
+
+# HTTP client + URL parsing (re-exported for registry/git import)
+reqwest.workspace = true
+url.workspace = true
+
 # Logging
 env_logger = "0.11"

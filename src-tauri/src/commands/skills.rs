@@ -85,3 +85,128 @@ pub fn toggle_skill(app: AppHandle, id: String, enabled: bool) -> Result<(), Str
     let db = state.db.lock().map_err(|e| e.to_string())?;
     queries::toggle_skill(&db, &id, enabled).map_err(|e| e.to_string())
 }
+
+// ── Registry ────────────────────────────────────────────────────
+
+/// Search skill/agent registries (skills.sh + aitmpl.com).
+#[tauri::command]
+pub async fn search_registry(
+    app: AppHandle,
+    query: String,
+    limit: Option<u32>,
+) -> Result<crate::registry::RegistrySearchResult, String> {
+    let state = app.state::<AppState>();
+    let client = &state.http_client;
+    crate::registry::search_registries(client, &query, limit.unwrap_or(20)).await
+}
+
+/// Install a skill from a registry by fetching its SKILL.md content.
+#[tauri::command]
+pub async fn install_from_registry(
+    app: AppHandle,
+    skill_id: String,
+    source: String,
+) -> Result<crate::registry::RegistryItem, String> {
+    let state = app.state::<AppState>();
+    let client = &state.http_client;
+
+    let registry_source = match source.as_str() {
+        "skills_sh" => crate::registry::RegistrySource::SkillsSh,
+        "aitmpl" => crate::registry::RegistrySource::Aitmpl,
+        _ => return Err(format!("Unknown registry source: {source}")),
+    };
+
+    let content = crate::registry::fetch_skill_content(client, &skill_id, &registry_source).await?;
+
+    // Parse the SKILL.md
+    let parsed =
+        crate::skillmd::parse(&content).map_err(|e| format!("Failed to parse SKILL.md: {e}"))?;
+
+    // Save to database
+    let db_id = format!("reg-{}-{}", source, skill_id);
+    let source_type = match registry_source {
+        crate::registry::RegistrySource::SkillsSh => "registry_skills_sh",
+        crate::registry::RegistrySource::Aitmpl => "registry_aitmpl",
+    };
+    let source_url = match registry_source {
+        crate::registry::RegistrySource::SkillsSh => {
+            format!("https://skills.sh/{skill_id}")
+        }
+        crate::registry::RegistrySource::Aitmpl => {
+            format!("https://aitmpl.com/{skill_id}")
+        }
+    };
+
+    {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        queries::create_skill(
+            &db,
+            &db_id,
+            &parsed.name,
+            Some(&parsed.description),
+            source_type,
+            None,
+            None,
+            Some(&parsed.instructions),
+            Some(&source_url),
+            source_type,
+        )
+        .map_err(|e| format!("Failed to save skill: {e}"))?;
+    }
+
+    Ok(crate::registry::RegistryItem {
+        id: db_id,
+        name: parsed.name,
+        description: Some(parsed.description),
+        source: registry_source,
+        url: Some(source_url),
+        installs: None,
+        kind: crate::registry::RegistryItemKind::Skill,
+    })
+}
+
+// ── Git Import ──────────────────────────────────────────────────
+
+/// Fetch SKILL.md files from a git repository URL.
+#[tauri::command]
+pub async fn fetch_git_skills(
+    app: AppHandle,
+    git_url: String,
+) -> Result<Vec<crate::registry::GitSkillFile>, String> {
+    let state = app.state::<AppState>();
+    let client = &state.http_client;
+    crate::registry::fetch_git_skills(client, &git_url).await
+}
+
+/// Import a single skill from a fetched SKILL.md content.
+#[tauri::command]
+pub fn import_git_skill(
+    app: AppHandle,
+    content: String,
+    repo_url: String,
+    path: String,
+) -> Result<queries::Skill, String> {
+    let parsed =
+        crate::skillmd::parse(&content).map_err(|e| format!("Failed to parse SKILL.md: {e}"))?;
+
+    let db_id = format!("git-{}", parsed.name);
+
+    let state = app.state::<AppState>();
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+
+    let source_url = format!("{repo_url}/blob/main/{path}");
+
+    queries::create_skill(
+        &db,
+        &db_id,
+        &parsed.name,
+        Some(&parsed.description),
+        "git",
+        None,
+        None,
+        Some(&parsed.instructions),
+        Some(&source_url),
+        "git",
+    )
+    .map_err(|e| format!("Failed to save skill: {e}"))
+}

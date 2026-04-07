@@ -2,6 +2,7 @@
 
 mod commands;
 mod db;
+pub mod registry;
 pub mod skillmd;
 mod state;
 
@@ -116,6 +117,10 @@ pub fn run(force_logout: bool) {
             commands::skills::update_skill,
             commands::skills::delete_skill,
             commands::skills::toggle_skill,
+            commands::skills::search_registry,
+            commands::skills::install_from_registry,
+            commands::skills::fetch_git_skills,
+            commands::skills::import_git_skill,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Chuck");

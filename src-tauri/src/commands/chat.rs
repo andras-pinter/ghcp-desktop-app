@@ -7,10 +7,7 @@ use copilot_api::types::{ChatMessage, ChatRequest, MessageRole};
 use tauri::{AppHandle, Emitter, Manager};
 
 /// Build the system prompt for an agent by combining its prompt with skill instructions.
-fn build_agent_system_prompt(
-    agent: &queries::Agent,
-    skills: &[queries::Skill],
-) -> String {
+fn build_agent_system_prompt(agent: &queries::Agent, skills: &[queries::Skill]) -> String {
     let mut parts = vec![agent.system_prompt.clone()];
 
     for skill in skills {
