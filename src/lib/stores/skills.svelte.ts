@@ -74,7 +74,11 @@ export async function searchRegistries(query: string): Promise<void> {
 /** Install a skill from a registry result. */
 export async function installFromRegistry(item: RegistryItem): Promise<Skill | null> {
   try {
-    const installed: RegistryItem = await installFromRegistryCmd(item.id, item.source);
+    const installed: RegistryItem = await installFromRegistryCmd(
+      item.id,
+      item.source,
+      item.sourceRepo,
+    );
     // Reload skills to pick up the new one
     await initSkills();
     return skills.find((s) => s.id === installed.id) ?? null;

@@ -22,6 +22,8 @@ pub struct RegistryItem {
     pub installs: Option<u64>,
     /// Whether this is a skill or agent template.
     pub kind: RegistryItemKind,
+    /// GitHub owner/repo for content fetching (skills.sh `source` field).
+    pub source_repo: Option<String>,
 }
 
 /// Which registry a result came from.
@@ -97,79 +99,146 @@ pub async fn search_skills_sh(
     Ok(body
         .skills
         .into_iter()
-        .map(|s| RegistryItem {
-            url: Some(format!("https://skills.sh/{}", s.id)),
-            id: s.id.clone(),
-            name: s.name,
-            description: s.source,
-            source: RegistrySource::SkillsSh,
-            installs: s.installs,
-            kind: RegistryItemKind::Skill,
+        .map(|s| {
+            // source_repo is the GitHub owner/repo (e.g. "anthropics/skills")
+            let source_repo = s.source.clone();
+            RegistryItem {
+                url: Some(format!("https://skills.sh/{}", s.id)),
+                id: s.id.clone(),
+                name: s.name,
+                description: s.source,
+                source: RegistrySource::SkillsSh,
+                installs: s.installs,
+                kind: RegistryItemKind::Skill,
+                source_repo,
+            }
         })
         .collect())
 }
 
-// ── aitmpl.com ─────────────────────────────────────────────────
+// ── aitmpl.com (via GitHub-hosted components.json) ─────────────
 
-/// Search aitmpl.com for agents/skills.
-///
-/// Note: aitmpl.com is a JS-rendered site. We attempt their search API
-/// if available, otherwise return a link to the website.
+/// An item in the aitmpl.com components.json file.
+#[derive(Debug, Deserialize, Clone)]
+#[allow(dead_code)]
+struct AitmplComponent {
+    name: String,
+    #[serde(default)]
+    path: Option<String>,
+    #[serde(default)]
+    category: Option<String>,
+    #[serde(rename = "type")]
+    #[serde(default)]
+    component_type: Option<String>,
+    #[serde(default)]
+    content: Option<String>,
+    #[serde(default)]
+    description: Option<String>,
+}
+
+/// The full components.json structure from aitmpl.com GitHub repo.
+#[derive(Debug, Deserialize)]
+struct AitmplComponentsJson {
+    #[serde(default)]
+    agents: Vec<AitmplComponent>,
+    #[serde(default)]
+    skills: Vec<AitmplComponent>,
+}
+
+const AITMPL_COMPONENTS_URL: &str =
+    "https://raw.githubusercontent.com/davila7/claude-code-templates/main/docs/components.json";
+
+/// Search aitmpl.com by fetching components.json from GitHub and filtering locally.
 pub async fn search_aitmpl(
     client: &Client,
     query: &str,
     limit: u32,
 ) -> Result<Vec<RegistryItem>, String> {
-    // Try the /api/search endpoint (undocumented, may not exist)
-    let url = format!(
-        "https://aitmpl.com/api/search?q={}&limit={}",
-        urlencoding::encode(query),
-        limit
-    );
-
     let resp = client
-        .get(&url)
-        .header("Accept", "application/json")
+        .get(AITMPL_COMPONENTS_URL)
         .send()
-        .await;
+        .await
+        .map_err(|e| format!("aitmpl.com GitHub fetch failed: {e}"))?;
 
-    match resp {
-        Ok(r) if r.status().is_success() => {
-            // Try to parse as JSON array of items
-            if let Ok(items) = r.json::<Vec<AitmplItem>>().await {
-                return Ok(items
-                    .into_iter()
-                    .map(|item| RegistryItem {
-                        url: item.url,
-                        id: item.slug.unwrap_or_else(|| item.name.clone()),
-                        name: item.name,
-                        description: item.description,
-                        source: RegistrySource::Aitmpl,
-                        installs: None,
-                        kind: if item.kind.as_deref() == Some("agent") {
-                            RegistryItemKind::Agent
-                        } else {
-                            RegistryItemKind::Skill
-                        },
-                    })
-                    .collect());
-            }
-        }
-        _ => {}
+    if !resp.status().is_success() {
+        return Err(format!(
+            "aitmpl.com components.json returned {}",
+            resp.status()
+        ));
     }
 
-    // Fallback: return empty with a note (site may need browser access)
-    log::warn!("aitmpl.com API not available, returning empty results");
-    Ok(vec![])
+    let data: AitmplComponentsJson = resp
+        .json()
+        .await
+        .map_err(|e| format!("aitmpl.com parse failed: {e}"))?;
+
+    let query_lower = query.to_lowercase();
+
+    let mut results: Vec<RegistryItem> = Vec::new();
+
+    // Search agents
+    for item in &data.agents {
+        if matches_query(&item.name, item.description.as_deref(), &query_lower) {
+            results.push(aitmpl_to_registry_item(item, RegistryItemKind::Agent));
+        }
+        if results.len() >= limit as usize {
+            break;
+        }
+    }
+
+    // Search skills
+    for item in &data.skills {
+        if results.len() >= limit as usize {
+            break;
+        }
+        if matches_query(&item.name, item.description.as_deref(), &query_lower) {
+            results.push(aitmpl_to_registry_item(item, RegistryItemKind::Skill));
+        }
+    }
+
+    Ok(results)
 }
 
-#[derive(Debug, Deserialize)]
-struct AitmplItem {
-    name: String,
-    slug: Option<String>,
-    description: Option<String>,
-    url: Option<String>,
-    kind: Option<String>,
+fn matches_query(name: &str, description: Option<&str>, query: &str) -> bool {
+    name.to_lowercase().contains(query)
+        || description
+            .map(|d| d.to_lowercase().contains(query))
+            .unwrap_or(false)
+}
+
+fn aitmpl_to_registry_item(item: &AitmplComponent, kind: RegistryItemKind) -> RegistryItem {
+    let url = item
+        .path
+        .as_ref()
+        .map(|p| format!("https://www.aitmpl.com/{}", p.replace(".md", "")));
+
+    // Extract short description from the content frontmatter if available
+    let description = item.description.clone().or_else(|| {
+        item.content.as_ref().and_then(|c| {
+            // Try to extract the description from YAML frontmatter
+            if c.starts_with("---") {
+                c.split("---").nth(1).and_then(|fm| {
+                    fm.lines().find_map(|line| {
+                        line.strip_prefix("description:")
+                            .map(|d| d.trim().trim_matches('"').to_string())
+                    })
+                })
+            } else {
+                None
+            }
+        })
+    });
+
+    RegistryItem {
+        id: item.name.clone(),
+        name: item.name.clone(),
+        description,
+        source: RegistrySource::Aitmpl,
+        url,
+        installs: None,
+        kind,
+        source_repo: None,
+    }
 }
 
 // ── Unified search ─────────────────────────────────────────────
@@ -202,40 +271,49 @@ pub async fn search_registries(
     })
 }
 
-// ── Fetch SKILL.md content from registry ───────────────────────
+// ── Fetch content from registry ─────────────────────────────────
 
-/// Fetch the raw SKILL.md content for a skills.sh skill by ID.
+/// Fetch the content for a registry item by ID.
+///
+/// For skills.sh: fetches SKILL.md from the item's source GitHub repo.
+/// For aitmpl.com: fetches from components.json content field.
 pub async fn fetch_skill_content(
     client: &Client,
     skill_id: &str,
     source: &RegistrySource,
+    source_repo: Option<&str>,
 ) -> Result<String, String> {
     match source {
         RegistrySource::SkillsSh => {
-            // skills.sh hosts SKILL.md on GitHub, try raw content
-            let encoded_id = urlencoding::encode(skill_id);
-            let url = format!("https://skills.sh/api/skill/{encoded_id}");
-            let resp = client
-                .get(&url)
-                .header("Accept", "text/plain")
-                .send()
-                .await
-                .map_err(|e| format!("Failed to fetch skill content: {e}"))?;
-
-            if resp.status().is_success() {
-                return resp
-                    .text()
+            // The source_repo field contains the GitHub owner/repo path
+            // e.g. "anthropics/skills". Content is at:
+            //   raw.githubusercontent.com/{source_repo}/main/skills/{skillId}/SKILL.md
+            if let Some(repo) = source_repo {
+                let url = format!(
+                    "https://raw.githubusercontent.com/{repo}/main/skills/{}/SKILL.md",
+                    urlencoding::encode(skill_id)
+                );
+                let resp = client
+                    .get(&url)
+                    .send()
                     .await
-                    .map_err(|e| format!("Failed to read skill content: {e}"));
+                    .map_err(|e| format!("Failed to fetch SKILL.md: {e}"))?;
+
+                if resp.status().is_success() {
+                    return resp
+                        .text()
+                        .await
+                        .map_err(|e| format!("Failed to read content: {e}"));
+                }
             }
 
-            // Fallback: try GitHub raw
-            let encoded_id = urlencoding::encode(skill_id);
-            let github_url = format!(
-                "https://raw.githubusercontent.com/nicepkg/nice-copilot-skills/main/skills/{encoded_id}/SKILL.md"
+            // Fallback: try nicepkg repo (legacy)
+            let fallback_url = format!(
+                "https://raw.githubusercontent.com/nicepkg/nice-copilot-skills/main/skills/{}/SKILL.md",
+                urlencoding::encode(skill_id)
             );
             let resp = client
-                .get(&github_url)
+                .get(&fallback_url)
                 .send()
                 .await
                 .map_err(|e| format!("Failed to fetch from GitHub: {e}"))?;
@@ -249,7 +327,32 @@ pub async fn fetch_skill_content(
             }
         }
         RegistrySource::Aitmpl => {
-            Err("Direct SKILL.md fetch not yet supported for aitmpl.com".to_string())
+            // Fetch components.json and find the item by name
+            let resp = client
+                .get(AITMPL_COMPONENTS_URL)
+                .send()
+                .await
+                .map_err(|e| format!("Failed to fetch components.json: {e}"))?;
+
+            if !resp.status().is_success() {
+                return Err(format!("components.json returned {}", resp.status()));
+            }
+
+            let data: AitmplComponentsJson = resp
+                .json()
+                .await
+                .map_err(|e| format!("Failed to parse components.json: {e}"))?;
+
+            // Search in agents first, then skills
+            for item in data.agents.iter().chain(data.skills.iter()) {
+                if item.name == skill_id {
+                    if let Some(content) = &item.content {
+                        return Ok(content.clone());
+                    }
+                }
+            }
+
+            Err(format!("Item '{skill_id}' not found in aitmpl.com catalog"))
         }
     }
 }

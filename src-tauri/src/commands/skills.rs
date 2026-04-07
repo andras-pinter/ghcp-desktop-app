@@ -106,6 +106,7 @@ pub async fn install_from_registry(
     app: AppHandle,
     skill_id: String,
     source: String,
+    source_repo: Option<String>,
 ) -> Result<crate::registry::RegistryItem, String> {
     let state = app.state::<AppState>();
     let client = &state.http_client;
@@ -116,7 +117,13 @@ pub async fn install_from_registry(
         _ => return Err(format!("Unknown registry source: {source}")),
     };
 
-    let content = crate::registry::fetch_skill_content(client, &skill_id, &registry_source).await?;
+    let content = crate::registry::fetch_skill_content(
+        client,
+        &skill_id,
+        &registry_source,
+        source_repo.as_deref(),
+    )
+    .await?;
 
     // Parse the SKILL.md
     let parsed =
@@ -133,7 +140,7 @@ pub async fn install_from_registry(
             format!("https://skills.sh/{skill_id}")
         }
         crate::registry::RegistrySource::Aitmpl => {
-            format!("https://aitmpl.com/{skill_id}")
+            format!("https://www.aitmpl.com/{skill_id}")
         }
     };
 
@@ -162,6 +169,7 @@ pub async fn install_from_registry(
         url: Some(source_url),
         installs: None,
         kind: crate::registry::RegistryItemKind::Skill,
+        source_repo: None,
     })
 }
 

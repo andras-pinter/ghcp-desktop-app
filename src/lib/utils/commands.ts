@@ -330,8 +330,16 @@ export async function setAgentMcpConnections(
 }
 
 /** Install an agent from a registry (skills.sh or aitmpl.com). */
-export async function installAgentFromRegistry(itemId: string, source: string): Promise<Agent> {
-  return invoke<Agent>("install_agent_from_registry", { itemId, source });
+export async function installAgentFromRegistry(
+  itemId: string,
+  source: string,
+  sourceRepo?: string | null,
+): Promise<Agent> {
+  return invoke<Agent>("install_agent_from_registry", {
+    itemId,
+    source,
+    sourceRepo: sourceRepo ?? null,
+  });
 }
 
 /** Import an agent from a git SKILL.md file. */
@@ -407,8 +415,16 @@ export async function searchRegistry(query: string, limit?: number): Promise<Reg
 }
 
 /** Install a skill from a registry. */
-export async function installFromRegistry(skillId: string, source: string): Promise<RegistryItem> {
-  return invoke<RegistryItem>("install_from_registry", { skillId, source });
+export async function installFromRegistry(
+  skillId: string,
+  source: string,
+  sourceRepo?: string | null,
+): Promise<RegistryItem> {
+  return invoke<RegistryItem>("install_from_registry", {
+    skillId,
+    source,
+    sourceRepo: sourceRepo ?? null,
+  });
 }
 
 // ── Git Import ──────────────────────────────────────────────────

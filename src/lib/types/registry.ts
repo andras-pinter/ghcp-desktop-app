@@ -12,6 +12,7 @@ export interface RegistryItem {
   url: string | null;
   installs: number | null;
   kind: RegistryItemKind;
+  sourceRepo: string | null;
 }
 
 export interface RegistrySearchResult {

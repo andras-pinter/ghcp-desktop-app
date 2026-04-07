@@ -51,7 +51,6 @@
   let createName = $state("");
   let createDescription = $state("");
   let createInstructions = $state("");
-  let createSourceUrl = $state("");
   let createSaving = $state(false);
   let createError = $state<string | null>(null);
 
@@ -180,7 +179,6 @@
     createName = "";
     createDescription = "";
     createInstructions = "";
-    createSourceUrl = "";
     createError = null;
     skillView = "create";
   }
@@ -208,7 +206,7 @@
         null,
         null,
         createInstructions.trim() || null,
-        createSourceUrl.trim() || null,
+        null,
         "local",
       );
       await initSkills();
@@ -294,6 +292,16 @@
               title="Double-click to expand"
             >
               <div class="skill-main">
+                <button
+                  class="skill-expand-btn"
+                  class:expanded={expandedSkillId === skill.id}
+                  onclick={(e: MouseEvent) => {
+                    e.stopPropagation();
+                    toggleExpandSkill(skill.id);
+                  }}
+                  aria-label={expandedSkillId === skill.id ? "Collapse details" : "Expand details"}
+                  >▶</button
+                >
                 <div class="skill-info">
                   <strong class="skill-name">{skill.name}</strong>
                   <span class="source-badge builtin">{sourceBadge(skill)}</span>
@@ -306,7 +314,6 @@
                   />
                   <span class="toggle-track"></span>
                 </label>
-                <span class="expand-chevron" class:expanded={expandedSkillId === skill.id}>›</span>
               </div>
               {#if skill.description}
                 <p class="skill-desc">{skill.description}</p>
@@ -343,6 +350,16 @@
               title="Double-click to expand"
             >
               <div class="skill-main">
+                <button
+                  class="skill-expand-btn"
+                  class:expanded={expandedSkillId === skill.id}
+                  onclick={(e: MouseEvent) => {
+                    e.stopPropagation();
+                    toggleExpandSkill(skill.id);
+                  }}
+                  aria-label={expandedSkillId === skill.id ? "Collapse details" : "Expand details"}
+                  >▶</button
+                >
                 <div class="skill-info">
                   <strong class="skill-name">{skill.name}</strong>
                   <span class="source-badge extension">{sourceBadge(skill)}</span>
@@ -355,7 +372,6 @@
                   />
                   <span class="toggle-track"></span>
                 </label>
-                <span class="expand-chevron" class:expanded={expandedSkillId === skill.id}>›</span>
               </div>
               {#if skill.description}
                 <p class="skill-desc">{skill.description}</p>
@@ -398,7 +414,10 @@
                     <button
                       class="skill-expand-btn"
                       class:expanded={expandedSkillId === skill.id}
-                      onclick={() => toggleExpandSkill(skill.id)}
+                      onclick={(e: MouseEvent) => {
+                        e.stopPropagation();
+                        toggleExpandSkill(skill.id);
+                      }}
                       aria-label={expandedSkillId === skill.id
                         ? "Collapse details"
                         : "Expand details"}>▶</button
@@ -415,9 +434,6 @@
                       />
                       <span class="toggle-track"></span>
                     </label>
-                    <span class="expand-chevron" class:expanded={expandedSkillId === skill.id}
-                      >›</span
-                    >
                   </div>
                   {#if skill.description}
                     <p class="skill-desc">{skill.description}</p>
@@ -456,6 +472,16 @@
               title="Double-click to expand"
             >
               <div class="skill-main">
+                <button
+                  class="skill-expand-btn"
+                  class:expanded={expandedSkillId === skill.id}
+                  onclick={(e: MouseEvent) => {
+                    e.stopPropagation();
+                    toggleExpandSkill(skill.id);
+                  }}
+                  aria-label={expandedSkillId === skill.id ? "Collapse details" : "Expand details"}
+                  >▶</button
+                >
                 <div class="skill-info">
                   <strong class="skill-name">{skill.name}</strong>
                   <span class="source-badge registry">{sourceBadge(skill)}</span>
@@ -495,7 +521,6 @@
                     <span class="toggle-track"></span>
                   </label>
                 </div>
-                <span class="expand-chevron" class:expanded={expandedSkillId === skill.id}>›</span>
               </div>
               {#if skill.description}
                 <p class="skill-desc">{skill.description}</p>
@@ -532,6 +557,16 @@
               title="Double-click to expand"
             >
               <div class="skill-main">
+                <button
+                  class="skill-expand-btn"
+                  class:expanded={expandedSkillId === skill.id}
+                  onclick={(e: MouseEvent) => {
+                    e.stopPropagation();
+                    toggleExpandSkill(skill.id);
+                  }}
+                  aria-label={expandedSkillId === skill.id ? "Collapse details" : "Expand details"}
+                  >▶</button
+                >
                 <div class="skill-info">
                   <strong class="skill-name">{skill.name}</strong>
                   <span class="source-badge git">{sourceBadge(skill)}</span>
@@ -571,7 +606,6 @@
                     <span class="toggle-track"></span>
                   </label>
                 </div>
-                <span class="expand-chevron" class:expanded={expandedSkillId === skill.id}>›</span>
               </div>
               {#if skill.description}
                 <p class="skill-desc">{skill.description}</p>
@@ -819,19 +853,6 @@
               }
             }}
           ></textarea>
-        </div>
-
-        <div class="create-field">
-          <label class="create-label" for="create-source"
-            >Source URL <span class="create-hint">optional</span></label
-          >
-          <input
-            id="create-source"
-            class="create-input"
-            type="url"
-            bind:value={createSourceUrl}
-            placeholder="https://example.com/my-skill"
-          />
         </div>
 
         <div class="create-actions">
@@ -1467,23 +1488,30 @@
     user-select: text;
   }
 
-  .expand-chevron {
-    font-size: 18px;
+  .skill-expand-btn {
+    all: unset;
+    font-size: 10px;
     color: var(--color-text-tertiary);
-    margin-left: auto;
     flex-shrink: 0;
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: var(--radius-sm);
     transition:
       transform 0.2s ease,
-      color 0.15s;
+      color 0.15s,
+      background 0.15s;
     line-height: 1;
-    padding: 2px 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
-  .skill-card:hover .expand-chevron {
+  .skill-expand-btn:hover {
     color: var(--color-text-secondary);
+    background: var(--color-bg-tertiary, rgba(0, 0, 0, 0.05));
   }
 
-  .expand-chevron.expanded {
+  .skill-expand-btn.expanded {
     transform: rotate(90deg);
     color: var(--color-accent-copper);
   }
@@ -1533,6 +1561,7 @@
     display: flex;
     flex-direction: column;
     gap: var(--spacing-md);
+    width: 100%;
     max-width: 640px;
   }
 
@@ -1558,6 +1587,8 @@
   }
 
   .create-input {
+    width: 100%;
+    box-sizing: border-box;
     padding: var(--spacing-xs) var(--spacing-sm);
     font-size: var(--font-size-sm);
     font-family: var(--font-body);
@@ -1577,6 +1608,8 @@
   }
 
   .create-textarea {
+    width: 100%;
+    box-sizing: border-box;
     padding: var(--spacing-xs) var(--spacing-sm);
     font-size: var(--font-size-sm);
     font-family: var(--font-body);

@@ -18,7 +18,6 @@
   let sidebarCollapsed = $state(false);
   let dataLoaded = $state(false);
   let currentView = $state<AppView>("chat");
-  let previousView = $state<AppView>("chat");
   const auth = getAuth();
 
   onMount(() => {
@@ -40,14 +39,11 @@
   }
 
   function navigateTo(view: string) {
-    previousView = currentView;
     currentView = view as AppView;
   }
 
   function navigateBack() {
-    const target = previousView;
-    previousView = "chat";
-    currentView = target;
+    currentView = "chat";
   }
 
   function handleKeydown(event: KeyboardEvent) {
