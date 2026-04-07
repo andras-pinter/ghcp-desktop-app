@@ -335,12 +335,14 @@ export async function installAgentFromRegistry(
   source: string,
   sourceRepo?: string | null,
   itemUrl?: string | null,
+  itemContent?: string | null,
 ): Promise<Agent> {
   return invoke<Agent>("install_agent_from_registry", {
     itemId,
     source,
     sourceRepo: sourceRepo ?? null,
     itemUrl: itemUrl ?? null,
+    itemContent: itemContent ?? null,
   });
 }
 
@@ -422,12 +424,14 @@ export async function installFromRegistry(
   source: string,
   sourceRepo?: string | null,
   itemUrl?: string | null,
+  itemContent?: string | null,
 ): Promise<RegistryItem> {
   return invoke<RegistryItem>("install_from_registry", {
     skillId,
     source,
     sourceRepo: sourceRepo ?? null,
     itemUrl: itemUrl ?? null,
+    itemContent: itemContent ?? null,
   });
 }
 

@@ -108,6 +108,7 @@ pub async fn install_from_registry(
     source: String,
     source_repo: Option<String>,
     item_url: Option<String>,
+    item_content: Option<String>,
 ) -> Result<crate::registry::RegistryItem, String> {
     let state = app.state::<AppState>();
     let client = &state.http_client;
@@ -123,6 +124,7 @@ pub async fn install_from_registry(
         &skill_id,
         &registry_source,
         source_repo.as_deref(),
+        item_content.as_deref(),
     )
     .await?;
 
@@ -184,6 +186,7 @@ pub async fn install_from_registry(
         installs: None,
         kind: crate::registry::RegistryItemKind::Skill,
         source_repo: None,
+        content: None,
     })
 }
 

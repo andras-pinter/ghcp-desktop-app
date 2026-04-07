@@ -120,6 +120,7 @@ pub async fn install_agent_from_registry(
     source: String,
     source_repo: Option<String>,
     item_url: Option<String>,
+    item_content: Option<String>,
 ) -> Result<queries::Agent, String> {
     let state = app.state::<AppState>();
     let client = &state.http_client;
@@ -135,6 +136,7 @@ pub async fn install_agent_from_registry(
         &item_id,
         &registry_source,
         source_repo.as_deref(),
+        item_content.as_deref(),
     )
     .await?;
 

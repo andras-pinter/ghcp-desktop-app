@@ -24,6 +24,10 @@ pub struct RegistryItem {
     pub kind: RegistryItemKind,
     /// GitHub owner/repo for content fetching (skills.sh `source` field).
     pub source_repo: Option<String>,
+    /// Full SKILL.md content (available for aitmpl items from components.json).
+    /// Skips the need to re-fetch during install.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub content: Option<String>,
 }
 
 /// Which registry a result came from.
@@ -111,6 +115,7 @@ pub async fn search_skills_sh(
                 installs: s.installs,
                 kind: RegistryItemKind::Skill,
                 source_repo,
+                content: None,
             }
         })
         .collect())
@@ -296,6 +301,7 @@ fn aitmpl_to_registry_item(item: &AitmplComponent, kind: RegistryItemKind) -> Re
         installs: None,
         kind,
         source_repo: None,
+        content: item.content.clone(),
     }
 }
 
@@ -443,14 +449,26 @@ pub fn parse_content_lenient(content: &str, fallback_id: &str) -> (String, Strin
 
 /// Fetch the content for a registry item by ID.
 ///
-/// For skills.sh: fetches SKILL.md from the item's source GitHub repo.
-/// For aitmpl.com: fetches from components.json content field.
+/// If `inline_content` is provided (aitmpl items carry content from components.json),
+/// it is returned directly without any network request.
+///
+/// For skills.sh: tries multiple GitHub raw URL patterns, then falls back to
+/// the GitHub tree API to discover the actual SKILL.md location.
+/// For aitmpl.com: re-fetches from components.json (fallback if inline_content is None).
 pub async fn fetch_skill_content(
     client: &Client,
     skill_id: &str,
     source: &RegistrySource,
     source_repo: Option<&str>,
+    inline_content: Option<&str>,
 ) -> Result<String, String> {
+    // Fast path: use inline content if available (aitmpl items)
+    if let Some(content) = inline_content {
+        if !content.is_empty() {
+            return Ok(content.to_string());
+        }
+    }
+
     match source {
         RegistrySource::SkillsSh => {
             // The source_repo field contains the GitHub owner/repo path
@@ -464,25 +482,44 @@ pub async fn fetch_skill_content(
                     .and_then(|s| s.strip_prefix('/'))
                     .unwrap_or(skill_id);
 
-                let url = format!(
-                    "https://raw.githubusercontent.com/{repo}/main/skills/{skill_name}/SKILL.md",
-                );
-                let resp = client
-                    .get(&url)
-                    .send()
-                    .await
-                    .map_err(|e| format!("Failed to fetch SKILL.md: {e}"))?;
+                // Try multiple URL patterns — repos vary in structure
+                let patterns = [
+                    format!(
+                        "https://raw.githubusercontent.com/{repo}/main/skills/{skill_name}/SKILL.md"
+                    ),
+                    format!(
+                        "https://raw.githubusercontent.com/{repo}/main/{skill_name}/SKILL.md"
+                    ),
+                    format!(
+                        "https://raw.githubusercontent.com/{repo}/main/skills/{skill_name}/SKILL.MD"
+                    ),
+                    format!(
+                        "https://raw.githubusercontent.com/{repo}/main/{skill_name}/SKILL.MD"
+                    ),
+                ];
 
-                if resp.status().is_success() {
-                    return resp
-                        .text()
-                        .await
-                        .map_err(|e| format!("Failed to read content: {e}"));
+                for url in &patterns {
+                    match client.get(url).send().await {
+                        Ok(resp) if resp.status().is_success() => {
+                            return resp
+                                .text()
+                                .await
+                                .map_err(|e| format!("Failed to read content: {e}"));
+                        }
+                        _ => continue,
+                    }
                 }
-                log::warn!("skills.sh primary URL returned {}: {url}", resp.status());
+
+                // Last resort: use GitHub tree API to find SKILL.md files in the repo
+                log::info!(
+                    "Standard URL patterns failed for {skill_id}, trying GitHub tree API for {repo}"
+                );
+                if let Ok(content) = fetch_via_tree_api(client, repo, skill_name).await {
+                    return Ok(content);
+                }
             }
 
-            // Fallback: try the skill_id's last segment directly
+            // Fallback: try the nicepkg default repo
             let skill_name = skill_id.rsplit('/').next().unwrap_or(skill_id);
             let fallback_url = format!(
                 "https://raw.githubusercontent.com/nicepkg/nice-copilot-skills/main/skills/{skill_name}/SKILL.md",
@@ -502,7 +539,7 @@ pub async fn fetch_skill_content(
             }
         }
         RegistrySource::Aitmpl => {
-            // Fetch components.json and find the item by name
+            // Fetch components.json and find the item
             let resp = client
                 .get(AITMPL_COMPONENTS_URL)
                 .send()
@@ -518,7 +555,7 @@ pub async fn fetch_skill_content(
                 .await
                 .map_err(|e| format!("Failed to parse components.json: {e}"))?;
 
-            // Search in agents first, then skills — match by path-based ID or name
+            // Match by path-based ID or name
             for item in data.agents.iter().chain(data.skills.iter()) {
                 let item_id_from_path = item
                     .path
@@ -535,6 +572,86 @@ pub async fn fetch_skill_content(
 
             Err(format!("Item '{skill_id}' not found in aitmpl.com catalog"))
         }
+    }
+}
+
+/// Use the GitHub tree API to find SKILL.md files in a repo and return the
+/// content of the best match for the given skill name.
+async fn fetch_via_tree_api(client: &Client, repo: &str, skill_name: &str) -> Result<String, String> {
+    let tree_url = format!("https://api.github.com/repos/{repo}/git/trees/main?recursive=1");
+    let resp = client
+        .get(&tree_url)
+        .header("Accept", "application/vnd.github+json")
+        .header("User-Agent", "Chuck-Desktop/0.1")
+        .send()
+        .await
+        .map_err(|e| format!("GitHub tree API failed: {e}"))?;
+
+    if !resp.status().is_success() {
+        return Err(format!("GitHub tree API returned {}", resp.status()));
+    }
+
+    #[derive(Deserialize)]
+    struct TreeItem {
+        path: String,
+    }
+    #[derive(Deserialize)]
+    struct TreeResponse {
+        tree: Vec<TreeItem>,
+    }
+
+    let tree: TreeResponse = resp
+        .json()
+        .await
+        .map_err(|e| format!("Failed to parse tree: {e}"))?;
+
+    // Find SKILL.md files (case-insensitive)
+    let skill_files: Vec<&str> = tree
+        .tree
+        .iter()
+        .map(|t| t.path.as_str())
+        .filter(|p| {
+            let lower = p.to_lowercase();
+            lower.ends_with("/skill.md") || lower == "skill.md"
+        })
+        .collect();
+
+    if skill_files.is_empty() {
+        return Err("No SKILL.md files found in repo".to_string());
+    }
+
+    // Try each SKILL.md — the one whose name matches wins
+    let name_lower = skill_name.to_lowercase();
+    for path in &skill_files {
+        // Check if the parent directory name is a substring of skill_name
+        let parent = path.rsplit('/').nth(1).unwrap_or("");
+        if name_lower.contains(&parent.to_lowercase()) || parent.to_lowercase().contains(&name_lower) {
+            let raw_url = format!("https://raw.githubusercontent.com/{repo}/main/{path}");
+            if let Ok(resp) = client.get(&raw_url).send().await {
+                if resp.status().is_success() {
+                    if let Ok(text) = resp.text().await {
+                        return Ok(text);
+                    }
+                }
+            }
+        }
+    }
+
+    // No name match — return the first SKILL.md found (best effort)
+    let first = skill_files[0];
+    let raw_url = format!("https://raw.githubusercontent.com/{repo}/main/{first}");
+    let resp = client
+        .get(&raw_url)
+        .send()
+        .await
+        .map_err(|e| format!("Failed to fetch {first}: {e}"))?;
+
+    if resp.status().is_success() {
+        resp.text()
+            .await
+            .map_err(|e| format!("Failed to read content: {e}"))
+    } else {
+        Err(format!("Could not fetch SKILL.md from {repo}"))
     }
 }
 

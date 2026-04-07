@@ -120,6 +120,7 @@ export async function installAgentFromRegistry(item: RegistryItem): Promise<Agen
       item.source,
       item.sourceRepo,
       item.url,
+      item.content,
     );
     agents = [...agents, agent];
     return agent;

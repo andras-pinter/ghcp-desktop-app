@@ -543,9 +543,9 @@
                     {#if expandedRegistryKey !== registryKey(item) && item.description}
                       <p class="registry-desc">{item.description}</p>
                     {/if}
-                    {#if expandedRegistryKey === registryKey(item) && item.description}
+                    {#if expandedRegistryKey === registryKey(item)}
                       <div class="registry-expanded markdown-prose">
-                        {@html renderMarkdown(item.description)}
+                        {@html renderMarkdown(item.content ?? item.description ?? "")}
                       </div>
                     {/if}
                     <div class="registry-actions">

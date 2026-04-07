@@ -13,6 +13,8 @@ export interface RegistryItem {
   installs: number | null;
   kind: RegistryItemKind;
   sourceRepo: string | null;
+  /** Full SKILL.md content (available for aitmpl items). */
+  content?: string | null;
 }
 
 export interface RegistrySearchResult {
