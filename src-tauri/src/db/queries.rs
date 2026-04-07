@@ -600,6 +600,7 @@ pub fn delete_agent(conn: &Connection, id: &str) -> Result<bool, rusqlite::Error
 }
 
 /// Get the skill IDs assigned to an agent.
+#[allow(dead_code)]
 pub fn get_agent_skill_ids(conn: &Connection, agent_id: &str) -> Result<Vec<String>, rusqlite::Error> {
     let mut stmt = conn.prepare("SELECT skill_id FROM agent_skills WHERE agent_id = ?1")?;
     let rows = stmt.query_map(params![agent_id], |row| row.get(0))?;
@@ -625,6 +626,7 @@ pub fn set_agent_skills(
 }
 
 /// Get the MCP server IDs connected to an agent.
+#[allow(dead_code)]
 pub fn get_agent_mcp_ids(
     conn: &Connection,
     agent_id: &str,
@@ -728,6 +730,7 @@ pub fn get_skill(conn: &Connection, id: &str) -> Result<Option<Skill>, rusqlite:
 }
 
 /// Create a new skill, returns the created skill.
+#[allow(clippy::too_many_arguments)]
 pub fn create_skill(
     conn: &Connection,
     id: &str,
@@ -783,6 +786,7 @@ pub fn toggle_skill(conn: &Connection, id: &str, enabled: bool) -> Result<(), ru
 }
 
 /// Get skills assigned to an agent (with full skill data).
+#[allow(dead_code)]
 pub fn get_agent_skills(conn: &Connection, agent_id: &str) -> Result<Vec<Skill>, rusqlite::Error> {
     let mut stmt = conn.prepare(
         "SELECT s.id, s.name, s.description, s.source, s.mcp_server_id, s.config,
