@@ -58,6 +58,63 @@
   let extractingFiles = $state(false);
   const greeting = greetings[Math.floor(Math.random() * greetings.length)];
 
+  // Full-window drag-and-drop: files dropped anywhere in the chat view
+  // are forwarded to the InputArea component.
+  let viewDropActive = $state(false);
+  let pendingDropFiles: ChatFileData[] = $state([]);
+
+  function handleViewDragOver(event: DragEvent) {
+    event.preventDefault();
+    if (event.dataTransfer?.types.includes("Files")) {
+      viewDropActive = true;
+    }
+  }
+
+  function handleViewDragLeave(event: DragEvent) {
+    // Only deactivate when leaving the chat-view itself (not child elements)
+    const related = event.relatedTarget as Node | null;
+    const current = event.currentTarget as HTMLElement;
+    if (!related || !current.contains(related)) {
+      viewDropActive = false;
+    }
+  }
+
+  async function handleViewDrop(event: DragEvent) {
+    event.preventDefault();
+    viewDropActive = false;
+    const files = event.dataTransfer?.files;
+    if (!files || files.length === 0) return;
+
+    const MAX_FILE_SIZE = 50 * 1024 * 1024;
+    const newFiles: ChatFileData[] = [];
+    for (const file of files) {
+      if (file.size > MAX_FILE_SIZE) {
+        console.warn(`File "${file.name}" too large (${file.size} bytes)`);
+        continue;
+      }
+      const arrayBuf = await file.arrayBuffer();
+      const bytes = new Uint8Array(arrayBuf);
+      let binary = "";
+      for (let i = 0; i < bytes.length; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      const base64 = btoa(binary);
+      newFiles.push({
+        name: file.name,
+        contentType: file.type || "application/octet-stream",
+        size: file.size,
+        contentBase64: base64,
+      });
+    }
+    if (newFiles.length > 0) {
+      pendingDropFiles = newFiles;
+    }
+  }
+
+  function clearPendingDropFiles() {
+    pendingDropFiles = [];
+  }
+
   let unlistenToken: UnlistenFn | undefined;
   let unlistenComplete: UnlistenFn | undefined;
   let unlistenError: UnlistenFn | undefined;
@@ -392,10 +449,14 @@
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 <div
   class="chat-view"
+  class:drop-active={viewDropActive}
   role="region"
   aria-label="Chat"
   tabindex="-1"
   onkeydown={handleGlobalKeydown}
+  ondragover={handleViewDragOver}
+  ondragleave={handleViewDragLeave}
+  ondrop={handleViewDrop}
 >
   {#if store.messages.length === 0}
     <div class="welcome-container">
@@ -420,6 +481,8 @@
           agentsLoaded={agentStore.loaded}
           selectedAgentId={agentStore.selectedAgentId}
           onAgentChange={selectAgent}
+          externalFiles={pendingDropFiles}
+          onExternalFilesConsumed={clearPendingDropFiles}
         />
       </div>
     </div>
@@ -477,6 +540,8 @@
         agentsLoaded={agentStore.loaded}
         selectedAgentId={agentStore.selectedAgentId}
         onAgentChange={selectAgent}
+        externalFiles={pendingDropFiles}
+        onExternalFilesConsumed={clearPendingDropFiles}
       />
     </div>
   {/if}
@@ -489,6 +554,12 @@
     height: 100%;
     overflow: hidden;
     position: relative;
+  }
+
+  .chat-view.drop-active {
+    outline: 2px dashed var(--color-accent-copper);
+    outline-offset: -4px;
+    background: color-mix(in srgb, var(--color-accent-copper) 4%, transparent);
   }
 
   /* ── Welcome ── */

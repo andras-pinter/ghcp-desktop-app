@@ -23,6 +23,9 @@
     agentsLoaded?: boolean;
     selectedAgentId?: string | null;
     onAgentChange?: (agentId: string | null) => void;
+    /** Files injected externally (e.g. dropped on ChatView). InputArea absorbs them. */
+    externalFiles?: ChatFileData[];
+    onExternalFilesConsumed?: () => void;
   }
 
   let {
@@ -42,6 +45,8 @@
     agentsLoaded = false,
     selectedAgentId = null,
     onAgentChange,
+    externalFiles = [],
+    onExternalFilesConsumed,
   }: Props = $props();
 
   let inputText = $state("");
@@ -62,6 +67,18 @@
   let attachedFiles: ChatFileData[] = $state([]);
   let fileDropActive = $state(false);
   let fileError = $state("");
+
+  // Absorb files injected externally (e.g. dropped on the ChatView area)
+  $effect(() => {
+    if (externalFiles && externalFiles.length > 0) {
+      for (const f of externalFiles) {
+        if (!attachedFiles.some((a) => a.name === f.name)) {
+          attachedFiles = [...attachedFiles, f];
+        }
+      }
+      onExternalFilesConsumed?.();
+    }
+  });
 
   // Sync initialValue prop on first mount
   $effect(() => {
