@@ -12,7 +12,7 @@
   import { getSkillStore, initSkills } from "$lib/stores/skills.svelte";
   import { getMcpState, initMcp } from "$lib/stores/mcp.svelte";
   import type { Agent } from "$lib/types/agent";
-  import { onMount } from "svelte";
+  import { onMount, onDestroy } from "svelte";
 
   interface Props {
     onBack: () => void;
@@ -39,6 +39,34 @@
   let formMcpIds = new SvelteSet<string>();
   let formSaving = $state(false);
   let formError = $state<string | null>(null);
+  let emojiPickerOpen = $state(false);
+
+  const AGENT_EMOJIS = [
+    "🤖",
+    "🧠",
+    "🔬",
+    "💻",
+    "📝",
+    "🎯",
+    "🔍",
+    "💡",
+    "🚀",
+    "⚡",
+    "🛡️",
+    "🎨",
+    "📊",
+    "🧪",
+    "🔧",
+    "📚",
+    "🌐",
+    "🏗️",
+    "🤝",
+    "💬",
+    "📎",
+    "🔮",
+    "🧩",
+    "🎭",
+  ];
 
   // ── Delete confirmation ─────────────────────────────────────
 
@@ -51,12 +79,37 @@
   let customAgents = $derived(agentStore.agents.filter((a) => !a.isDefault));
   let enabledSkills = $derived(skillStore.skills.filter((s) => s.enabled));
 
+  function handleClickOutside(event: MouseEvent) {
+    const target = event.target as HTMLElement;
+    if (emojiPickerOpen && !target.closest(".avatar-picker")) {
+      emojiPickerOpen = false;
+    }
+  }
+
+  function handlePromptKeydown(event: KeyboardEvent) {
+    if (event.key === "Tab") {
+      event.preventDefault();
+      const textarea = event.target as HTMLTextAreaElement;
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      formPrompt = formPrompt.substring(0, start) + "  " + formPrompt.substring(end);
+      requestAnimationFrame(() => {
+        textarea.selectionStart = textarea.selectionEnd = start + 2;
+      });
+    }
+  }
+
   // ── Lifecycle ───────────────────────────────────────────────
 
   onMount(() => {
+    document.addEventListener("click", handleClickOutside);
     if (!agentStore.loaded) initAgents();
     if (!skillStore.loaded) initSkills();
     if (mcpState.servers.length === 0) initMcp();
+  });
+
+  onDestroy(() => {
+    document.removeEventListener("click", handleClickOutside);
   });
 
   // ── Handlers ────────────────────────────────────────────────
@@ -302,14 +355,38 @@
         <div class="form-row">
           <div class="form-field avatar-field">
             <label class="form-label" for="agent-avatar">Avatar</label>
-            <input
-              id="agent-avatar"
-              class="form-input avatar-input"
-              type="text"
-              maxlength={2}
-              bind:value={formAvatar}
-              placeholder="🤖"
-            />
+            <div class="avatar-picker">
+              <button
+                id="agent-avatar"
+                type="button"
+                class="avatar-trigger"
+                onclick={() => (emojiPickerOpen = !emojiPickerOpen)}
+                aria-haspopup="listbox"
+                aria-expanded={emojiPickerOpen}
+              >
+                <span class="avatar-preview">{formAvatar || "🤖"}</span>
+                <span class="avatar-caret">▾</span>
+              </button>
+              {#if emojiPickerOpen}
+                <div class="avatar-dropdown" role="listbox" aria-label="Choose avatar emoji">
+                  {#each AGENT_EMOJIS as emoji (emoji)}
+                    <button
+                      type="button"
+                      class="avatar-option"
+                      class:selected={formAvatar === emoji}
+                      role="option"
+                      aria-selected={formAvatar === emoji}
+                      onclick={() => {
+                        formAvatar = emoji;
+                        emojiPickerOpen = false;
+                      }}
+                    >
+                      {emoji}
+                    </button>
+                  {/each}
+                </div>
+              {/if}
+            </div>
           </div>
           <div class="form-field name-field">
             <label class="form-label" for="agent-name">Name</label>
@@ -325,12 +402,16 @@
 
         <!-- System Prompt -->
         <div class="form-field">
-          <label class="form-label" for="agent-prompt">System Prompt</label>
+          <label class="form-label" for="agent-prompt">
+            System Prompt
+            <span class="form-hint">Markdown supported</span>
+          </label>
           <textarea
             id="agent-prompt"
             class="form-textarea"
             rows={8}
             bind:value={formPrompt}
+            onkeydown={handlePromptKeydown}
             placeholder="Describe how this agent should behave, what it specialises in, and any rules it should follow…"
           ></textarea>
         </div>
@@ -704,7 +785,9 @@
   /* ── Form ── */
 
   .agent-form {
-    max-width: 560px;
+    width: 100%;
+    max-width: 640px;
+    margin: 0 auto;
     animation: fadeInUp 200ms ease;
   }
 
@@ -729,6 +812,13 @@
     display: flex;
     gap: var(--spacing-md);
     margin-bottom: var(--spacing-md);
+    flex-wrap: wrap;
+  }
+
+  @media (max-width: 400px) {
+    .form-row {
+      flex-direction: column;
+    }
   }
 
   .form-field {
@@ -777,25 +867,102 @@
     box-shadow: var(--shadow-input-focus);
   }
 
-  .avatar-input {
-    width: 3rem;
-    text-align: center;
-    font-size: var(--font-size-lg);
+  .avatar-picker {
+    position: relative;
+  }
+
+  .avatar-trigger {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border: 1px solid var(--color-border-primary);
+    border-radius: var(--radius-sm);
+    background: var(--color-bg-primary);
+    cursor: pointer;
+    transition: border-color var(--transition-fast);
+  }
+  .avatar-trigger:hover {
+    border-color: var(--color-border-focus);
+  }
+  .avatar-trigger:focus-visible {
+    outline: none;
+    border-color: var(--color-accent-copper);
+    box-shadow: var(--shadow-input-focus);
+  }
+
+  .avatar-preview {
+    font-size: var(--font-size-xl);
+    line-height: 1;
+  }
+
+  .avatar-caret {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-tertiary);
+  }
+
+  .avatar-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 20;
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 2px;
     padding: var(--spacing-xs);
+    margin-top: var(--spacing-xs);
+    background: var(--color-bg-primary);
+    border: 1px solid var(--color-border-primary);
+    border-radius: var(--radius-md);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+    animation: fadeIn 100ms ease;
+    max-width: 220px;
+  }
+
+  .avatar-option {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    font-size: 1.2rem;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    cursor: pointer;
+    transition: background var(--transition-fast);
+  }
+  .avatar-option:hover {
+    background: var(--color-bg-tertiary);
+  }
+  .avatar-option.selected {
+    background: color-mix(in srgb, var(--color-accent-copper) 15%, transparent);
+    outline: 2px solid var(--color-accent-copper);
+  }
+
+  .form-hint {
+    font-weight: var(--font-weight-normal);
+    color: var(--color-text-tertiary);
+    text-transform: none;
+    letter-spacing: 0;
+    margin-left: var(--spacing-xs);
+    font-size: var(--font-size-xxs, 0.65rem);
   }
 
   .form-textarea {
-    padding: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
     border: 1px solid var(--color-border-primary);
     border-radius: var(--radius-sm);
     background: var(--color-bg-primary);
     color: var(--color-text-primary);
     font-size: var(--font-size-sm);
-    font-family: var(--font-body);
+    font-family: var(--font-mono);
     box-sizing: border-box;
     width: 100%;
     resize: vertical;
-    line-height: var(--line-height-normal);
+    line-height: 1.6;
+    min-height: 180px;
+    tab-size: 2;
   }
   .form-textarea:focus {
     outline: none;

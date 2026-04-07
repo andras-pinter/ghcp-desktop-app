@@ -43,6 +43,16 @@
 
   let deleteConfirmId = $state<string | null>(null);
 
+  let expandedSkillId = $state<string | null>(null);
+
+  let createExpanded = $state(false);
+  let createName = $state("");
+  let createDescription = $state("");
+  let createInstructions = $state("");
+  let createSourceUrl = $state("");
+  let createSaving = $state(false);
+  let createError = $state<string | null>(null);
+
   // ── Derived: grouped skills ─────────────────────────────────
 
   let builtinSkills = $derived(store.skills.filter((s) => s.source === "builtin"));
@@ -160,6 +170,45 @@
     }
   }
 
+  function toggleExpandSkill(id: string) {
+    expandedSkillId = expandedSkillId === id ? null : id;
+  }
+
+  async function handleCreateSkill() {
+    const name = createName.trim();
+    if (!name) {
+      createError = "Name is required";
+      return;
+    }
+    createSaving = true;
+    createError = null;
+    try {
+      const id = `custom-${name.toLowerCase().replace(/[^a-z0-9-]/g, "-")}`;
+      const { createSkill } = await import("$lib/utils/commands");
+      await createSkill(
+        id,
+        name,
+        createDescription.trim() || null,
+        "builtin",
+        null,
+        null,
+        createInstructions.trim() || null,
+        createSourceUrl.trim() || null,
+        "local",
+      );
+      await initSkills();
+      createName = "";
+      createDescription = "";
+      createInstructions = "";
+      createSourceUrl = "";
+      createExpanded = false;
+    } catch (err: unknown) {
+      createError = err instanceof Error ? err.message : String(err);
+    } finally {
+      createSaving = false;
+    }
+  }
+
   function sourceBadge(skill: Skill): string {
     switch (skill.source) {
       case "builtin":
@@ -223,6 +272,13 @@
           {#each builtinSkills as skill (skill.id)}
             <article class="skill-card">
               <div class="skill-main">
+                <button
+                  class="skill-expand-btn"
+                  class:expanded={expandedSkillId === skill.id}
+                  onclick={() => toggleExpandSkill(skill.id)}
+                  aria-label={expandedSkillId === skill.id ? "Collapse details" : "Expand details"}
+                  >▶</button
+                >
                 <div class="skill-info">
                   <strong class="skill-name">{skill.name}</strong>
                   <span class="source-badge builtin">{sourceBadge(skill)}</span>
@@ -239,6 +295,24 @@
               {#if skill.description}
                 <p class="skill-desc">{skill.description}</p>
               {/if}
+              {#if expandedSkillId === skill.id}
+                <div class="skill-details">
+                  {#if skill.instructions}
+                    <pre class="skill-instructions">{skill.instructions}</pre>
+                  {/if}
+                  {#if skill.sourceUrl}
+                    <div class="skill-detail-row">
+                      <span>Source:</span>
+                      <a
+                        href={skill.sourceUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="skill-detail-link">{skill.sourceUrl}</a
+                      >
+                    </div>
+                  {/if}
+                </div>
+              {/if}
             </article>
           {/each}
         {/if}
@@ -249,6 +323,13 @@
           {#each extensionSkills as skill (skill.id)}
             <article class="skill-card">
               <div class="skill-main">
+                <button
+                  class="skill-expand-btn"
+                  class:expanded={expandedSkillId === skill.id}
+                  onclick={() => toggleExpandSkill(skill.id)}
+                  aria-label={expandedSkillId === skill.id ? "Collapse details" : "Expand details"}
+                  >▶</button
+                >
                 <div class="skill-info">
                   <strong class="skill-name">{skill.name}</strong>
                   <span class="source-badge extension">{sourceBadge(skill)}</span>
@@ -265,6 +346,24 @@
               {#if skill.description}
                 <p class="skill-desc">{skill.description}</p>
               {/if}
+              {#if expandedSkillId === skill.id}
+                <div class="skill-details">
+                  {#if skill.instructions}
+                    <pre class="skill-instructions">{skill.instructions}</pre>
+                  {/if}
+                  {#if skill.sourceUrl}
+                    <div class="skill-detail-row">
+                      <span>Source:</span>
+                      <a
+                        href={skill.sourceUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="skill-detail-link">{skill.sourceUrl}</a
+                      >
+                    </div>
+                  {/if}
+                </div>
+              {/if}
             </article>
           {/each}
         {/if}
@@ -278,6 +377,14 @@
               {#each group.skills as skill (skill.id)}
                 <article class="skill-card">
                   <div class="skill-main">
+                    <button
+                      class="skill-expand-btn"
+                      class:expanded={expandedSkillId === skill.id}
+                      onclick={() => toggleExpandSkill(skill.id)}
+                      aria-label={expandedSkillId === skill.id
+                        ? "Collapse details"
+                        : "Expand details"}>▶</button
+                    >
                     <div class="skill-info">
                       <strong class="skill-name">{skill.name}</strong>
                       <span class="source-badge mcp">{sourceBadge(skill)}</span>
@@ -294,6 +401,24 @@
                   {#if skill.description}
                     <p class="skill-desc">{skill.description}</p>
                   {/if}
+                  {#if expandedSkillId === skill.id}
+                    <div class="skill-details">
+                      {#if skill.instructions}
+                        <pre class="skill-instructions">{skill.instructions}</pre>
+                      {/if}
+                      {#if skill.sourceUrl}
+                        <div class="skill-detail-row">
+                          <span>Source:</span>
+                          <a
+                            href={skill.sourceUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="skill-detail-link">{skill.sourceUrl}</a
+                          >
+                        </div>
+                      {/if}
+                    </div>
+                  {/if}
                 </article>
               {/each}
             </div>
@@ -306,6 +431,13 @@
           {#each registrySkills as skill (skill.id)}
             <article class="skill-card">
               <div class="skill-main">
+                <button
+                  class="skill-expand-btn"
+                  class:expanded={expandedSkillId === skill.id}
+                  onclick={() => toggleExpandSkill(skill.id)}
+                  aria-label={expandedSkillId === skill.id ? "Collapse details" : "Expand details"}
+                  >▶</button
+                >
                 <div class="skill-info">
                   <strong class="skill-name">{skill.name}</strong>
                   <span class="source-badge registry">{sourceBadge(skill)}</span>
@@ -349,6 +481,24 @@
               {#if skill.description}
                 <p class="skill-desc">{skill.description}</p>
               {/if}
+              {#if expandedSkillId === skill.id}
+                <div class="skill-details">
+                  {#if skill.instructions}
+                    <pre class="skill-instructions">{skill.instructions}</pre>
+                  {/if}
+                  {#if skill.sourceUrl}
+                    <div class="skill-detail-row">
+                      <span>Source:</span>
+                      <a
+                        href={skill.sourceUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="skill-detail-link">{skill.sourceUrl}</a
+                      >
+                    </div>
+                  {/if}
+                </div>
+              {/if}
             </article>
           {/each}
         {/if}
@@ -359,6 +509,13 @@
           {#each gitSkills as skill (skill.id)}
             <article class="skill-card">
               <div class="skill-main">
+                <button
+                  class="skill-expand-btn"
+                  class:expanded={expandedSkillId === skill.id}
+                  onclick={() => toggleExpandSkill(skill.id)}
+                  aria-label={expandedSkillId === skill.id ? "Collapse details" : "Expand details"}
+                  >▶</button
+                >
                 <div class="skill-info">
                   <strong class="skill-name">{skill.name}</strong>
                   <span class="source-badge git">{sourceBadge(skill)}</span>
@@ -401,6 +558,24 @@
               </div>
               {#if skill.description}
                 <p class="skill-desc">{skill.description}</p>
+              {/if}
+              {#if expandedSkillId === skill.id}
+                <div class="skill-details">
+                  {#if skill.instructions}
+                    <pre class="skill-instructions">{skill.instructions}</pre>
+                  {/if}
+                  {#if skill.sourceUrl}
+                    <div class="skill-detail-row">
+                      <span>Source:</span>
+                      <a
+                        href={skill.sourceUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="skill-detail-link">{skill.sourceUrl}</a
+                      >
+                    </div>
+                  {/if}
+                </div>
               {/if}
             </article>
           {/each}
@@ -570,6 +745,85 @@
             {:else if gitUrl.trim() && !store.gitImporting && !gitError}
               <p class="section-empty">No SKILL.md files found in this repository.</p>
             {/if}
+          </div>
+        {/if}
+      </section>
+
+      <!-- ── Create Custom Skill ──────────────────────────────── -->
+      <section class="panel-section">
+        <button
+          class="collapsible-heading"
+          onclick={() => (createExpanded = !createExpanded)}
+          aria-expanded={createExpanded}
+        >
+          <span class="collapse-arrow" class:expanded={createExpanded}>▶</span>
+          <h3 class="section-heading inline">Create Custom Skill</h3>
+        </button>
+
+        {#if createExpanded}
+          <div class="section-content create-skill-form">
+            {#if createError}
+              <div class="create-error" role="alert">{createError}</div>
+            {/if}
+
+            <div class="create-field">
+              <label class="create-label" for="create-name">Name</label>
+              <input
+                id="create-name"
+                class="create-input"
+                type="text"
+                bind:value={createName}
+                placeholder="e.g. Code Reviewer"
+              />
+            </div>
+
+            <div class="create-field">
+              <label class="create-label" for="create-desc">Description</label>
+              <textarea
+                id="create-desc"
+                class="create-textarea"
+                rows={2}
+                bind:value={createDescription}
+                placeholder="Brief description of what this skill does…"
+              ></textarea>
+            </div>
+
+            <div class="create-field">
+              <label class="create-label" for="create-instructions">
+                Instructions / System Prompt
+                <span class="create-hint">Markdown supported</span>
+              </label>
+              <textarea
+                id="create-instructions"
+                class="create-textarea mono"
+                rows={8}
+                bind:value={createInstructions}
+                placeholder="Describe the skill's behaviour, rules, and capabilities…"
+              ></textarea>
+            </div>
+
+            <div class="create-field">
+              <label class="create-label" for="create-source"
+                >Source URL <span class="create-hint">optional</span></label
+              >
+              <input
+                id="create-source"
+                class="create-input"
+                type="url"
+                bind:value={createSourceUrl}
+                placeholder="https://example.com/my-skill"
+              />
+            </div>
+
+            <div class="create-actions">
+              <button
+                class="action-btn primary"
+                onclick={handleCreateSkill}
+                disabled={createSaving || !createName.trim()}
+              >
+                {createSaving ? "Creating…" : "Create Skill"}
+              </button>
+            </div>
           </div>
         {/if}
       </section>
@@ -1167,5 +1421,159 @@
     font-family: var(--font-mono);
     color: var(--color-text-primary);
     word-break: break-all;
+  }
+
+  /* ── Expand/Collapse ── */
+
+  .skill-expand-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 10px;
+    color: var(--color-text-tertiary);
+    padding: 2px 4px;
+    margin-right: var(--spacing-xs);
+    transition:
+      transform 0.2s ease,
+      color 0.15s;
+    flex-shrink: 0;
+  }
+
+  .skill-expand-btn:hover {
+    color: var(--color-text-primary);
+  }
+
+  .skill-expand-btn.expanded {
+    transform: rotate(90deg);
+  }
+
+  .skill-details {
+    border-top: 1px solid var(--color-border);
+    padding: var(--spacing-sm) var(--spacing-xs);
+    margin-top: var(--spacing-xs);
+  }
+
+  .skill-instructions {
+    font-family: var(--font-mono);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+    background: var(--color-bg-tertiary, var(--color-bg-secondary));
+    border-radius: var(--radius-sm);
+    padding: var(--spacing-sm);
+    margin: 0 0 var(--spacing-xs);
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 200px;
+    overflow-y: auto;
+    line-height: var(--leading-relaxed, 1.6);
+  }
+
+  .skill-detail-row {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-tertiary);
+  }
+
+  .skill-detail-link {
+    color: var(--color-accent);
+    text-decoration: none;
+    word-break: break-all;
+  }
+
+  .skill-detail-link:hover {
+    text-decoration: underline;
+  }
+
+  /* ── Create Custom Skill ── */
+
+  .create-skill-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+    max-width: 640px;
+  }
+
+  .create-field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xxs, 4px);
+  }
+
+  .create-label {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-primary);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+  }
+
+  .create-hint {
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-normal);
+    color: var(--color-text-tertiary);
+  }
+
+  .create-input {
+    padding: var(--spacing-xs) var(--spacing-sm);
+    font-size: var(--font-size-sm);
+    font-family: var(--font-body);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-bg-primary);
+    color: var(--color-text-primary);
+    transition:
+      border-color 0.15s,
+      box-shadow 0.15s;
+  }
+
+  .create-input:focus {
+    outline: none;
+    border-color: var(--color-accent);
+    box-shadow: var(--shadow-input-focus, 0 0 0 2px rgba(180, 83, 9, 0.15));
+  }
+
+  .create-textarea {
+    padding: var(--spacing-xs) var(--spacing-sm);
+    font-size: var(--font-size-sm);
+    font-family: var(--font-body);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-bg-primary);
+    color: var(--color-text-primary);
+    resize: vertical;
+    line-height: var(--leading-relaxed, 1.6);
+    transition:
+      border-color 0.15s,
+      box-shadow 0.15s;
+  }
+
+  .create-textarea:focus {
+    outline: none;
+    border-color: var(--color-accent);
+    box-shadow: var(--shadow-input-focus, 0 0 0 2px rgba(180, 83, 9, 0.15));
+  }
+
+  .create-textarea.mono {
+    font-family: var(--font-mono);
+    font-size: var(--font-size-xs);
+    tab-size: 2;
+  }
+
+  .create-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--spacing-sm);
+  }
+
+  .create-error {
+    font-size: var(--font-size-sm);
+    color: var(--color-error, #dc2626);
+    background: color-mix(in srgb, var(--color-error, #dc2626) 8%, transparent);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--radius-sm);
+    border: 1px solid color-mix(in srgb, var(--color-error, #dc2626) 20%, transparent);
   }
 </style>
