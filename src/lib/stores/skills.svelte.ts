@@ -78,6 +78,7 @@ export async function installFromRegistry(item: RegistryItem): Promise<Skill | n
       item.id,
       item.source,
       item.sourceRepo,
+      item.url,
     );
     // Reload skills to pick up the new one
     await initSkills();

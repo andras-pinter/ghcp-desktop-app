@@ -263,16 +263,24 @@ fn clean_description(raw: &str) -> String {
 }
 
 fn aitmpl_to_registry_item(item: &AitmplComponent, kind: RegistryItemKind) -> RegistryItem {
-    // Link to the GitHub source file (aitmpl.com is a SPA — direct paths 404)
+    // Build unique ID from path (name alone has duplicates across categories)
+    let id = item
+        .path
+        .as_ref()
+        .map(|p| p.replace(".md", "").replace('/', "-"))
+        .unwrap_or_else(|| item.name.clone());
+
+    // Link to aitmpl.com SPA: /component/{type}/{category}/{name}
+    let type_str = match kind {
+        RegistryItemKind::Agent => "agent",
+        RegistryItemKind::Skill => "skill",
+    };
     let url = item.path.as_ref().map(|p| {
-        format!(
-            "https://github.com/davila7/claude-code-templates/blob/main/{}",
-            p
-        )
+        let path_no_ext = p.replace(".md", "");
+        format!("https://www.aitmpl.com/component/{type_str}/{path_no_ext}")
     });
 
     // Extract first paragraph of the markdown body as description
-    // (frontmatter descriptions are often long/verbose with XML tags)
     let description = item
         .content
         .as_ref()
@@ -280,7 +288,7 @@ fn aitmpl_to_registry_item(item: &AitmplComponent, kind: RegistryItemKind) -> Re
         .or_else(|| item.description.as_ref().map(|d| clean_description(d)));
 
     RegistryItem {
-        id: item.name.clone(),
+        id,
         name: item.name.clone(),
         description,
         source: RegistrySource::Aitmpl,
@@ -510,9 +518,15 @@ pub async fn fetch_skill_content(
                 .await
                 .map_err(|e| format!("Failed to parse components.json: {e}"))?;
 
-            // Search in agents first, then skills
+            // Search in agents first, then skills — match by path-based ID or name
             for item in data.agents.iter().chain(data.skills.iter()) {
-                if item.name == skill_id {
+                let item_id_from_path = item
+                    .path
+                    .as_ref()
+                    .map(|p| p.replace(".md", "").replace('/', "-"))
+                    .unwrap_or_else(|| item.name.clone());
+
+                if item_id_from_path == skill_id || item.name == skill_id {
                     if let Some(content) = &item.content {
                         return Ok(content.clone());
                     }

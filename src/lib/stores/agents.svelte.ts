@@ -115,7 +115,12 @@ export async function searchAgentRegistries(query: string): Promise<void> {
 /** Install an agent from a registry result. */
 export async function installAgentFromRegistry(item: RegistryItem): Promise<Agent | null> {
   try {
-    const agent = await installAgentFromRegistryCmd(item.id, item.source, item.sourceRepo);
+    const agent = await installAgentFromRegistryCmd(
+      item.id,
+      item.source,
+      item.sourceRepo,
+      item.url,
+    );
     agents = [...agents, agent];
     return agent;
   } catch (e) {

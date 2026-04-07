@@ -397,7 +397,7 @@
             {/if}
             {#if expandedAgentId === defaultAgent.id}
               <div class="agent-details">
-                <div class="agent-prompt-full md-content">
+                <div class="agent-prompt-full markdown-prose">
                   {@html renderMarkdown(defaultAgent.systemPrompt)}
                 </div>
               </div>
@@ -456,7 +456,7 @@
               {/if}
               {#if expandedAgentId === agent.id}
                 <div class="agent-details">
-                  <div class="agent-prompt-full md-content">
+                  <div class="agent-prompt-full markdown-prose">
                     {@html renderMarkdown(agent.systemPrompt)}
                   </div>
                   {#if agent.sourceUrl}
@@ -544,7 +544,7 @@
                       <p class="registry-desc">{item.description}</p>
                     {/if}
                     {#if expandedRegistryKey === registryKey(item) && item.description}
-                      <div class="registry-expanded md-content">
+                      <div class="registry-expanded markdown-prose">
                         {@html renderMarkdown(item.description)}
                       </div>
                     {/if}

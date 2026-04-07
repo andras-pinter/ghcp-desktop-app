@@ -107,6 +107,7 @@ pub async fn install_from_registry(
     skill_id: String,
     source: String,
     source_repo: Option<String>,
+    item_url: Option<String>,
 ) -> Result<crate::registry::RegistryItem, String> {
     let state = app.state::<AppState>();
     let client = &state.http_client;
@@ -147,14 +148,15 @@ pub async fn install_from_registry(
         crate::registry::RegistrySource::SkillsSh => "registry_skills_sh",
         crate::registry::RegistrySource::Aitmpl => "registry_aitmpl",
     };
-    let source_url = match registry_source {
+    // Use the URL from the registry item if available, otherwise construct one
+    let source_url = item_url.unwrap_or_else(|| match registry_source {
         crate::registry::RegistrySource::SkillsSh => {
             format!("https://skills.sh/{skill_id}")
         }
         crate::registry::RegistrySource::Aitmpl => {
-            format!("https://www.aitmpl.com/{skill_id}")
+            format!("https://www.aitmpl.com/component/skill/{skill_id}")
         }
-    };
+    });
 
     {
         let db = state.db.lock().map_err(|e| e.to_string())?;

@@ -332,7 +332,7 @@
               {#if expandedSkillId === skill.id}
                 <div class="skill-details">
                   {#if skill.instructions}
-                    <div class="skill-instructions md-content">
+                    <div class="skill-instructions markdown-prose">
                       {@html renderMarkdown(skill.instructions)}
                     </div>
                   {/if}
@@ -392,7 +392,7 @@
               {#if expandedSkillId === skill.id}
                 <div class="skill-details">
                   {#if skill.instructions}
-                    <div class="skill-instructions md-content">
+                    <div class="skill-instructions markdown-prose">
                       {@html renderMarkdown(skill.instructions)}
                     </div>
                   {/if}
@@ -456,7 +456,7 @@
                   {#if expandedSkillId === skill.id}
                     <div class="skill-details">
                       {#if skill.instructions}
-                        <div class="skill-instructions md-content">
+                        <div class="skill-instructions markdown-prose">
                           {@html renderMarkdown(skill.instructions)}
                         </div>
                       {/if}
@@ -545,7 +545,7 @@
               {#if expandedSkillId === skill.id}
                 <div class="skill-details">
                   {#if skill.instructions}
-                    <div class="skill-instructions md-content">
+                    <div class="skill-instructions markdown-prose">
                       {@html renderMarkdown(skill.instructions)}
                     </div>
                   {/if}
@@ -632,7 +632,7 @@
               {#if expandedSkillId === skill.id}
                 <div class="skill-details">
                   {#if skill.instructions}
-                    <div class="skill-instructions md-content">
+                    <div class="skill-instructions markdown-prose">
                       {@html renderMarkdown(skill.instructions)}
                     </div>
                   {/if}
@@ -722,7 +722,7 @@
                       <p class="registry-item-desc">{item.description}</p>
                     {/if}
                     {#if expandedRegistryKey === registryKey(item) && item.description}
-                      <div class="registry-item-expanded md-content">
+                      <div class="registry-item-expanded markdown-prose">
                         {@html renderMarkdown(item.description)}
                       </div>
                     {/if}
