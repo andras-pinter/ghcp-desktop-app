@@ -1,12 +1,26 @@
 <script lang="ts">
+  import { SvelteMap } from "svelte/reactivity";
   import InputArea from "./InputArea.svelte";
   import MessageBubble from "./MessageBubble.svelte";
   import SearchOverlay from "./SearchOverlay.svelte";
   import type { Message, ChatMessage } from "$lib/types/message";
   import type { UrlPreview } from "$lib/types/web-research";
-  import { sendMessage, stopStreaming, updateConversation } from "$lib/utils/commands";
-  import { onStreamingToken, onStreamingComplete, onStreamingError } from "$lib/utils/events";
+  import type { ChatFileData } from "$lib/types/project";
+  import {
+    sendMessage,
+    stopStreaming,
+    updateConversation,
+    extractFileText,
+    readDroppedFiles,
+  } from "$lib/utils/commands";
+  import {
+    onStreamingToken,
+    onStreamingComplete,
+    onStreamingError,
+    onContextSummarized,
+  } from "$lib/utils/events";
   import { onMount, onDestroy } from "svelte";
+  import { getCurrentWebview } from "@tauri-apps/api/webview";
   import type { UnlistenFn } from "@tauri-apps/api/event";
   import {
     getConversationStore,
@@ -44,11 +58,104 @@
   let draftText = $state("");
   let draftTimer: ReturnType<typeof setTimeout> | undefined;
   let showSearch = $state(false);
+  let extractingFiles = $state(false);
   const greeting = greetings[Math.floor(Math.random() * greetings.length)];
+
+  // Full-window drag-and-drop via Tauri's native onDragDropEvent.
+  // HTML5 drag events don't receive file data in Tauri's webview — the
+  // native layer intercepts OS-level file drops and provides file paths.
+  let viewDropActive = $state(false);
+  let pendingDropFiles: ChatFileData[] = $state([]);
+  let unlistenDragDrop: UnlistenFn | undefined;
+
+  // Background extraction: cache promises keyed by filename, reactive status for pill UI.
+  // Separate from pendingDropFiles so clearing pills doesn't lose extraction results.
+  const extractionCache = new SvelteMap<string, Promise<string | null>>();
+  let extractionStatuses = $state<Record<string, "extracting" | "done" | "error">>({});
+
+  /** Escape a filename for safe embedding in markdown. Prevents XSS via crafted filenames. */
+  function sanitizeFilename(name: string): string {
+    let result = "";
+    for (const ch of name) {
+      const code = ch.charCodeAt(0);
+      if (code < 0x20) continue; // strip control characters
+      if ("<>&\"'`\\".includes(ch)) {
+        result += "_"; // replace chars that could break HTML or markdown fences
+      } else {
+        result += ch;
+      }
+    }
+    return result;
+  }
+
+  async function setupDragDrop() {
+    const webview = getCurrentWebview();
+    unlistenDragDrop = await webview.onDragDropEvent(async (event) => {
+      if (event.payload.type === "enter" || event.payload.type === "over") {
+        viewDropActive = true;
+      } else if (event.payload.type === "leave") {
+        viewDropActive = false;
+      } else if (event.payload.type === "drop") {
+        viewDropActive = false;
+        const paths = event.payload.paths;
+        if (!paths || paths.length === 0) return;
+
+        // Show placeholder pills instantly (name from path, loading state)
+        const placeholders: ChatFileData[] = paths.map((p) => ({
+          name: p.split("/").pop() || p.split("\\").pop() || p,
+          contentType: "application/octet-stream",
+          size: 0,
+          contentBase64: "",
+          loading: true,
+        }));
+        pendingDropFiles = placeholders;
+
+        // Read actual content, then start extraction immediately in background.
+        // Set extraction status BEFORE updating pendingDropFiles so there's no
+        // window where loading=false but extraction hasn't started (race condition).
+        try {
+          const files = await readDroppedFiles(paths);
+          if (files.length > 0) {
+            startExtractions(files);
+            pendingDropFiles = files;
+          }
+        } catch (e) {
+          console.error("Failed to read dropped files:", e);
+          pendingDropFiles = [];
+        }
+      }
+    });
+  }
+
+  /** Start text extraction for each file in parallel, caching promises. */
+  function startExtractions(files: ChatFileData[]) {
+    for (const file of files) {
+      extractionStatuses = { ...extractionStatuses, [file.name]: "extracting" };
+      const promise = extractFileText(file.contentBase64, file.contentType, file.name)
+        .then((text) => {
+          extractionStatuses = { ...extractionStatuses, [file.name]: "done" };
+          return text;
+        })
+        .catch((err) => {
+          console.error(`Extraction error for ${file.name}:`, err);
+          extractionStatuses = { ...extractionStatuses, [file.name]: "error" };
+          return null;
+        });
+      extractionCache.set(file.name, promise);
+    }
+  }
+
+  function clearPendingDropFiles() {
+    pendingDropFiles = [];
+  }
 
   let unlistenToken: UnlistenFn | undefined;
   let unlistenComplete: UnlistenFn | undefined;
   let unlistenError: UnlistenFn | undefined;
+  let unlistenSummarized: UnlistenFn | undefined;
+
+  /** Number of older messages that were summarized in the current conversation. */
+  let summarizedCount = $state(0);
 
   // Use persisted default model on first load, then fall back to first available
   let defaultApplied = false;
@@ -66,6 +173,13 @@
     }
   });
 
+  // Reset summarization banner when switching conversations
+  $effect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+    store.activeConversationId;
+    summarizedCount = 0;
+  });
+
   // Track the assistant message ID being streamed so we can persist on complete
   let streamingAssistantId: string | null = $state(null);
 
@@ -74,6 +188,8 @@
     if (store.activeConversationId) {
       draftText = await loadDraft(store.activeConversationId);
     }
+
+    setupDragDrop();
 
     unlistenToken = await onStreamingToken((token) => {
       appendStreamingToken(token);
@@ -107,16 +223,22 @@
         updateMessageContentStore(last.id, `⚠️ Error: ${error}`);
       }
     });
+
+    unlistenSummarized = await onContextSummarized((payload) => {
+      summarizedCount = payload.count;
+    });
   });
 
   onDestroy(() => {
     unlistenToken?.();
     unlistenComplete?.();
     unlistenError?.();
+    unlistenSummarized?.();
+    unlistenDragDrop?.();
     if (draftTimer) clearTimeout(draftTimer);
   });
 
-  async function handleSend(text: string, urls?: UrlPreview[]) {
+  async function handleSend(text: string, urls?: UrlPreview[], files?: ChatFileData[]) {
     // Ensure we have an active conversation
     let convId = store.activeConversationId;
     if (!convId) {
@@ -129,7 +251,7 @@
     clearDraft(convId);
     draftText = "";
 
-    // Build user message content — append URL context if provided
+    // Build user message content — start with text + URL context
     let content = text;
     if (urls && urls.length > 0) {
       const urlContext = urls
@@ -145,11 +267,26 @@
       }
     }
 
+    const hasFiles = files && files.length > 0;
+
+    // Add user message immediately so the UI switches to chat view.
+    const fileLabelsImmediate = hasFiles
+      ? "\n\n" +
+        files
+          .map((f) => {
+            const safe = sanitizeFilename(f.name);
+            const status = extractionStatuses[f.name];
+            if (status === "done") return `📎 ${safe}`;
+            if (status === "error") return `📎 ${safe} (not extractable)`;
+            return `📎 ${safe} — extracting…`;
+          })
+          .join("\n")
+      : "";
     const userMessage: Message = {
       id: crypto.randomUUID(),
       conversationId: convId,
       role: "user",
-      content,
+      content: content + fileLabelsImmediate,
       createdAt: new Date().toISOString(),
       sortOrder: store.messages.length,
     };
@@ -174,13 +311,86 @@
       chatContainer?.scrollTo({ top: chatContainer.scrollHeight, behavior: "smooth" });
     });
 
-    // Build API message array — include all user + non-empty assistant messages
+    // Collect extracted text from the background extraction cache.
+    // If user sent before extraction finished, await the cached promise (not a new call).
+    let extractedParts: string[] = [];
+    if (hasFiles) {
+      const stillExtracting = files.some(
+        (f) => extractionStatuses[f.name] === "extracting" || !extractionStatuses[f.name],
+      );
+      if (stillExtracting) extractingFiles = true;
+
+      for (const f of files) {
+        const safe = sanitizeFilename(f.name);
+        let extracted: string | null = null;
+        const cached = extractionCache.get(f.name);
+        if (cached) {
+          try {
+            extracted = await cached;
+          } catch {
+            extracted = null;
+          }
+        }
+
+        const status = extractionStatuses[f.name];
+        if (status === "error" || extracted === null || extracted === undefined) {
+          extractedParts.push(
+            `\n\n---\n📎 ${safe} (${f.contentType}, unsupported format — content not shown)`,
+          );
+        } else {
+          const truncated =
+            extracted.length > 50_000
+              ? extracted.slice(0, 50_000) + `\n...[truncated, ${extracted.length} chars total]`
+              : extracted;
+          extractedParts.push(
+            `\n\n---\n📎 ${safe} (${f.contentType})\n\n\`\`\`\n${truncated}\n\`\`\``,
+          );
+        }
+      }
+
+      if (stillExtracting) extractingFiles = false;
+
+      // Update visible message with final file labels
+      const fileLabels =
+        "\n\n" +
+        files
+          .map((f) => {
+            const safe = sanitizeFilename(f.name);
+            const part = extractedParts.find((p) => p.includes(safe));
+            const failed = part && (part.includes("unsupported") || part.includes("failed"));
+            return failed ? `📎 ${safe} (not extractable)` : `📎 ${safe}`;
+          })
+          .join("\n");
+      await updateMessageContentStore(userMessage.id, content + fileLabels);
+    }
+
+    // Build API message array — include all user + non-empty assistant messages.
+    // For the current user message, append extracted file content for the API only.
     const apiMessages: ChatMessage[] = store.messages
       .filter((m) => m.role === "user" || (m.role === "assistant" && m.content))
-      .map((m) => ({ role: m.role, content: m.content }));
+      .map((m) => {
+        if (m.id === userMessage.id && hasFiles) {
+          return { role: m.role, content: content + extractedParts.join("") };
+        }
+        return { role: m.role, content: m.content };
+      });
+
+    // Clear extraction cache to free memory (extracted text can be several MB per file).
+    if (hasFiles) {
+      for (const f of files) {
+        extractionCache.delete(f.name);
+        delete extractionStatuses[f.name];
+      }
+      extractionStatuses = { ...extractionStatuses };
+    }
 
     try {
-      await sendMessage(apiMessages, selectedModel, agentStore.selectedAgentId);
+      await sendMessage(
+        apiMessages,
+        selectedModel,
+        agentStore.selectedAgentId,
+        store.activeConversation?.projectId,
+      );
     } catch (e) {
       streaming = false;
       streamingAssistantId = null;
@@ -283,7 +493,12 @@
       .map((m) => ({ role: m.role, content: m.content }));
 
     try {
-      await sendMessage(apiMessages, selectedModel, agentStore.selectedAgentId);
+      await sendMessage(
+        apiMessages,
+        selectedModel,
+        agentStore.selectedAgentId,
+        store.activeConversation?.projectId,
+      );
     } catch (e) {
       streaming = false;
       streamingAssistantId = null;
@@ -323,6 +538,15 @@
   tabindex="-1"
   onkeydown={handleGlobalKeydown}
 >
+  {#if viewDropActive}
+    <div class="drop-overlay" role="status" aria-label="Drop files to attach">
+      <div class="drop-overlay-inner">
+        <span class="drop-icon">📎</span>
+        <span class="drop-text">Drop files to attach</span>
+      </div>
+    </div>
+  {/if}
+
   {#if store.messages.length === 0}
     <div class="welcome-container">
       <div class="welcome">
@@ -332,6 +556,7 @@
         <InputArea
           onSend={handleSend}
           {streaming}
+          {extractingFiles}
           onStop={handleStop}
           model={selectedModel}
           onModelChange={handleModelChange}
@@ -345,6 +570,9 @@
           agentsLoaded={agentStore.loaded}
           selectedAgentId={agentStore.selectedAgentId}
           onAgentChange={selectAgent}
+          externalFiles={pendingDropFiles}
+          onExternalFilesConsumed={clearPendingDropFiles}
+          {extractionStatuses}
         />
       </div>
     </div>
@@ -354,6 +582,21 @@
     {/if}
     <div class="chat-messages" bind:this={chatContainer} role="log" aria-label="Chat messages">
       <div class="messages-inner">
+        {#if summarizedCount > 0}
+          <div class="context-summary-banner" role="status">
+            <span class="summary-icon">ℹ️</span>
+            <span
+              >{summarizedCount} older message{summarizedCount === 1 ? "" : "s"} condensed into summary</span
+            >
+            <button
+              class="summary-dismiss"
+              onclick={() => (summarizedCount = 0)}
+              aria-label="Dismiss"
+            >
+              ✕
+            </button>
+          </div>
+        {/if}
         {#each store.messages as message, i (message.id)}
           <div class="message-entry" style:animation-delay="{Math.min(i * 40, 200)}ms">
             <MessageBubble
@@ -373,6 +616,7 @@
       <InputArea
         onSend={handleSend}
         {streaming}
+        {extractingFiles}
         onStop={handleStop}
         model={selectedModel}
         onModelChange={handleModelChange}
@@ -386,6 +630,9 @@
         agentsLoaded={agentStore.loaded}
         selectedAgentId={agentStore.selectedAgentId}
         onAgentChange={selectAgent}
+        externalFiles={pendingDropFiles}
+        onExternalFilesConsumed={clearPendingDropFiles}
+        {extractionStatuses}
       />
     </div>
   {/if}
@@ -398,6 +645,46 @@
     height: 100%;
     overflow: hidden;
     position: relative;
+  }
+
+  /* ── Drop overlay ── */
+
+  .drop-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: color-mix(in srgb, var(--color-bg) 85%, transparent);
+    backdrop-filter: blur(4px);
+    animation: fadeIn 150ms ease both;
+  }
+
+  .drop-overlay-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-lg);
+    margin: var(--spacing-xl);
+    flex: 1;
+    align-self: stretch;
+    border: 2px dashed var(--color-accent-copper);
+    border-radius: var(--radius-xl);
+    background: color-mix(in srgb, var(--color-accent-copper) 6%, transparent);
+  }
+
+  .drop-icon {
+    font-size: 3.5rem;
+  }
+
+  .drop-text {
+    font-family: var(--font-body);
+    font-size: var(--font-size-xl);
+    font-weight: 500;
+    color: var(--color-accent-copper);
+    letter-spacing: var(--letter-spacing-tight);
   }
 
   /* ── Welcome ── */
@@ -450,6 +737,41 @@
     padding: 0 var(--spacing-xl);
     display: flex;
     flex-direction: column;
+  }
+
+  .context-summary-banner {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
+    margin-bottom: var(--spacing-md);
+    border: 1px dashed var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-bg-secondary);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    animation: fadeIn 300ms ease both;
+  }
+
+  .summary-icon {
+    flex-shrink: 0;
+  }
+
+  .summary-dismiss {
+    margin-left: auto;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--color-text-secondary);
+    padding: 2px 6px;
+    border-radius: var(--radius-xs);
+    font-size: var(--font-size-sm);
+    opacity: 0.6;
+    transition: opacity 150ms ease;
+  }
+
+  .summary-dismiss:hover {
+    opacity: 1;
   }
 
   .message-entry {

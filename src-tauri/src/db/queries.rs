@@ -131,6 +131,7 @@ pub fn update_conversation(
     title: Option<&str>,
     is_favourite: Option<bool>,
     model: Option<&str>,
+    project_id: Option<Option<&str>>,
 ) -> Result<(), rusqlite::Error> {
     let now = chrono::Utc::now().to_rfc3339();
     // Build dynamic SET clauses
@@ -150,6 +151,13 @@ pub fn update_conversation(
         conn.execute(
             "UPDATE conversations SET model = ?1, updated_at = ?2 WHERE id = ?3",
             params![m, now, id],
+        )?;
+    }
+    // Option<Option<&str>>: Some(Some("id")) = assign, Some(None) = unassign, None = no change
+    if let Some(pid) = project_id {
+        conn.execute(
+            "UPDATE conversations SET project_id = ?1, updated_at = ?2 WHERE id = ?3",
+            params![pid, now, id],
         )?;
     }
     Ok(())
@@ -834,6 +842,250 @@ pub fn get_agent_skills(conn: &Connection, agent_id: &str) -> Result<Vec<Skill>,
     rows.collect()
 }
 
+// ── Projects ────────────────────────────────────────────────────
+
+/// A project container (matches frontend `Project` type).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Project {
+    pub id: String,
+    pub name: String,
+    pub instructions: Option<String>,
+    pub file_count: i64,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+/// Metadata for a file attached to a project (excludes BLOB content).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProjectFile {
+    pub id: String,
+    pub project_id: String,
+    pub name: String,
+    pub content_type: String,
+    pub size: i64,
+    pub created_at: String,
+}
+
+/// List all projects with their file counts, ordered by most recently updated.
+pub fn list_projects(conn: &Connection) -> Result<Vec<Project>, rusqlite::Error> {
+    let mut stmt = conn.prepare(
+        "SELECT p.id, p.name, p.instructions, p.created_at, p.updated_at,
+                (SELECT COUNT(*) FROM project_files pf WHERE pf.project_id = p.id) AS file_count
+         FROM projects p ORDER BY p.updated_at DESC",
+    )?;
+    let rows = stmt.query_map([], |row| {
+        Ok(Project {
+            id: row.get(0)?,
+            name: row.get(1)?,
+            instructions: row.get(2)?,
+            created_at: row.get(3)?,
+            updated_at: row.get(4)?,
+            file_count: row.get(5)?,
+        })
+    })?;
+    rows.collect()
+}
+
+/// Get a single project by ID.
+pub fn get_project(conn: &Connection, id: &str) -> Result<Option<Project>, rusqlite::Error> {
+    let mut stmt = conn.prepare(
+        "SELECT p.id, p.name, p.instructions, p.created_at, p.updated_at,
+                (SELECT COUNT(*) FROM project_files pf WHERE pf.project_id = p.id) AS file_count
+         FROM projects p WHERE p.id = ?1",
+    )?;
+    let mut rows = stmt.query_map(params![id], |row| {
+        Ok(Project {
+            id: row.get(0)?,
+            name: row.get(1)?,
+            instructions: row.get(2)?,
+            created_at: row.get(3)?,
+            updated_at: row.get(4)?,
+            file_count: row.get(5)?,
+        })
+    })?;
+    rows.next().transpose()
+}
+
+/// Create a new project.
+pub fn create_project(
+    conn: &Connection,
+    id: &str,
+    name: &str,
+    instructions: Option<&str>,
+) -> Result<Project, rusqlite::Error> {
+    let now = chrono::Utc::now().to_rfc3339();
+    conn.execute(
+        "INSERT INTO projects (id, name, instructions, created_at, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?4)",
+        params![id, name, instructions, now],
+    )?;
+    Ok(Project {
+        id: id.to_string(),
+        name: name.to_string(),
+        instructions: instructions.map(String::from),
+        file_count: 0,
+        created_at: now.clone(),
+        updated_at: now,
+    })
+}
+
+/// Update a project's name and/or instructions.
+pub fn update_project(
+    conn: &Connection,
+    id: &str,
+    name: Option<&str>,
+    instructions: Option<Option<&str>>,
+) -> Result<(), rusqlite::Error> {
+    let now = chrono::Utc::now().to_rfc3339();
+    if let Some(n) = name {
+        conn.execute(
+            "UPDATE projects SET name = ?1, updated_at = ?2 WHERE id = ?3",
+            params![n, now, id],
+        )?;
+    }
+    // Option<Option<&str>>: Some(Some("text")) = set, Some(None) = clear, None = no change
+    if let Some(instr) = instructions {
+        conn.execute(
+            "UPDATE projects SET instructions = ?1, updated_at = ?2 WHERE id = ?3",
+            params![instr, now, id],
+        )?;
+    }
+    Ok(())
+}
+
+/// Delete a project (files cascade via FK).
+pub fn delete_project(conn: &Connection, id: &str) -> Result<(), rusqlite::Error> {
+    // Unlink conversations from this project before deleting
+    conn.execute(
+        "UPDATE conversations SET project_id = NULL WHERE project_id = ?1",
+        params![id],
+    )?;
+    conn.execute("DELETE FROM projects WHERE id = ?1", params![id])?;
+    Ok(())
+}
+
+/// List files for a project (metadata only, no BLOB content).
+pub fn list_project_files(
+    conn: &Connection,
+    project_id: &str,
+) -> Result<Vec<ProjectFile>, rusqlite::Error> {
+    let mut stmt = conn.prepare(
+        "SELECT id, project_id, name, content_type, LENGTH(content) as size, created_at
+         FROM project_files WHERE project_id = ?1 ORDER BY created_at DESC",
+    )?;
+    let rows = stmt.query_map(params![project_id], |row| {
+        Ok(ProjectFile {
+            id: row.get(0)?,
+            project_id: row.get(1)?,
+            name: row.get(2)?,
+            content_type: row.get(3)?,
+            size: row.get(4)?,
+            created_at: row.get(5)?,
+        })
+    })?;
+    rows.collect()
+}
+
+/// Add a file to a project (content stored as BLOB).
+pub fn add_project_file(
+    conn: &Connection,
+    id: &str,
+    project_id: &str,
+    name: &str,
+    content_type: &str,
+    content: &[u8],
+) -> Result<ProjectFile, rusqlite::Error> {
+    let now = chrono::Utc::now().to_rfc3339();
+    conn.execute(
+        "INSERT INTO project_files (id, project_id, name, content_type, content, created_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        params![id, project_id, name, content_type, content, now],
+    )?;
+    // Touch parent project
+    conn.execute(
+        "UPDATE projects SET updated_at = ?1 WHERE id = ?2",
+        params![now, project_id],
+    )?;
+    Ok(ProjectFile {
+        id: id.to_string(),
+        project_id: project_id.to_string(),
+        name: name.to_string(),
+        content_type: content_type.to_string(),
+        size: content.len() as i64,
+        created_at: now,
+    })
+}
+
+/// Get the raw content of a project file (for inclusion in chat context).
+pub fn get_project_file_content(
+    conn: &Connection,
+    file_id: &str,
+) -> Result<Option<(String, Vec<u8>)>, rusqlite::Error> {
+    let mut stmt = conn.prepare("SELECT name, content FROM project_files WHERE id = ?1")?;
+    let mut rows = stmt.query_map(params![file_id], |row| {
+        Ok((row.get::<_, String>(0)?, row.get::<_, Vec<u8>>(1)?))
+    })?;
+    rows.next().transpose()
+}
+
+/// Remove a file from a project.
+pub fn remove_project_file(conn: &Connection, file_id: &str) -> Result<(), rusqlite::Error> {
+    // Touch the parent project before deleting
+    conn.execute(
+        "UPDATE projects SET updated_at = datetime('now')
+         WHERE id = (SELECT project_id FROM project_files WHERE id = ?1)",
+        params![file_id],
+    )?;
+    conn.execute("DELETE FROM project_files WHERE id = ?1", params![file_id])?;
+    Ok(())
+}
+
+/// List conversations belonging to a project.
+pub fn list_project_conversations(
+    conn: &Connection,
+    project_id: &str,
+) -> Result<Vec<Conversation>, rusqlite::Error> {
+    let mut stmt = conn.prepare(
+        "SELECT id, title, agent_id, project_id, model, is_favourite, created_at, updated_at
+         FROM conversations WHERE project_id = ?1 ORDER BY updated_at DESC",
+    )?;
+    let rows = stmt.query_map(params![project_id], |row| {
+        Ok(Conversation {
+            id: row.get(0)?,
+            title: row.get(1)?,
+            agent_id: row.get(2)?,
+            project_id: row.get(3)?,
+            model: row.get(4)?,
+            is_favourite: row.get::<_, i64>(5)? != 0,
+            created_at: row.get(6)?,
+            updated_at: row.get(7)?,
+        })
+    })?;
+    rows.collect()
+}
+
+/// Get all project file names + text content for building chat context.
+/// Only returns files whose content_type starts with "text/".
+pub fn get_project_text_files(
+    conn: &Connection,
+    project_id: &str,
+) -> Result<Vec<(String, String)>, rusqlite::Error> {
+    let mut stmt = conn.prepare(
+        "SELECT name, content FROM project_files
+         WHERE project_id = ?1 AND content_type LIKE 'text/%'
+         ORDER BY name ASC",
+    )?;
+    let rows = stmt.query_map(params![project_id], |row| {
+        let name: String = row.get(0)?;
+        let bytes: Vec<u8> = row.get(1)?;
+        let text = String::from_utf8_lossy(&bytes).to_string();
+        Ok((name, text))
+    })?;
+    rows.collect()
+}
+
 // ── Tests ───────────────────────────────────────────────────────
 
 #[cfg(test)]
@@ -870,7 +1122,7 @@ mod tests {
         assert_eq!(found.unwrap().title, Some("Test Chat".to_string()));
 
         // Update
-        update_conversation(&conn, "c1", Some("Renamed"), Some(true), None).unwrap();
+        update_conversation(&conn, "c1", Some("Renamed"), Some(true), None, None).unwrap();
         let updated = get_conversation(&conn, "c1").unwrap().unwrap();
         assert_eq!(updated.title, Some("Renamed".to_string()));
         assert!(updated.is_favourite);
@@ -1287,5 +1539,136 @@ mod tests {
         // The agent_skills FK won't cascade by default since skill_id isn't a FK,
         // but let's verify the skill is gone and clean up manually
         assert!(get_skill(&conn, "sk1").unwrap().is_none());
+    }
+
+    #[test]
+    fn test_project_crud() {
+        let conn = setup_db();
+
+        // Initially no projects
+        let projects = list_projects(&conn).unwrap();
+        assert!(projects.is_empty());
+
+        // Create
+        let proj = create_project(&conn, "p1", "My Project", Some("Custom instructions")).unwrap();
+        assert_eq!(proj.name, "My Project");
+        assert_eq!(proj.instructions, Some("Custom instructions".to_string()));
+        assert_eq!(proj.file_count, 0);
+
+        // List
+        let projects = list_projects(&conn).unwrap();
+        assert_eq!(projects.len(), 1);
+
+        // Get
+        let found = get_project(&conn, "p1").unwrap().unwrap();
+        assert_eq!(found.name, "My Project");
+
+        // Update name
+        update_project(&conn, "p1", Some("Renamed Project"), None).unwrap();
+        let updated = get_project(&conn, "p1").unwrap().unwrap();
+        assert_eq!(updated.name, "Renamed Project");
+
+        // Update instructions (clear)
+        update_project(&conn, "p1", None, Some(None)).unwrap();
+        let updated = get_project(&conn, "p1").unwrap().unwrap();
+        assert!(updated.instructions.is_none());
+
+        // Delete
+        delete_project(&conn, "p1").unwrap();
+        assert!(get_project(&conn, "p1").unwrap().is_none());
+    }
+
+    #[test]
+    fn test_project_files() {
+        let conn = setup_db();
+        create_project(&conn, "p1", "Test Project", None).unwrap();
+
+        // Add file
+        let file = add_project_file(
+            &conn,
+            "f1",
+            "p1",
+            "config.json",
+            "text/json",
+            b"{\"key\": \"value\"}",
+        )
+        .unwrap();
+        assert_eq!(file.name, "config.json");
+        assert_eq!(file.size, 16);
+
+        // List files
+        let files = list_project_files(&conn, "p1").unwrap();
+        assert_eq!(files.len(), 1);
+        assert_eq!(files[0].content_type, "text/json");
+
+        // File count on project
+        let proj = get_project(&conn, "p1").unwrap().unwrap();
+        assert_eq!(proj.file_count, 1);
+
+        // Get content
+        let (name, content) = get_project_file_content(&conn, "f1").unwrap().unwrap();
+        assert_eq!(name, "config.json");
+        assert_eq!(content, b"{\"key\": \"value\"}");
+
+        // Get text files
+        let text_files = get_project_text_files(&conn, "p1").unwrap();
+        assert_eq!(text_files.len(), 1);
+        assert_eq!(text_files[0].0, "config.json");
+
+        // Remove file
+        remove_project_file(&conn, "f1").unwrap();
+        let files = list_project_files(&conn, "p1").unwrap();
+        assert!(files.is_empty());
+
+        // File count should be 0
+        let proj = get_project(&conn, "p1").unwrap().unwrap();
+        assert_eq!(proj.file_count, 0);
+    }
+
+    #[test]
+    fn test_project_conversations() {
+        let conn = setup_db();
+        create_project(&conn, "p1", "Test Project", None).unwrap();
+
+        // Create conversation with project
+        create_conversation(&conn, "c1", Some("Chat 1"), None, Some("p1"), None).unwrap();
+        create_conversation(&conn, "c2", Some("Chat 2"), None, None, None).unwrap();
+
+        // List project conversations
+        let convos = list_project_conversations(&conn, "p1").unwrap();
+        assert_eq!(convos.len(), 1);
+        assert_eq!(convos[0].id, "c1");
+
+        // Assign c2 to project
+        update_conversation(&conn, "c2", None, None, None, Some(Some("p1"))).unwrap();
+        let convos = list_project_conversations(&conn, "p1").unwrap();
+        assert_eq!(convos.len(), 2);
+
+        // Unassign c1
+        update_conversation(&conn, "c1", None, None, None, Some(None)).unwrap();
+        let convos = list_project_conversations(&conn, "p1").unwrap();
+        assert_eq!(convos.len(), 1);
+        assert_eq!(convos[0].id, "c2");
+
+        // Delete project should unlink conversations
+        delete_project(&conn, "p1").unwrap();
+        let c2 = get_conversation(&conn, "c2").unwrap().unwrap();
+        assert!(c2.project_id.is_none());
+    }
+
+    #[test]
+    fn test_project_cascade_delete_files() {
+        let conn = setup_db();
+        create_project(&conn, "p1", "Test Project", None).unwrap();
+        add_project_file(&conn, "f1", "p1", "file.txt", "text/plain", b"hello").unwrap();
+        add_project_file(&conn, "f2", "p1", "file2.txt", "text/plain", b"world").unwrap();
+
+        let files = list_project_files(&conn, "p1").unwrap();
+        assert_eq!(files.len(), 2);
+
+        // Delete project should cascade to files
+        delete_project(&conn, "p1").unwrap();
+        let files = list_project_files(&conn, "p1").unwrap();
+        assert!(files.is_empty());
     }
 }

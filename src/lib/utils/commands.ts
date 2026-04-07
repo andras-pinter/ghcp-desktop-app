@@ -7,6 +7,7 @@ import type { Message, ChatMessage, Model } from "$lib/types/message";
 import type { SearchResult, ExtractedContent } from "$lib/types/web-research";
 import type { Agent } from "$lib/types/agent";
 import type { Skill } from "$lib/types/skill";
+import type { Project, ProjectFile, FileUpload, ChatFileData } from "$lib/types/project";
 import type { RegistrySearchResult, GitSkillFile, RegistryItem } from "$lib/types/registry";
 import type {
   McpConnectionInfo,
@@ -52,8 +53,14 @@ export async function sendMessage(
   messages: ChatMessage[],
   model: string,
   agentId?: string | null,
+  projectId?: string | null,
 ): Promise<void> {
-  return invoke("send_message", { messages, model, agentId: agentId ?? null });
+  return invoke("send_message", {
+    messages,
+    model,
+    agentId: agentId ?? null,
+    projectId: projectId ?? null,
+  });
 }
 
 /** Cancel an in-flight streaming response. */
@@ -103,12 +110,14 @@ export async function updateConversation(
   title?: string | null,
   isFavourite?: boolean | null,
   model?: string | null,
+  projectId?: string | null | undefined,
 ): Promise<void> {
   return invoke("update_conversation", {
     id,
     title: title ?? null,
     isFavourite: isFavourite ?? null,
     model: model ?? null,
+    projectId: projectId === undefined ? null : projectId,
   });
 }
 
@@ -458,4 +467,98 @@ export async function importGitSkill(
   path: string,
 ): Promise<Skill> {
   return invoke<Skill>("import_git_skill", { content, repoUrl, path });
+}
+
+// ── Projects ────────────────────────────────────────────────────
+
+/** List all projects. */
+export async function getProjects(): Promise<Project[]> {
+  return invoke<Project[]>("get_projects");
+}
+
+/** Get a single project by ID. */
+export async function getProject(id: string): Promise<Project | null> {
+  return invoke<Project | null>("get_project", { id });
+}
+
+/** Create a new project. */
+export async function createProject(
+  id: string,
+  name: string,
+  instructions?: string | null,
+): Promise<Project> {
+  return invoke<Project>("create_project", {
+    id,
+    name,
+    instructions: instructions ?? null,
+  });
+}
+
+/** Update a project's name and/or instructions. */
+export async function updateProject(
+  id: string,
+  name?: string | null,
+  instructions?: string | null | undefined,
+): Promise<void> {
+  return invoke("update_project", {
+    id,
+    name: name ?? null,
+    instructions: instructions === undefined ? null : instructions,
+  });
+}
+
+/** Delete a project (files cascade, conversations unlinked). */
+export async function deleteProject(id: string): Promise<void> {
+  return invoke("delete_project", { id });
+}
+
+/** List files attached to a project (metadata only). */
+export async function getProjectFiles(projectId: string): Promise<ProjectFile[]> {
+  return invoke<ProjectFile[]>("get_project_files", { projectId });
+}
+
+/** Upload a file to a project (base64-encoded content). */
+export async function addProjectFile(projectId: string, file: FileUpload): Promise<ProjectFile> {
+  return invoke<ProjectFile>("add_project_file", { projectId, file });
+}
+
+/** Get a project file's content as base64. */
+export async function getProjectFileContent(fileId: string): Promise<string | null> {
+  return invoke<string | null>("get_project_file_content", { fileId });
+}
+
+/** Remove a file from a project. */
+export async function removeProjectFile(fileId: string): Promise<void> {
+  return invoke("remove_project_file", { fileId });
+}
+
+/** List conversations belonging to a project. */
+export async function getProjectConversations(projectId: string): Promise<Conversation[]> {
+  return invoke<Conversation[]>("get_project_conversations", { projectId });
+}
+
+/** Open a native file dialog and read the selected file for project upload. Returns null if cancelled. */
+export async function pickFileForUpload(): Promise<FileUpload | null> {
+  return invoke<FileUpload | null>("pick_file_for_upload");
+}
+
+/** Open a native file dialog and read the selected file for chat attachments. Returns null if cancelled. */
+export async function pickFileForChat(): Promise<ChatFileData | null> {
+  return invoke<ChatFileData | null>("pick_file_for_chat");
+}
+
+/** Extract readable text from a base64-encoded file (PDF, DOCX, XLSX, PPTX, RTF, text, etc.). */
+export async function extractFileText(
+  contentBase64: string,
+  contentType: string,
+  name: string,
+): Promise<string | null> {
+  return invoke<string | null>("extract_file_text", { contentBase64, contentType, name });
+}
+
+/** Read files from OS-level drag-and-drop paths via Tauri backend. */
+export async function readDroppedFiles(
+  paths: string[],
+): Promise<import("$lib/types/project").ChatFileData[]> {
+  return invoke<import("$lib/types/project").ChatFileData[]>("read_dropped_files", { paths });
 }

@@ -33,3 +33,15 @@ export function onNetworkStatus(callback: (online: boolean) => void): Promise<Un
     callback(event.payload);
   });
 }
+
+export interface ContextSummarizedPayload {
+  count: number;
+}
+
+export function onContextSummarized(
+  callback: (payload: ContextSummarizedPayload) => void,
+): Promise<UnlistenFn> {
+  return listen<ContextSummarizedPayload>("context-summarized", (event) => {
+    callback(event.payload);
+  });
+}

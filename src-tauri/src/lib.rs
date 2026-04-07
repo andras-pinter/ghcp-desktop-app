@@ -5,6 +5,7 @@ mod db;
 pub mod registry;
 pub mod skillmd;
 mod state;
+pub mod text_extract;
 
 use state::AppState;
 use tauri::Manager;
@@ -124,6 +125,20 @@ pub fn run(force_logout: bool) {
             commands::skills::install_from_registry,
             commands::skills::fetch_git_skills,
             commands::skills::import_git_skill,
+            commands::projects::get_projects,
+            commands::projects::get_project,
+            commands::projects::create_project,
+            commands::projects::update_project,
+            commands::projects::delete_project,
+            commands::projects::get_project_files,
+            commands::projects::add_project_file,
+            commands::projects::get_project_file_content,
+            commands::projects::remove_project_file,
+            commands::projects::get_project_conversations,
+            commands::projects::pick_file_for_upload,
+            commands::projects::pick_file_for_chat,
+            commands::projects::extract_file_text,
+            commands::projects::read_dropped_files,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Chuck");

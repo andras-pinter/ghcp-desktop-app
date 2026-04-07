@@ -5,15 +5,17 @@
   import McpSettings from "$lib/components/McpSettings.svelte";
   import SkillsPanel from "$lib/components/SkillsPanel.svelte";
   import AgentsPanel from "$lib/components/AgentsPanel.svelte";
+  import ProjectView from "$lib/components/ProjectView.svelte";
   import { initAuth, getAuth } from "$lib/stores/auth.svelte";
   import { initModels } from "$lib/stores/models.svelte";
   import { initConversations } from "$lib/stores/conversations.svelte";
   import { initMcp } from "$lib/stores/mcp.svelte";
   import { initAgents } from "$lib/stores/agents.svelte";
   import { initSkills } from "$lib/stores/skills.svelte";
+  import { initProjects } from "$lib/stores/projects.svelte";
   import { onMount } from "svelte";
 
-  type AppView = "chat" | "mcp-settings" | "skills" | "agents";
+  type AppView = "chat" | "mcp-settings" | "skills" | "agents" | "projects";
 
   let sidebarCollapsed = $state(false);
   let dataLoaded = $state(false);
@@ -22,13 +24,31 @@
 
   onMount(() => {
     initAuth();
+
+    // Prevent Tauri webview from navigating when files are dragged/dropped
+    // outside the designated drop zone. Only preventDefault — do NOT
+    // stopPropagation, so InputArea's own handlers still fire.
+    const preventDragNav = (e: DragEvent) => e.preventDefault();
+    document.addEventListener("dragover", preventDragNav);
+    document.addEventListener("drop", preventDragNav);
+    return () => {
+      document.removeEventListener("dragover", preventDragNav);
+      document.removeEventListener("drop", preventDragNav);
+    };
   });
 
   // Load conversations & models whenever auth becomes true (startup or fresh login)
   $effect(() => {
     if (auth.authenticated && !dataLoaded) {
       dataLoaded = true;
-      Promise.all([initConversations(), initModels(), initMcp(), initAgents(), initSkills()]);
+      Promise.all([
+        initConversations(),
+        initModels(),
+        initMcp(),
+        initAgents(),
+        initSkills(),
+        initProjects(),
+      ]);
     } else if (!auth.authenticated) {
       dataLoaded = false;
     }
@@ -114,6 +134,13 @@
           <SkillsPanel onBack={navigateBack} />
         {:else if currentView === "agents"}
           <AgentsPanel onBack={navigateBack} />
+        {:else if currentView === "projects"}
+          <ProjectView
+            onBack={navigateBack}
+            onOpenChat={() => {
+              currentView = "chat";
+            }}
+          />
         {:else}
           <ChatView />
         {/if}
