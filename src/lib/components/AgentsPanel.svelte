@@ -943,28 +943,6 @@
     color: #fff;
   }
 
-  /* ── Create CTA (dashed) ── */
-
-  .create-cta {
-    width: 100%;
-    padding: var(--spacing-md);
-    background: none;
-    border: 1px dashed var(--color-border-secondary);
-    border-radius: var(--radius-md);
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-sm);
-    font-family: var(--font-body);
-    cursor: pointer;
-    transition:
-      color var(--transition-fast),
-      border-color var(--transition-fast);
-    margin-top: var(--spacing-sm);
-  }
-  .create-cta:hover {
-    color: var(--color-accent-copper);
-    border-color: var(--color-accent-copper);
-  }
-
   /* ── Delete Confirmation ── */
 
   .confirm-overlay {
@@ -1015,14 +993,6 @@
     max-width: 640px;
     margin: 0 auto;
     animation: fadeInUp 200ms ease;
-  }
-
-  .form-title {
-    font-family: var(--font-display);
-    font-style: italic;
-    font-size: var(--font-size-lg);
-    color: var(--color-text-primary);
-    margin: 0 0 var(--spacing-lg) 0;
   }
 
   .form-error {
@@ -1371,7 +1341,7 @@
     padding: var(--spacing-xs) var(--spacing-sm);
     font-size: var(--font-size-sm);
     font-family: var(--font-body);
-    border: 1px solid var(--color-border);
+    border: 1px solid var(--color-border-primary);
     border-radius: var(--radius-sm);
     background: var(--color-bg-primary);
     color: var(--color-text-primary);
@@ -1416,7 +1386,7 @@
   .registry-card,
   .git-file-card {
     padding: var(--spacing-sm);
-    border: 1px solid var(--color-border);
+    border: 1px solid var(--color-border-primary);
     border-radius: var(--radius-md, var(--radius-sm));
     background: var(--color-bg-primary);
   }

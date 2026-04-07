@@ -288,15 +288,12 @@
         {#if builtinSkills.length > 0}
           <h4 class="group-heading">Built-in</h4>
           {#each builtinSkills as skill (skill.id)}
-            <article class="skill-card">
+            <article
+              class="skill-card"
+              ondblclick={() => toggleExpandSkill(skill.id)}
+              title="Double-click to expand"
+            >
               <div class="skill-main">
-                <button
-                  class="skill-expand-btn"
-                  class:expanded={expandedSkillId === skill.id}
-                  onclick={() => toggleExpandSkill(skill.id)}
-                  aria-label={expandedSkillId === skill.id ? "Collapse details" : "Expand details"}
-                  >▶</button
-                >
                 <div class="skill-info">
                   <strong class="skill-name">{skill.name}</strong>
                   <span class="source-badge builtin">{sourceBadge(skill)}</span>
@@ -309,6 +306,7 @@
                   />
                   <span class="toggle-track"></span>
                 </label>
+                <span class="expand-chevron" class:expanded={expandedSkillId === skill.id}>›</span>
               </div>
               {#if skill.description}
                 <p class="skill-desc">{skill.description}</p>
@@ -339,15 +337,12 @@
         {#if extensionSkills.length > 0}
           <h4 class="group-heading">Copilot Extensions</h4>
           {#each extensionSkills as skill (skill.id)}
-            <article class="skill-card">
+            <article
+              class="skill-card"
+              ondblclick={() => toggleExpandSkill(skill.id)}
+              title="Double-click to expand"
+            >
               <div class="skill-main">
-                <button
-                  class="skill-expand-btn"
-                  class:expanded={expandedSkillId === skill.id}
-                  onclick={() => toggleExpandSkill(skill.id)}
-                  aria-label={expandedSkillId === skill.id ? "Collapse details" : "Expand details"}
-                  >▶</button
-                >
                 <div class="skill-info">
                   <strong class="skill-name">{skill.name}</strong>
                   <span class="source-badge extension">{sourceBadge(skill)}</span>
@@ -360,6 +355,7 @@
                   />
                   <span class="toggle-track"></span>
                 </label>
+                <span class="expand-chevron" class:expanded={expandedSkillId === skill.id}>›</span>
               </div>
               {#if skill.description}
                 <p class="skill-desc">{skill.description}</p>
@@ -393,7 +389,11 @@
             <div class="mcp-group">
               <h5 class="mcp-server-name">{group.name}</h5>
               {#each group.skills as skill (skill.id)}
-                <article class="skill-card">
+                <article
+                  class="skill-card"
+                  ondblclick={() => toggleExpandSkill(skill.id)}
+                  title="Double-click to expand"
+                >
                   <div class="skill-main">
                     <button
                       class="skill-expand-btn"
@@ -415,6 +415,9 @@
                       />
                       <span class="toggle-track"></span>
                     </label>
+                    <span class="expand-chevron" class:expanded={expandedSkillId === skill.id}
+                      >›</span
+                    >
                   </div>
                   {#if skill.description}
                     <p class="skill-desc">{skill.description}</p>
@@ -447,15 +450,12 @@
         {#if registrySkills.length > 0}
           <h4 class="group-heading">Registry</h4>
           {#each registrySkills as skill (skill.id)}
-            <article class="skill-card">
+            <article
+              class="skill-card"
+              ondblclick={() => toggleExpandSkill(skill.id)}
+              title="Double-click to expand"
+            >
               <div class="skill-main">
-                <button
-                  class="skill-expand-btn"
-                  class:expanded={expandedSkillId === skill.id}
-                  onclick={() => toggleExpandSkill(skill.id)}
-                  aria-label={expandedSkillId === skill.id ? "Collapse details" : "Expand details"}
-                  >▶</button
-                >
                 <div class="skill-info">
                   <strong class="skill-name">{skill.name}</strong>
                   <span class="source-badge registry">{sourceBadge(skill)}</span>
@@ -495,6 +495,7 @@
                     <span class="toggle-track"></span>
                   </label>
                 </div>
+                <span class="expand-chevron" class:expanded={expandedSkillId === skill.id}>›</span>
               </div>
               {#if skill.description}
                 <p class="skill-desc">{skill.description}</p>
@@ -525,15 +526,12 @@
         {#if gitSkills.length > 0}
           <h4 class="group-heading">Git Imported</h4>
           {#each gitSkills as skill (skill.id)}
-            <article class="skill-card">
+            <article
+              class="skill-card"
+              ondblclick={() => toggleExpandSkill(skill.id)}
+              title="Double-click to expand"
+            >
               <div class="skill-main">
-                <button
-                  class="skill-expand-btn"
-                  class:expanded={expandedSkillId === skill.id}
-                  onclick={() => toggleExpandSkill(skill.id)}
-                  aria-label={expandedSkillId === skill.id ? "Collapse details" : "Expand details"}
-                  >▶</button
-                >
                 <div class="skill-info">
                   <strong class="skill-name">{skill.name}</strong>
                   <span class="source-badge git">{sourceBadge(skill)}</span>
@@ -573,6 +571,7 @@
                     <span class="toggle-track"></span>
                   </label>
                 </div>
+                <span class="expand-chevron" class:expanded={expandedSkillId === skill.id}>›</span>
               </div>
               {#if skill.description}
                 <p class="skill-desc">{skill.description}</p>
@@ -897,7 +896,7 @@
     font-size: var(--font-size-xs);
     font-weight: var(--font-weight-medium);
     padding: var(--spacing-xs) var(--spacing-sm);
-    border: 1px solid var(--color-border-primary, var(--color-border));
+    border: 1px solid var(--color-border-primary);
     border-radius: var(--radius-sm);
     background: var(--color-bg-primary);
     color: var(--color-text-secondary);
@@ -1463,32 +1462,34 @@
 
   /* ── Expand/Collapse ── */
 
-  .skill-expand-btn {
-    background: none;
-    border: none;
-    cursor: pointer;
-    font-size: 12px;
-    color: var(--color-text-secondary);
-    padding: 4px 6px;
-    margin-right: var(--spacing-xs);
+  .skill-card {
+    cursor: default;
+    user-select: text;
+  }
+
+  .expand-chevron {
+    font-size: 18px;
+    color: var(--color-text-tertiary);
+    margin-left: auto;
+    flex-shrink: 0;
     transition:
       transform 0.2s ease,
       color 0.15s;
-    flex-shrink: 0;
-    border-radius: var(--radius-sm);
+    line-height: 1;
+    padding: 2px 4px;
   }
 
-  .skill-expand-btn:hover {
-    color: var(--color-text-primary);
-    background: var(--color-bg-tertiary, var(--color-bg-secondary));
+  .skill-card:hover .expand-chevron {
+    color: var(--color-text-secondary);
   }
 
-  .skill-expand-btn.expanded {
+  .expand-chevron.expanded {
     transform: rotate(90deg);
+    color: var(--color-accent-copper);
   }
 
   .skill-details {
-    border-top: 1px solid var(--color-border);
+    border-top: 1px solid var(--color-border-primary);
     padding: var(--spacing-sm) var(--spacing-xs);
     margin-top: var(--spacing-xs);
   }
@@ -1560,7 +1561,7 @@
     padding: var(--spacing-xs) var(--spacing-sm);
     font-size: var(--font-size-sm);
     font-family: var(--font-body);
-    border: 1px solid var(--color-border);
+    border: 1px solid var(--color-border-primary);
     border-radius: var(--radius-sm);
     background: var(--color-bg-primary);
     color: var(--color-text-primary);
@@ -1579,7 +1580,7 @@
     padding: var(--spacing-xs) var(--spacing-sm);
     font-size: var(--font-size-sm);
     font-family: var(--font-body);
-    border: 1px solid var(--color-border);
+    border: 1px solid var(--color-border-primary);
     border-radius: var(--radius-sm);
     background: var(--color-bg-primary);
     color: var(--color-text-primary);
