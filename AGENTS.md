@@ -869,7 +869,7 @@ copilot-desktop/
 │   │   │   ├── WebResultCard.svelte     # Cited web search result card
 │   │   │   ├── AuthScreen.svelte        # OAuth login/welcome screen
 │   │   │   ├── SettingsPanel.svelte     # Settings (account, theme, model, MCP, export, DB, shortcuts) (⬚ Phase 10)
-│   │   │   ├── ProjectView.svelte       # Project detail (instructions, files, conversations) (⬚ Phase 9)
+│   │   │   ├── ProjectView.svelte       # Project detail (instructions, files, conversations)
 │   │   │   ├── AgentsPanel.svelte       # Agent management (create/edit/delete + registry browse + git import)
 │   │   │   ├── SkillsPanel.svelte       # Skills browser (local + registry + git import, toggle on/off)
 │   │   │   ├── McpSettings.svelte       # MCP server management (add, configure, test, browse registry)
@@ -883,7 +883,7 @@ copilot-desktop/
 │   │   │   ├── mcp.svelte.ts            # MCP server connections state
 │   │   │   ├── agents.svelte.ts         # Agent personas state
 │   │   │   ├── skills.svelte.ts         # Skills/extensions state
-│   │   │   ├── projects.svelte.ts       # Projects state (⬚ Phase 9)
+│   │   │   ├── projects.svelte.ts       # Projects state
 │   │   │   ├── settings.svelte.ts       # User preferences (⬚ Phase 10)
 │   │   │   ├── theme.svelte.ts          # Light/dark theme state (⬚ Phase 10)
 │   │   │   └── network.svelte.ts        # Online/offline state (⬚ Phase 10)
@@ -1709,10 +1709,10 @@ INSERT INTO config (key, value) VALUES ('schema_version', '1');
 34. ✅ **agent-selector** — Agent picker in `InputArea.svelte` next to model selector. Conversations tied to agents. Mid-conversation change warning.
 35. ✅ **sidebar-skills-agents** — Add Skills (⚡) and Agents (🤖) nav buttons to Sidebar bottom section.
 
-### Phase 9: Projects & File Context
-36. ⬚ **projects** — `ProjectView.svelte`: named project containers with custom instructions, pinned files (stored as BLOBs in SQLite), grouped conversations. Project selector in sidebar.
-37. ⬚ **file-context** — User-initiated only: read file contents into memory via drag-and-drop or `tauri-plugin-dialog` file picker. Preview in input. Never retain paths or re-read from disk.
-38. ⬚ **context-window** — Implement conversation summarization for long chats. Older messages summarized into condensed recap. Visual indicator when summarization has occurred.
+### Phase 9: Projects & File Context ✅
+36. ✅ **projects** — `ProjectView.svelte`: named project containers with custom instructions, pinned files (stored as BLOBs in SQLite), grouped conversations. Project selector in sidebar.
+37. ✅ **file-context** — User-initiated only: read file contents into memory via drag-and-drop or `tauri-plugin-dialog` file picker. Preview in input. Never retain paths or re-read from disk.
+38. ✅ **context-window** — Implement conversation summarization for long chats. Older messages summarized into condensed recap. Visual indicator when summarization has occurred.
 
 ### Phase 10: Polish & Platform Features
 39. ⬚ **settings-panel** — `SettingsPanel.svelte`: account, theme, font size, default model, keyboard shortcuts, MCP management, conversation export (JSON + Markdown), database size display + cleanup, clear history

@@ -4,8 +4,14 @@
   import SearchOverlay from "./SearchOverlay.svelte";
   import type { Message, ChatMessage } from "$lib/types/message";
   import type { UrlPreview } from "$lib/types/web-research";
+  import type { ChatFileData } from "$lib/types/project";
   import { sendMessage, stopStreaming, updateConversation } from "$lib/utils/commands";
-  import { onStreamingToken, onStreamingComplete, onStreamingError } from "$lib/utils/events";
+  import {
+    onStreamingToken,
+    onStreamingComplete,
+    onStreamingError,
+    onContextSummarized,
+  } from "$lib/utils/events";
   import { onMount, onDestroy } from "svelte";
   import type { UnlistenFn } from "@tauri-apps/api/event";
   import {
@@ -49,6 +55,10 @@
   let unlistenToken: UnlistenFn | undefined;
   let unlistenComplete: UnlistenFn | undefined;
   let unlistenError: UnlistenFn | undefined;
+  let unlistenSummarized: UnlistenFn | undefined;
+
+  /** Number of older messages that were summarized in the current conversation. */
+  let summarizedCount = $state(0);
 
   // Use persisted default model on first load, then fall back to first available
   let defaultApplied = false;
@@ -64,6 +74,13 @@
         selectedModel = modelStore.models[0].id;
       }
     }
+  });
+
+  // Reset summarization banner when switching conversations
+  $effect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+    store.activeConversationId;
+    summarizedCount = 0;
   });
 
   // Track the assistant message ID being streamed so we can persist on complete
@@ -107,16 +124,21 @@
         updateMessageContentStore(last.id, `⚠️ Error: ${error}`);
       }
     });
+
+    unlistenSummarized = await onContextSummarized((payload) => {
+      summarizedCount = payload.count;
+    });
   });
 
   onDestroy(() => {
     unlistenToken?.();
     unlistenComplete?.();
     unlistenError?.();
+    unlistenSummarized?.();
     if (draftTimer) clearTimeout(draftTimer);
   });
 
-  async function handleSend(text: string, urls?: UrlPreview[]) {
+  async function handleSend(text: string, urls?: UrlPreview[], files?: ChatFileData[]) {
     // Ensure we have an active conversation
     let convId = store.activeConversationId;
     if (!convId) {
@@ -142,6 +164,30 @@
         .join("");
       if (urlContext) {
         content = text + urlContext;
+      }
+    }
+
+    // Append file content as context (text files decoded, binary summarized)
+    if (files && files.length > 0) {
+      const fileContext = files
+        .map((f) => {
+          if (f.contentType.startsWith("text/") || f.contentType === "application/json") {
+            try {
+              const decoded = atob(f.contentBase64);
+              const truncated =
+                decoded.length > 50_000
+                  ? decoded.slice(0, 50_000) + `\n...[truncated, ${decoded.length} chars total]`
+                  : decoded;
+              return `\n\n---\n📎 ${f.name} (${f.contentType})\n\n\`\`\`\n${truncated}\n\`\`\``;
+            } catch {
+              return `\n\n---\n📎 ${f.name} (${f.contentType}, binary, not shown)`;
+            }
+          }
+          return `\n\n---\n📎 ${f.name} (${f.contentType}, binary, not shown)`;
+        })
+        .join("");
+      if (fileContext) {
+        content = content + fileContext;
       }
     }
 
@@ -180,7 +226,12 @@
       .map((m) => ({ role: m.role, content: m.content }));
 
     try {
-      await sendMessage(apiMessages, selectedModel, agentStore.selectedAgentId);
+      await sendMessage(
+        apiMessages,
+        selectedModel,
+        agentStore.selectedAgentId,
+        store.activeConversation?.projectId,
+      );
     } catch (e) {
       streaming = false;
       streamingAssistantId = null;
@@ -283,7 +334,12 @@
       .map((m) => ({ role: m.role, content: m.content }));
 
     try {
-      await sendMessage(apiMessages, selectedModel, agentStore.selectedAgentId);
+      await sendMessage(
+        apiMessages,
+        selectedModel,
+        agentStore.selectedAgentId,
+        store.activeConversation?.projectId,
+      );
     } catch (e) {
       streaming = false;
       streamingAssistantId = null;
@@ -354,6 +410,21 @@
     {/if}
     <div class="chat-messages" bind:this={chatContainer} role="log" aria-label="Chat messages">
       <div class="messages-inner">
+        {#if summarizedCount > 0}
+          <div class="context-summary-banner" role="status">
+            <span class="summary-icon">ℹ️</span>
+            <span
+              >{summarizedCount} older message{summarizedCount === 1 ? "" : "s"} condensed into summary</span
+            >
+            <button
+              class="summary-dismiss"
+              onclick={() => (summarizedCount = 0)}
+              aria-label="Dismiss"
+            >
+              ✕
+            </button>
+          </div>
+        {/if}
         {#each store.messages as message, i (message.id)}
           <div class="message-entry" style:animation-delay="{Math.min(i * 40, 200)}ms">
             <MessageBubble
@@ -450,6 +521,41 @@
     padding: 0 var(--spacing-xl);
     display: flex;
     flex-direction: column;
+  }
+
+  .context-summary-banner {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
+    margin-bottom: var(--spacing-md);
+    border: 1px dashed var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-bg-secondary);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    animation: fadeIn 300ms ease both;
+  }
+
+  .summary-icon {
+    flex-shrink: 0;
+  }
+
+  .summary-dismiss {
+    margin-left: auto;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--color-text-secondary);
+    padding: 2px 6px;
+    border-radius: var(--radius-xs);
+    font-size: var(--font-size-sm);
+    opacity: 0.6;
+    transition: opacity 150ms ease;
+  }
+
+  .summary-dismiss:hover {
+    opacity: 1;
   }
 
   .message-entry {

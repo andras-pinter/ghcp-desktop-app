@@ -46,7 +46,7 @@ pub fn create_conversation(
     .map_err(|e| e.to_string())
 }
 
-/// Update conversation fields (title, favourite, model).
+/// Update conversation fields (title, favourite, model, project).
 #[tauri::command]
 pub fn update_conversation(
     app: AppHandle,
@@ -54,11 +54,20 @@ pub fn update_conversation(
     title: Option<String>,
     is_favourite: Option<bool>,
     model: Option<String>,
+    project_id: Option<Option<String>>,
 ) -> Result<(), String> {
     let state = app.state::<AppState>();
     let db = state.db.lock().map_err(|e| e.to_string())?;
-    queries::update_conversation(&db, &id, title.as_deref(), is_favourite, model.as_deref())
-        .map_err(|e| e.to_string())
+    let pid = project_id.as_ref().map(|p| p.as_deref());
+    queries::update_conversation(
+        &db,
+        &id,
+        title.as_deref(),
+        is_favourite,
+        model.as_deref(),
+        pid,
+    )
+    .map_err(|e| e.to_string())
 }
 
 /// Delete a conversation (messages + drafts cascade).

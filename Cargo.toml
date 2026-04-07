@@ -17,5 +17,6 @@ anyhow = "1"
 log = "0.4"
 url = "2"
 uuid = { version = "1", features = ["v4"] }
+base64 = "0.22"
 chrono = { version = "0.4", features = ["serde"] }
 serde_norway = "0.9"

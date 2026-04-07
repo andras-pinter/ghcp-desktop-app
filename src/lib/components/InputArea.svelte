@@ -2,10 +2,12 @@
   import type { Model } from "$lib/types/message";
   import type { Agent } from "$lib/types/agent";
   import type { UrlPreview } from "$lib/types/web-research";
-  import { fetchUrl } from "$lib/utils/commands";
+  import type { ChatFileData } from "$lib/types/project";
+  import { fetchUrl, pickFileForChat } from "$lib/utils/commands";
+  import { formatBytes } from "$lib/utils/format";
 
   interface Props {
-    onSend: (text: string, urls?: UrlPreview[]) => void;
+    onSend: (text: string, urls?: UrlPreview[], files?: ChatFileData[]) => void;
     onStop?: () => void;
     streaming?: boolean;
     model?: string;
@@ -54,6 +56,10 @@
   let urlInputEl: HTMLInputElement | undefined = $state();
   let attachedUrls: UrlPreview[] = $state([]);
 
+  // File attachment state
+  let attachedFiles: ChatFileData[] = $state([]);
+  let fileDropActive = $state(false);
+
   // Sync initialValue prop on first mount
   $effect(() => {
     if (!initialized && initialValue) {
@@ -83,9 +89,14 @@
     const trimmed = inputText.trim();
     if (!trimmed || streaming) return;
     const urls = attachedUrls.filter((u) => u.content !== null);
-    onSend(trimmed, urls.length > 0 ? urls : undefined);
+    onSend(
+      trimmed,
+      urls.length > 0 ? urls : undefined,
+      attachedFiles.length > 0 ? attachedFiles : undefined,
+    );
     inputText = "";
     attachedUrls = [];
+    attachedFiles = [];
     urlInputVisible = false;
     urlInputText = "";
     if (textareaEl) {
@@ -202,6 +213,61 @@
     attachedUrls = attachedUrls.filter((u) => u.url !== url);
   }
 
+  /** Open file dialog (Rust-side) and attach the selected file. */
+  async function handleAttachFile() {
+    try {
+      const data = await pickFileForChat();
+      if (!data) return; // user cancelled
+      if (!attachedFiles.some((f) => f.name === data.name)) {
+        attachedFiles = [...attachedFiles, data];
+      }
+    } catch (e) {
+      console.error("File attach error:", e);
+    }
+  }
+
+  /** Remove an attached file. */
+  function removeFile(name: string) {
+    attachedFiles = attachedFiles.filter((f) => f.name !== name);
+  }
+
+  /** Handle drag-and-drop onto the input area. */
+  function handleDragOver(event: DragEvent) {
+    event.preventDefault();
+    fileDropActive = true;
+  }
+
+  function handleDragLeave() {
+    fileDropActive = false;
+  }
+
+  async function handleDrop(event: DragEvent) {
+    event.preventDefault();
+    fileDropActive = false;
+    const files = event.dataTransfer?.files;
+    if (!files || files.length === 0) return;
+
+    for (const file of files) {
+      if (attachedFiles.some((f) => f.name === file.name)) continue;
+      const arrayBuf = await file.arrayBuffer();
+      const bytes = new Uint8Array(arrayBuf);
+      let binary = "";
+      for (let i = 0; i < bytes.length; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      const base64 = btoa(binary);
+      attachedFiles = [
+        ...attachedFiles,
+        {
+          name: file.name,
+          contentType: file.type || "application/octet-stream",
+          size: file.size,
+          contentBase64: base64,
+        },
+      ];
+    }
+  }
+
   /** Handle paste — auto-detect URLs and add them. */
   function handlePaste(event: ClipboardEvent) {
     const text = event.clipboardData?.getData("text/plain")?.trim();
@@ -221,8 +287,32 @@
   });
 </script>
 
-<div class="input-area">
+<div
+  class="input-area"
+  class:file-drop-active={fileDropActive}
+  ondragover={handleDragOver}
+  ondragleave={handleDragLeave}
+  ondrop={handleDrop}
+  role="region"
+  aria-label="Message input area"
+>
   <div class="input-box">
+    {#if attachedFiles.length > 0}
+      <div class="file-pills">
+        {#each attachedFiles as file (file.name)}
+          <div class="file-pill">
+            <span class="file-pill-icon">📎</span>
+            <span class="file-pill-name">{file.name}</span>
+            <span class="file-pill-size">{formatBytes(file.size)}</span>
+            <button
+              class="pill-remove"
+              onclick={() => removeFile(file.name)}
+              aria-label="Remove file">✕</button
+            >
+          </div>
+        {/each}
+      </div>
+    {/if}
     {#if attachedUrls.length > 0}
       <div class="url-pills">
         {#each attachedUrls as urlPreview (urlPreview.url)}
@@ -303,7 +393,12 @@
     ></textarea>
     <div class="input-actions">
       <div class="actions-left">
-        <button class="action-btn" aria-label="Attach file" title="Attach file">
+        <button
+          class="action-btn"
+          aria-label="Attach file"
+          title="Attach file"
+          onclick={handleAttachFile}
+        >
           <svg
             width="16"
             height="16"
@@ -1037,5 +1132,73 @@
     background: var(--color-bg-hover);
     color: var(--color-text-tertiary);
     flex-shrink: 0;
+  }
+
+  /* ── File drop zone ── */
+
+  :global(.input-area).file-drop-active {
+    outline: 2px dashed var(--color-accent-copper);
+    outline-offset: -2px;
+    background: color-mix(in srgb, var(--color-accent-copper) 5%, transparent);
+  }
+
+  /* ── File pills ── */
+
+  .file-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 8px 12px 0;
+  }
+
+  .file-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border-secondary);
+    border-radius: var(--radius-sm);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-primary);
+    max-width: 200px;
+  }
+
+  .file-pill-icon {
+    font-size: 12px;
+    flex-shrink: 0;
+  }
+
+  .file-pill-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .file-pill-size {
+    color: var(--color-text-tertiary);
+    flex-shrink: 0;
+  }
+
+  .pill-remove {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border: none;
+    background: none;
+    cursor: pointer;
+    color: var(--color-text-tertiary);
+    font-size: 10px;
+    border-radius: var(--radius-sm);
+    flex-shrink: 0;
+    transition: all var(--transition-fast);
+    padding: 0;
+  }
+
+  .pill-remove:hover {
+    background: var(--color-bg-hover);
+    color: var(--color-error);
   }
 </style>

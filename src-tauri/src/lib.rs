@@ -124,6 +124,18 @@ pub fn run(force_logout: bool) {
             commands::skills::install_from_registry,
             commands::skills::fetch_git_skills,
             commands::skills::import_git_skill,
+            commands::projects::get_projects,
+            commands::projects::get_project,
+            commands::projects::create_project,
+            commands::projects::update_project,
+            commands::projects::delete_project,
+            commands::projects::get_project_files,
+            commands::projects::add_project_file,
+            commands::projects::get_project_file_content,
+            commands::projects::remove_project_file,
+            commands::projects::get_project_conversations,
+            commands::projects::pick_file_for_upload,
+            commands::projects::pick_file_for_chat,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Chuck");

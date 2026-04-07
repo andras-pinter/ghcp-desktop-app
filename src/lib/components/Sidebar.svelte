@@ -160,6 +160,24 @@
     <div class="sidebar-footer">
       <button
         class="nav-btn"
+        aria-label="Projects"
+        title="Projects"
+        onclick={() => onNavigate?.("projects")}
+      >
+        <svg
+          width="15"
+          height="15"
+          viewBox="0 0 16 16"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+        >
+          <path d="M2 3.5h4.5l1.5 1.5H14v8H2z" />
+        </svg>
+        <span class="nav-label">Projects</span>
+      </button>
+      <button
+        class="nav-btn"
         aria-label="Agents"
         title="Agents"
         onclick={() => onNavigate?.("agents")}
