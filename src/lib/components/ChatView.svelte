@@ -73,6 +73,21 @@
   const extractionCache = new SvelteMap<string, Promise<string | null>>();
   let extractionStatuses = $state<Record<string, "extracting" | "done" | "error">>({});
 
+  /** Escape a filename for safe embedding in markdown. Prevents XSS via crafted filenames. */
+  function sanitizeFilename(name: string): string {
+    let result = "";
+    for (const ch of name) {
+      const code = ch.charCodeAt(0);
+      if (code < 0x20) continue; // strip control characters
+      if ("<>&\"'`\\".includes(ch)) {
+        result += "_"; // replace chars that could break HTML or markdown fences
+      } else {
+        result += ch;
+      }
+    }
+    return result;
+  }
+
   async function setupDragDrop() {
     const webview = getCurrentWebview();
     unlistenDragDrop = await webview.onDragDropEvent(async (event) => {
@@ -95,12 +110,14 @@
         }));
         pendingDropFiles = placeholders;
 
-        // Read actual content, then start extraction immediately in background
+        // Read actual content, then start extraction immediately in background.
+        // Set extraction status BEFORE updating pendingDropFiles so there's no
+        // window where loading=false but extraction hasn't started (race condition).
         try {
           const files = await readDroppedFiles(paths);
           if (files.length > 0) {
-            pendingDropFiles = files;
             startExtractions(files);
+            pendingDropFiles = files;
           }
         } catch (e) {
           console.error("Failed to read dropped files:", e);
@@ -257,10 +274,11 @@
       ? "\n\n" +
         files
           .map((f) => {
+            const safe = sanitizeFilename(f.name);
             const status = extractionStatuses[f.name];
-            if (status === "done") return `📎 ${f.name}`;
-            if (status === "error") return `📎 ${f.name} (not extractable)`;
-            return `📎 ${f.name} — extracting…`;
+            if (status === "done") return `📎 ${safe}`;
+            if (status === "error") return `📎 ${safe} (not extractable)`;
+            return `📎 ${safe} — extracting…`;
           })
           .join("\n")
       : "";
@@ -303,6 +321,7 @@
       if (stillExtracting) extractingFiles = true;
 
       for (const f of files) {
+        const safe = sanitizeFilename(f.name);
         let extracted: string | null = null;
         const cached = extractionCache.get(f.name);
         if (cached) {
@@ -316,7 +335,7 @@
         const status = extractionStatuses[f.name];
         if (status === "error" || extracted === null || extracted === undefined) {
           extractedParts.push(
-            `\n\n---\n📎 ${f.name} (${f.contentType}, unsupported format — content not shown)`,
+            `\n\n---\n📎 ${safe} (${f.contentType}, unsupported format — content not shown)`,
           );
         } else {
           const truncated =
@@ -324,7 +343,7 @@
               ? extracted.slice(0, 50_000) + `\n...[truncated, ${extracted.length} chars total]`
               : extracted;
           extractedParts.push(
-            `\n\n---\n📎 ${f.name} (${f.contentType})\n\n\`\`\`\n${truncated}\n\`\`\``,
+            `\n\n---\n📎 ${safe} (${f.contentType})\n\n\`\`\`\n${truncated}\n\`\`\``,
           );
         }
       }
@@ -336,9 +355,10 @@
         "\n\n" +
         files
           .map((f) => {
-            const part = extractedParts.find((p) => p.includes(f.name));
+            const safe = sanitizeFilename(f.name);
+            const part = extractedParts.find((p) => p.includes(safe));
             const failed = part && (part.includes("unsupported") || part.includes("failed"));
-            return failed ? `📎 ${f.name} (not extractable)` : `📎 ${f.name}`;
+            return failed ? `📎 ${safe} (not extractable)` : `📎 ${safe}`;
           })
           .join("\n");
       await updateMessageContentStore(userMessage.id, content + fileLabels);
@@ -354,6 +374,15 @@
         }
         return { role: m.role, content: m.content };
       });
+
+    // Clear extraction cache to free memory (extracted text can be several MB per file).
+    if (hasFiles) {
+      for (const f of files) {
+        extractionCache.delete(f.name);
+        delete extractionStatuses[f.name];
+      }
+      extractionStatuses = { ...extractionStatuses };
+    }
 
     try {
       await sendMessage(
