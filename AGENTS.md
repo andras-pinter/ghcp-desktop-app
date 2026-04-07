@@ -827,7 +827,7 @@ and **events** (`listen()`/`emit()`). This is the only bridge between the two la
 | `settings.rs` | `get_setting` — read config key; `update_setting` — write config key-value; `get_db_size` — return database file size; `save_draft` — persist input draft; `get_draft` — retrieve draft for conversation; `delete_draft` — clear draft | ✅ |
 | `agents.rs` | `get_agents` — list agent personas; `get_agent` — single by ID; `create_agent` — new agent; `update_agent` — edit agent; `delete_agent` — remove agent (blocks default); `set_agent_skills` — assign skills; `set_agent_mcp_connections` — assign MCP servers; `install_agent_from_registry` — install from aitmpl.com; `import_agent_from_git` — import from git; `fetch_git_agents` — discover agent files from git repo | ✅ |
 | `skills.rs` | `get_skills` — list all skills; `create_skill` — add new skill; `update_skill` — edit skill; `delete_skill` — remove skill; `toggle_skill` — enable/disable; `search_registry` — search aitmpl.com registry; `install_from_registry` — fetch SKILL.md + save; `fetch_git_skills` — discover SKILL.md files from git URL; `import_git_skill` — save parsed skill from git | ✅ |
-| `projects.rs` | `get_projects` — list projects; `create_project` — new project; `update_project` — edit instructions/name; `delete_project` — remove project; `add_project_file` — attach file (BLOB); `remove_project_file` — detach file | ⬚ stub |
+| `projects.rs` | `get_projects` — list projects; `get_project` — single by ID; `create_project` — new project; `update_project` — edit instructions/name; `delete_project` — remove project; `get_project_files` — list files; `add_project_file` — attach file (BLOB); `get_project_file_content` — read file content; `remove_project_file` — detach file; `get_project_conversations` — list conversations in project; `pick_file_for_upload` — native file picker for project files; `pick_file_for_chat` — native file picker for chat attachments; `extract_file_text` — async text extraction (PDF, DOCX, XLSX, PPTX, RTF, 60+ text formats); `read_dropped_files` — read file paths from Tauri drag-drop events | ✅ |
 | `mcp.rs` | `get_mcp_servers` — list configured servers; `add_mcp_server` — register new server; `update_mcp_server` — update server config; `remove_mcp_server` — delete server; `connect_mcp_server` — connect to server; `disconnect_mcp_server` — disconnect; `test_mcp_connection` — verify server responds; `get_mcp_tools` — list discovered tools; `invoke_mcp_tool` — call an MCP tool; `fetch_mcp_registry` — browse official MCP Registry | ✅ |
 | `web_research.rs` | `web_search` — trigger web search via API; `fetch_url` — fetch + extract URL content | ✅ |
 
@@ -922,6 +922,7 @@ copilot-desktop/
 │       ├── state.rs              # Tauri managed state (AppState, DB pool, etc.)
 │       ├── skillmd.rs            # SKILL.md parser (YAML frontmatter + markdown body)
 │       ├── registry.rs           # Skill/agent registry client (aitmpl.com API, git import)
+│       ├── text_extract.rs       # Text extraction from files (PDF, DOCX, XLSX, PPTX, RTF, 60+ text formats)
 │       ├── commands/             # Tauri command handlers (IPC bridge to frontend)
 │       │   ├── mod.rs
 │       │   ├── chat.rs           # send_message, stop_streaming, regenerate
@@ -929,7 +930,7 @@ copilot-desktop/
 │       │   ├── conversations.rs  # CRUD conversations + messages
 │       │   ├── agents.rs         # CRUD agent personas + registry import
 │       │   ├── skills.rs         # List/toggle/configure skills + registry search + git import
-│       │   ├── projects.rs       # CRUD projects + file attachments
+│       │   ├── projects.rs       # CRUD projects + file attachments + drag-drop + text extraction
 │       │   ├── mcp.rs            # MCP server management + tool invocation
 │       │   ├── web_research.rs   # Web search + URL fetching
 │       │   ├── models.rs         # Model discovery + selection
@@ -1172,7 +1173,7 @@ an MCP server binary. This is the **only** exception to the no-subprocess rule:
 | `reqwest-eventsource` | SSE client for streaming responses (wraps reqwest + eventsource-stream with auto-retry) |
 | `keyring` | Cross-platform keychain (macOS Keychain, Linux Secret Service, Windows Credential Manager) |
 | `rusqlite` | Local persistence (conversations, projects, agents, skills, MCP configs) |
-| `image` / `pdf-extract` | Extract text from PDFs/images for file context |
+| `pdf-extract` / `lopdf` | Extract text from PDFs (pdf-extract primary, lopdf raw fallback) |
 | `thiserror` / `anyhow` | Error handling |
 | `log` / `env_logger` | Logging |
 | `scraper` / `dom_smoothie` | HTML parsing (`scraper`) + readable content extraction (`dom_smoothie`, Readability algorithm) for URL fetching |
@@ -1711,7 +1712,7 @@ INSERT INTO config (key, value) VALUES ('schema_version', '1');
 
 ### Phase 9: Projects & File Context ✅
 36. ✅ **projects** — `ProjectView.svelte`: named project containers with custom instructions, pinned files (stored as BLOBs in SQLite), grouped conversations. Project selector in sidebar.
-37. ✅ **file-context** — User-initiated only: read file contents into memory via drag-and-drop or `tauri-plugin-dialog` file picker. Preview in input. Never retain paths or re-read from disk.
+37. ✅ **file-context** — User-initiated only: drag-and-drop (Tauri native `onDragDropEvent`) or `tauri-plugin-dialog` file picker. Instant placeholder pills on drop, async background text extraction via `text_extract.rs` (PDF via `pdf-extract`+`lopdf` fallback, DOCX/XLSX/PPTX via XML extraction, RTF, 60+ text extensions). Extraction cache (`SvelteMap<string, Promise>`) + reactive status record drives pill UI (reading→extracting→✓/⚠). Extracted content sent to API only (never visible in chat). 50MB file size limit with user warning. Never retain paths or re-read from disk.
 38. ✅ **context-window** — Implement conversation summarization for long chats. Older messages summarized into condensed recap. Visual indicator when summarization has occurred.
 
 ### Phase 10: Polish & Platform Features
