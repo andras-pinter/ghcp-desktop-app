@@ -10,6 +10,7 @@
     onSend: (text: string, urls?: UrlPreview[], files?: ChatFileData[]) => void;
     onStop?: () => void;
     streaming?: boolean;
+    extractingFiles?: boolean;
     model?: string;
     onModelChange?: (model: string) => void;
     availableModels?: Model[];
@@ -28,6 +29,7 @@
     onSend,
     onStop,
     streaming = false,
+    extractingFiles = false,
     model = "gpt-4o",
     onModelChange,
     availableModels = [],
@@ -310,6 +312,12 @@
   aria-label="Message input area"
 >
   <div class="input-box">
+    {#if extractingFiles}
+      <div class="file-processing" role="status">
+        <span class="extract-spinner"></span>
+        <span>Processing files…</span>
+      </div>
+    {/if}
     {#if fileError}
       <div class="file-error" role="alert">
         <span>⚠️ {fileError}</span>
@@ -611,6 +619,10 @@
           <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
             <rect x="3" y="3" width="10" height="10" rx="1.5" />
           </svg>
+        </button>
+      {:else if extractingFiles}
+        <button class="send-btn extracting" disabled aria-label="Processing files">
+          <span class="extract-spinner"></span>
         </button>
       {:else}
         <button
@@ -1189,6 +1201,33 @@
 
   .file-error-dismiss:hover {
     opacity: 1;
+  }
+
+  /* ── File processing indicator ── */
+
+  .file-processing {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    font-size: 0.8rem;
+    color: var(--color-accent-copper);
+    margin: 8px 12px 0;
+  }
+
+  .extract-spinner {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border: 2px solid var(--color-border-primary);
+    border-top-color: var(--color-accent-copper);
+    border-radius: 50%;
+    animation: spin 600ms linear infinite;
+    flex-shrink: 0;
+  }
+
+  .send-btn.extracting {
+    opacity: 0.6;
   }
 
   /* ── File pills ── */

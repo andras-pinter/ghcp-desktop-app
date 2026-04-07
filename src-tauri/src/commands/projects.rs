@@ -291,17 +291,42 @@ fn guess_content_type(filename: &str) -> String {
 /// Extract readable text from a base64-encoded file.
 ///
 /// Delegates to the `text_extract` module which supports PDF, DOCX, XLSX, PPTX,
-/// RTF, and all text-based formats.
+/// RTF, and all text-based formats. Runs on a blocking thread to avoid stalling
+/// the main thread for large files.
 #[tauri::command]
-pub fn extract_file_text(
+pub async fn extract_file_text(
     content_base64: String,
     content_type: String,
     name: String,
 ) -> Result<Option<String>, String> {
-    use base64::Engine;
-    let bytes = base64::engine::general_purpose::STANDARD
-        .decode(&content_base64)
-        .map_err(|e| format!("Invalid base64: {e}"))?;
+    log::info!(
+        "extract_file_text: name={}, content_type={}, base64_len={}",
+        name,
+        content_type,
+        content_base64.len()
+    );
+    tokio::task::spawn_blocking(move || {
+        use base64::Engine;
+        let bytes = base64::engine::general_purpose::STANDARD
+            .decode(&content_base64)
+            .map_err(|e| format!("Invalid base64: {e}"))?;
 
-    Ok(crate::text_extract::extract(&bytes, &content_type, &name))
+        log::info!(
+            "extract_file_text: decoded {} bytes for {}",
+            bytes.len(),
+            name
+        );
+        let result = crate::text_extract::extract(&bytes, &content_type, &name);
+        log::info!(
+            "extract_file_text: result for {} = {}",
+            name,
+            match &result {
+                Some(s) => format!("{} chars", s.len()),
+                None => "None (unsupported)".to_string(),
+            }
+        );
+        Ok(result)
+    })
+    .await
+    .map_err(|e| format!("Extraction task failed: {e}"))?
 }

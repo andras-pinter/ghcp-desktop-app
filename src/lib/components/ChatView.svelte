@@ -55,6 +55,7 @@
   let draftText = $state("");
   let draftTimer: ReturnType<typeof setTimeout> | undefined;
   let showSearch = $state(false);
+  let extractingFiles = $state(false);
   const greeting = greetings[Math.floor(Math.random() * greetings.length)];
 
   let unlistenToken: UnlistenFn | undefined;
@@ -174,10 +175,15 @@
 
     // Append file content as context — use Rust text extraction for all formats
     if (files && files.length > 0) {
+      extractingFiles = true;
       const extractedParts: string[] = [];
       for (const f of files) {
         try {
+          console.log(`Extracting text from: ${f.name} (${f.contentType}, ${f.size} bytes)`);
           const extracted = await extractFileText(f.contentBase64, f.contentType, f.name);
+          console.log(
+            `Extraction result for ${f.name}: ${extracted ? `${extracted.length} chars` : "null (unsupported)"}`,
+          );
           if (extracted) {
             const truncated =
               extracted.length > 50_000
@@ -191,10 +197,12 @@
               `\n\n---\n📎 ${f.name} (${f.contentType}, unsupported format — content not shown)`,
             );
           }
-        } catch {
+        } catch (err) {
+          console.error(`Extraction error for ${f.name}:`, err);
           extractedParts.push(`\n\n---\n📎 ${f.name} (${f.contentType}, extraction failed)`);
         }
       }
+      extractingFiles = false;
       const fileContext = extractedParts.join("");
       if (fileContext) {
         content = content + fileContext;
@@ -398,6 +406,7 @@
         <InputArea
           onSend={handleSend}
           {streaming}
+          {extractingFiles}
           onStop={handleStop}
           model={selectedModel}
           onModelChange={handleModelChange}
@@ -454,6 +463,7 @@
       <InputArea
         onSend={handleSend}
         {streaming}
+        {extractingFiles}
         onStop={handleStop}
         model={selectedModel}
         onModelChange={handleModelChange}
