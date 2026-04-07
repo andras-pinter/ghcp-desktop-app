@@ -173,37 +173,93 @@ pub async fn search_aitmpl(
         .map_err(|e| format!("aitmpl.com parse failed: {e}"))?;
 
     let query_lower = query.to_lowercase();
+    let query_words: Vec<&str> = query_lower.split_whitespace().collect();
 
-    let mut results: Vec<RegistryItem> = Vec::new();
+    // Collect all items with a relevance score
+    let mut scored: Vec<(RegistryItem, u32)> = Vec::new();
 
-    // Search agents
     for item in &data.agents {
-        if matches_query(&item.name, item.description.as_deref(), &query_lower) {
-            results.push(aitmpl_to_registry_item(item, RegistryItemKind::Agent));
+        let score = match_score(&item.name, item.category.as_deref(), &query_words);
+        if score > 0 {
+            scored.push((
+                aitmpl_to_registry_item(item, RegistryItemKind::Agent),
+                score,
+            ));
         }
-        if results.len() >= limit as usize {
-            break;
+    }
+    for item in &data.skills {
+        let score = match_score(&item.name, item.category.as_deref(), &query_words);
+        if score > 0 {
+            scored.push((
+                aitmpl_to_registry_item(item, RegistryItemKind::Skill),
+                score,
+            ));
         }
     }
 
-    // Search skills
-    for item in &data.skills {
-        if results.len() >= limit as usize {
-            break;
-        }
-        if matches_query(&item.name, item.description.as_deref(), &query_lower) {
-            results.push(aitmpl_to_registry_item(item, RegistryItemKind::Skill));
-        }
-    }
+    // Sort by score descending, then by name
+    scored.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.name.cmp(&b.0.name)));
+    let results: Vec<RegistryItem> = scored
+        .into_iter()
+        .take(limit as usize)
+        .map(|(item, _)| item)
+        .collect();
 
     Ok(results)
 }
 
-fn matches_query(name: &str, description: Option<&str>, query: &str) -> bool {
-    name.to_lowercase().contains(query)
-        || description
-            .map(|d| d.to_lowercase().contains(query))
-            .unwrap_or(false)
+/// Score how well an item matches the query. 0 = no match.
+/// Name matches score higher than category matches.
+fn match_score(name: &str, category: Option<&str>, query_words: &[&str]) -> u32 {
+    let name_lower = name.to_lowercase();
+    let cat_lower = category.map(|c| c.to_lowercase());
+
+    let mut score = 0u32;
+    for &word in query_words {
+        if name_lower.contains(word) {
+            score += 10; // name match = high score
+        } else if cat_lower.as_ref().is_some_and(|c| c.contains(word)) {
+            score += 3; // category match = lower score
+        }
+        // Skip description matching — it's too noisy with these long descriptions
+    }
+    score
+}
+
+/// Clean a raw description string from aitmpl — strip XML tags,
+/// literal `\n`, and truncate to a sensible length for display.
+fn clean_description(raw: &str) -> String {
+    let cleaned = raw.replace("\\n", " ").replace('\n', " ");
+
+    // Simple XML-like tag stripping
+    let mut result = cleaned;
+    loop {
+        if let Some(start) = result.find('<') {
+            if let Some(end) = result[start..].find('>') {
+                let tag = &result[start..start + end + 1];
+                if tag.len() < 30
+                    && (tag.starts_with("</")
+                        || tag.chars().nth(1).is_some_and(|c| c.is_alphabetic()))
+                {
+                    result = format!("{}{}", &result[..start], &result[start + end + 1..]);
+                    continue;
+                }
+            }
+        }
+        break;
+    }
+
+    // Collapse multiple spaces
+    let result: String = result.split_whitespace().collect::<Vec<_>>().join(" ");
+
+    // Truncate to ~200 chars at word boundary
+    if result.len() > 200 {
+        let truncated = &result[..200];
+        let end = truncated.rfind(' ').unwrap_or(200);
+        format!("{}…", &truncated[..end])
+    } else {
+        result
+    }
 }
 
 fn aitmpl_to_registry_item(item: &AitmplComponent, kind: RegistryItemKind) -> RegistryItem {
@@ -212,22 +268,8 @@ fn aitmpl_to_registry_item(item: &AitmplComponent, kind: RegistryItemKind) -> Re
         .as_ref()
         .map(|p| format!("https://www.aitmpl.com/{}", p.replace(".md", "")));
 
-    // Extract short description from the content frontmatter if available
-    let description = item.description.clone().or_else(|| {
-        item.content.as_ref().and_then(|c| {
-            // Try to extract the description from YAML frontmatter
-            if c.starts_with("---") {
-                c.split("---").nth(1).and_then(|fm| {
-                    fm.lines().find_map(|line| {
-                        line.strip_prefix("description:")
-                            .map(|d| d.trim().trim_matches('"').to_string())
-                    })
-                })
-            } else {
-                None
-            }
-        })
-    });
+    // Use the description from JSON, cleaned up for display
+    let description = item.description.as_ref().map(|d| clean_description(d));
 
     RegistryItem {
         id: item.name.clone(),
@@ -271,6 +313,70 @@ pub async fn search_registries(
     })
 }
 
+// ── Lenient content parser ──────────────────────────────────────
+
+/// Parse SKILL.md content leniently — extracts what it can without
+/// strict validation. Used as fallback when `skillmd::parse()` fails
+/// (e.g., description too long, name has uppercase, etc.).
+///
+/// Returns `(name, description, instructions)`.
+pub fn parse_content_lenient(content: &str, fallback_id: &str) -> (String, String, String) {
+    let trimmed = content.trim_start();
+
+    // Try to extract from YAML frontmatter
+    if let Some(after_marker) = trimmed.strip_prefix("---") {
+        let after_first = after_marker
+            .strip_prefix('\n')
+            .unwrap_or(after_marker.strip_prefix("\r\n").unwrap_or(after_marker));
+
+        if let Some(closing_idx) = after_first.find("\n---") {
+            let yaml_str = &after_first[..closing_idx];
+            let body_start = closing_idx + 4;
+            let body = if body_start < after_first.len() {
+                after_first[body_start..]
+                    .strip_prefix('\n')
+                    .unwrap_or(&after_first[body_start..])
+            } else {
+                ""
+            };
+
+            // Extract name and description from YAML lines
+            let mut name = None;
+            let mut desc = None;
+            for line in yaml_str.lines() {
+                if let Some(val) = line.strip_prefix("name:") {
+                    name = Some(val.trim().trim_matches('"').to_string());
+                }
+                if desc.is_none() {
+                    if let Some(val) = line.strip_prefix("description:") {
+                        // Take just the first line of description, truncated
+                        let d = val.trim().trim_matches('"');
+                        let clean = d.lines().next().unwrap_or(d);
+                        desc = Some(if clean.len() > 200 {
+                            format!("{}…", &clean[..197])
+                        } else {
+                            clean.to_string()
+                        });
+                    }
+                }
+            }
+
+            return (
+                name.unwrap_or_else(|| fallback_id.to_string()),
+                desc.unwrap_or_else(|| "Imported from registry".to_string()),
+                body.trim().to_string(),
+            );
+        }
+    }
+
+    // No frontmatter — use whole content as instructions
+    (
+        fallback_id.to_string(),
+        "Imported from registry".to_string(),
+        content.trim().to_string(),
+    )
+}
+
 // ── Fetch content from registry ─────────────────────────────────
 
 /// Fetch the content for a registry item by ID.
@@ -286,12 +392,18 @@ pub async fn fetch_skill_content(
     match source {
         RegistrySource::SkillsSh => {
             // The source_repo field contains the GitHub owner/repo path
-            // e.g. "anthropics/skills". Content is at:
-            //   raw.githubusercontent.com/{source_repo}/main/skills/{skillId}/SKILL.md
+            // e.g. "github/awesome-copilot". Content is at:
+            //   raw.githubusercontent.com/{source_repo}/main/skills/{skill_name}/SKILL.md
+            // The skill_id is e.g. "github/awesome-copilot/python-mcp-server-generator"
+            // so the skill name is the last segment after stripping the source prefix.
             if let Some(repo) = source_repo {
+                let skill_name = skill_id
+                    .strip_prefix(repo)
+                    .and_then(|s| s.strip_prefix('/'))
+                    .unwrap_or(skill_id);
+
                 let url = format!(
-                    "https://raw.githubusercontent.com/{repo}/main/skills/{}/SKILL.md",
-                    urlencoding::encode(skill_id)
+                    "https://raw.githubusercontent.com/{repo}/main/skills/{skill_name}/SKILL.md",
                 );
                 let resp = client
                     .get(&url)
@@ -305,12 +417,13 @@ pub async fn fetch_skill_content(
                         .await
                         .map_err(|e| format!("Failed to read content: {e}"));
                 }
+                log::warn!("skills.sh primary URL returned {}: {url}", resp.status());
             }
 
-            // Fallback: try nicepkg repo (legacy)
+            // Fallback: try the skill_id's last segment directly
+            let skill_name = skill_id.rsplit('/').next().unwrap_or(skill_id);
             let fallback_url = format!(
-                "https://raw.githubusercontent.com/nicepkg/nice-copilot-skills/main/skills/{}/SKILL.md",
-                urlencoding::encode(skill_id)
+                "https://raw.githubusercontent.com/nicepkg/nice-copilot-skills/main/skills/{skill_name}/SKILL.md",
             );
             let resp = client
                 .get(&fallback_url)

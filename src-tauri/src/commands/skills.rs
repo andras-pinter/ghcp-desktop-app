@@ -125,9 +125,21 @@ pub async fn install_from_registry(
     )
     .await?;
 
-    // Parse the SKILL.md
-    let parsed =
-        crate::skillmd::parse(&content).map_err(|e| format!("Failed to parse SKILL.md: {e}"))?;
+    // Parse the SKILL.md — try strict first, then lenient for registry content
+    let (name, description, instructions) = match crate::skillmd::parse(&content) {
+        Ok(parsed) => (parsed.name, parsed.description, parsed.instructions),
+        Err(_) => {
+            // Lenient fallback: extract what we can from the content
+            crate::registry::parse_content_lenient(&content, &skill_id)
+        }
+    };
+
+    // Truncate description to fit DB constraints
+    let description = if description.len() > 512 {
+        format!("{}…", &description[..509])
+    } else {
+        description
+    };
 
     // Save to database
     let db_id = format!("reg-{}-{}", source, skill_id);
@@ -149,12 +161,12 @@ pub async fn install_from_registry(
         queries::create_skill(
             &db,
             &db_id,
-            &parsed.name,
-            Some(&parsed.description),
+            &name,
+            Some(&description),
             source_type,
             None,
             None,
-            Some(&parsed.instructions),
+            Some(&instructions),
             Some(&source_url),
             source_type,
         )
@@ -163,8 +175,8 @@ pub async fn install_from_registry(
 
     Ok(crate::registry::RegistryItem {
         id: db_id,
-        name: parsed.name,
-        description: Some(parsed.description),
+        name,
+        description: Some(description),
         source: registry_source,
         url: Some(source_url),
         installs: None,

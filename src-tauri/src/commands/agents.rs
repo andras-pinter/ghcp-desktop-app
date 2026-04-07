@@ -136,8 +136,12 @@ pub async fn install_agent_from_registry(
         source_repo.as_deref(),
     )
     .await?;
-    let parsed =
-        crate::skillmd::parse(&content).map_err(|e| format!("Failed to parse SKILL.md: {e}"))?;
+
+    // Parse content — try strict first, then lenient for registry content
+    let (name, _description, instructions) = match crate::skillmd::parse(&content) {
+        Ok(parsed) => (parsed.name, parsed.description, parsed.instructions),
+        Err(_) => crate::registry::parse_content_lenient(&content, &item_id),
+    };
 
     let id = uuid::Uuid::new_v4().to_string();
     let source_type = match registry_source {
@@ -157,9 +161,9 @@ pub async fn install_agent_from_registry(
     queries::create_agent(
         &db,
         &id,
-        &parsed.name,
+        &name,
         None,
-        &parsed.instructions,
+        &instructions,
         Some(&source_url),
         source_type,
     )
