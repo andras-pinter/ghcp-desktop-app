@@ -72,6 +72,20 @@ struct SkillsShItem {
     source: Option<String>,
 }
 
+/// Convert kebab-case name to readable title (e.g., "vercel-react-best-practices" -> "Vercel React Best Practices")
+fn humanize_name(name: &str) -> String {
+    name.split('-')
+        .map(|w| {
+            let mut chars = w.chars();
+            match chars.next() {
+                Some(c) => format!("{}{}", c.to_uppercase(), chars.as_str()),
+                None => String::new(),
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
 /// Search skills.sh for skills matching a query.
 pub async fn search_skills_sh(
     client: &Client,
@@ -106,11 +120,12 @@ pub async fn search_skills_sh(
         .map(|s| {
             // source_repo is the GitHub owner/repo (e.g. "anthropics/skills")
             let source_repo = s.source.clone();
+            let description = Some(humanize_name(&s.name));
             RegistryItem {
                 url: Some(format!("https://skills.sh/{}", s.id)),
                 id: s.id.clone(),
                 name: s.name,
-                description: s.source,
+                description,
                 source: RegistrySource::SkillsSh,
                 installs: s.installs,
                 kind: RegistryItemKind::Skill,
@@ -487,15 +502,11 @@ pub async fn fetch_skill_content(
                     format!(
                         "https://raw.githubusercontent.com/{repo}/main/skills/{skill_name}/SKILL.md"
                     ),
-                    format!(
-                        "https://raw.githubusercontent.com/{repo}/main/{skill_name}/SKILL.md"
-                    ),
+                    format!("https://raw.githubusercontent.com/{repo}/main/{skill_name}/SKILL.md"),
                     format!(
                         "https://raw.githubusercontent.com/{repo}/main/skills/{skill_name}/SKILL.MD"
                     ),
-                    format!(
-                        "https://raw.githubusercontent.com/{repo}/main/{skill_name}/SKILL.MD"
-                    ),
+                    format!("https://raw.githubusercontent.com/{repo}/main/{skill_name}/SKILL.MD"),
                 ];
 
                 for url in &patterns {
@@ -577,7 +588,11 @@ pub async fn fetch_skill_content(
 
 /// Use the GitHub tree API to find SKILL.md files in a repo and return the
 /// content of the best match for the given skill name.
-async fn fetch_via_tree_api(client: &Client, repo: &str, skill_name: &str) -> Result<String, String> {
+async fn fetch_via_tree_api(
+    client: &Client,
+    repo: &str,
+    skill_name: &str,
+) -> Result<String, String> {
     let tree_url = format!("https://api.github.com/repos/{repo}/git/trees/main?recursive=1");
     let resp = client
         .get(&tree_url)
@@ -625,7 +640,9 @@ async fn fetch_via_tree_api(client: &Client, repo: &str, skill_name: &str) -> Re
     for path in &skill_files {
         // Check if the parent directory name is a substring of skill_name
         let parent = path.rsplit('/').nth(1).unwrap_or("");
-        if name_lower.contains(&parent.to_lowercase()) || parent.to_lowercase().contains(&name_lower) {
+        if name_lower.contains(&parent.to_lowercase())
+            || parent.to_lowercase().contains(&name_lower)
+        {
             let raw_url = format!("https://raw.githubusercontent.com/{repo}/main/{path}");
             if let Ok(resp) = client.get(&raw_url).send().await {
                 if resp.status().is_success() {

@@ -12,7 +12,7 @@
     clearGitImport,
   } from "$lib/stores/skills.svelte";
   import { getMcpState } from "$lib/stores/mcp.svelte";
-  import { renderMarkdown } from "$lib/utils/markdown";
+  import { renderMarkdown, stripFrontmatter } from "$lib/utils/markdown";
   import type { Skill } from "$lib/types/skill";
   import type { RegistryItem, GitSkillFile } from "$lib/types/registry";
   import { onMount, onDestroy } from "svelte";
@@ -42,7 +42,8 @@
   let importingPath = $state<string | null>(null);
   let importedPath = $state<string | null>(null);
 
-  let deleteConfirmId = $state<string | null>(null);
+  let confirmDelete = $state<Skill | null>(null);
+  let deleting = $state(false);
 
   let expandedSkillId = $state<string | null>(null);
   let expandedRegistryKey = $state<string | null>(null);
@@ -127,22 +128,25 @@
     }
   }
 
-  async function handleDelete(skill: Skill) {
-    if (deleteConfirmId !== skill.id) {
-      deleteConfirmId = skill.id;
-      return;
-    }
-    try {
-      await removeSkill(skill.id);
-    } catch {
-      // Error logged in store
-    } finally {
-      deleteConfirmId = null;
-    }
+  function requestDelete(skill: Skill) {
+    confirmDelete = skill;
   }
 
   function cancelDelete() {
-    deleteConfirmId = null;
+    confirmDelete = null;
+  }
+
+  async function confirmDeleteSkill() {
+    if (!confirmDelete) return;
+    deleting = true;
+    try {
+      await removeSkill(confirmDelete.id);
+    } catch {
+      // Error handled by store
+    } finally {
+      deleting = false;
+      confirmDelete = null;
+    }
   }
 
   async function handleGitFetch() {
@@ -515,20 +519,13 @@
                   {/if}
                 </div>
                 <div class="skill-actions">
-                  {#if deleteConfirmId === skill.id}
-                    <button class="action-btn danger" onclick={() => handleDelete(skill)}>
-                      Confirm
-                    </button>
-                    <button class="action-btn" onclick={cancelDelete}>Cancel</button>
-                  {:else}
-                    <button
-                      class="action-btn danger"
-                      onclick={() => handleDelete(skill)}
-                      aria-label="Delete {skill.name}"
-                    >
-                      Delete
-                    </button>
-                  {/if}
+                  <button
+                    class="action-btn danger"
+                    onclick={() => requestDelete(skill)}
+                    aria-label="Delete {skill.name}"
+                  >
+                    Delete
+                  </button>
                   <label class="toggle-switch" aria-label="Toggle {skill.name}">
                     <input
                       type="checkbox"
@@ -602,20 +599,13 @@
                   {/if}
                 </div>
                 <div class="skill-actions">
-                  {#if deleteConfirmId === skill.id}
-                    <button class="action-btn danger" onclick={() => handleDelete(skill)}>
-                      Confirm
-                    </button>
-                    <button class="action-btn" onclick={cancelDelete}>Cancel</button>
-                  {:else}
-                    <button
-                      class="action-btn danger"
-                      onclick={() => handleDelete(skill)}
-                      aria-label="Delete {skill.name}"
-                    >
-                      Delete
-                    </button>
-                  {/if}
+                  <button
+                    class="action-btn danger"
+                    onclick={() => requestDelete(skill)}
+                    aria-label="Delete {skill.name}"
+                  >
+                    Delete
+                  </button>
                   <label class="toggle-switch" aria-label="Toggle {skill.name}">
                     <input
                       type="checkbox"
@@ -723,7 +713,9 @@
                     {/if}
                     {#if expandedRegistryKey === registryKey(item)}
                       <div class="registry-item-expanded markdown-prose">
-                        {@html renderMarkdown(item.content ?? item.description ?? "")}
+                        {@html renderMarkdown(
+                          stripFrontmatter(item.content ?? item.description ?? ""),
+                        )}
                       </div>
                     {/if}
                     <div class="registry-item-actions">
@@ -911,6 +903,28 @@
       </div>
     {/if}
   </div>
+
+  {#if confirmDelete}
+    <div
+      class="confirm-overlay"
+      role="alertdialog"
+      aria-modal="true"
+      aria-label="Confirm skill deletion"
+    >
+      <div class="confirm-dialog">
+        <p class="confirm-message">
+          Delete skill <strong>'{confirmDelete.name}'</strong>?
+        </p>
+        <p class="confirm-detail">This cannot be undone.</p>
+        <div class="confirm-actions">
+          <button class="action-btn" onclick={cancelDelete} disabled={deleting}>Cancel</button>
+          <button class="action-btn danger" disabled={deleting} onclick={confirmDeleteSkill}>
+            {deleting ? "Deleting…" : "Delete"}
+          </button>
+        </div>
+      </div>
+    </div>
+  {/if}
 </div>
 
 <style>
@@ -1704,5 +1718,48 @@
     padding: var(--spacing-xs) var(--spacing-sm);
     border-radius: var(--radius-sm);
     border: 1px solid color-mix(in srgb, var(--color-error, #dc2626) 20%, transparent);
+  }
+
+  /* ── Delete Confirmation ── */
+
+  .confirm-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    animation: fadeIn 120ms ease;
+  }
+
+  .confirm-dialog {
+    background: var(--color-bg-primary);
+    border: 1px solid var(--color-border-primary);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-xl);
+    max-width: 400px;
+    width: 90%;
+    box-shadow: var(--shadow-lg);
+    animation: scaleIn 160ms ease;
+  }
+
+  .confirm-message {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-primary);
+    margin: 0 0 var(--spacing-sm) 0;
+  }
+
+  .confirm-detail {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+    margin: 0 0 var(--spacing-lg) 0;
+    line-height: var(--line-height-normal);
+  }
+
+  .confirm-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--spacing-sm);
   }
 </style>

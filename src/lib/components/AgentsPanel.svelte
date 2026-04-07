@@ -18,7 +18,7 @@
   import { getMcpState, initMcp } from "$lib/stores/mcp.svelte";
   import type { Agent } from "$lib/types/agent";
   import type { RegistryItem, GitSkillFile } from "$lib/types/registry";
-  import { renderMarkdown } from "$lib/utils/markdown";
+  import { renderMarkdown, stripFrontmatter } from "$lib/utils/markdown";
   import { onMount, onDestroy } from "svelte";
 
   interface Props {
@@ -545,7 +545,9 @@
                     {/if}
                     {#if expandedRegistryKey === registryKey(item)}
                       <div class="registry-expanded markdown-prose">
-                        {@html renderMarkdown(item.content ?? item.description ?? "")}
+                        {@html renderMarkdown(
+                          stripFrontmatter(item.content ?? item.description ?? ""),
+                        )}
                       </div>
                     {/if}
                     <div class="registry-actions">

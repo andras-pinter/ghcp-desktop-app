@@ -109,6 +109,7 @@ pub async fn install_from_registry(
     source_repo: Option<String>,
     item_url: Option<String>,
     item_content: Option<String>,
+    item_name: Option<String>,
 ) -> Result<crate::registry::RegistryItem, String> {
     let state = app.state::<AppState>();
     let client = &state.http_client;
@@ -136,6 +137,9 @@ pub async fn install_from_registry(
             crate::registry::parse_content_lenient(&content, &skill_id)
         }
     };
+
+    // Prefer the catalog display name over the parsed YAML name
+    let name = item_name.filter(|n| !n.is_empty()).unwrap_or(name);
 
     // Truncate description to fit DB constraints
     let description = if description.len() > 512 {

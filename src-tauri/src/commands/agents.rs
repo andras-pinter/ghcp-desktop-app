@@ -121,6 +121,7 @@ pub async fn install_agent_from_registry(
     source_repo: Option<String>,
     item_url: Option<String>,
     item_content: Option<String>,
+    item_name: Option<String>,
 ) -> Result<queries::Agent, String> {
     let state = app.state::<AppState>();
     let client = &state.http_client;
@@ -145,6 +146,9 @@ pub async fn install_agent_from_registry(
         Ok(parsed) => (parsed.name, parsed.description, parsed.instructions),
         Err(_) => crate::registry::parse_content_lenient(&content, &item_id),
     };
+
+    // Prefer the catalog display name over the parsed YAML name
+    let name = item_name.filter(|n| !n.is_empty()).unwrap_or(name);
 
     let id = uuid::Uuid::new_v4().to_string();
     let source_type = match registry_source {
