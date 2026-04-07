@@ -29,4 +29,6 @@ export interface ChatFileData {
   contentType: string;
   size: number;
   contentBase64: string;
+  /** True while content is still being read from disk. */
+  loading?: boolean;
 }

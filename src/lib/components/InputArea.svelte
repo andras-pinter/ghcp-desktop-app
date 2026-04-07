@@ -108,6 +108,8 @@
   function handleSend() {
     const trimmed = inputText.trim();
     if (!trimmed || streaming) return;
+    // Don't send while files are still being read from disk
+    if (attachedFiles.some((f) => f.loading)) return;
     const urls = attachedUrls.filter((u) => u.content !== null);
     onSend(
       trimmed,
@@ -346,10 +348,16 @@
     {#if attachedFiles.length > 0}
       <div class="file-pills">
         {#each attachedFiles as file (file.name)}
-          <div class="file-pill">
-            <span class="file-pill-icon">📎</span>
+          <div class="file-pill" class:loading={file.loading}>
+            {#if file.loading}
+              <span class="file-pill-spinner"></span>
+            {:else}
+              <span class="file-pill-icon">📎</span>
+            {/if}
             <span class="file-pill-name">{file.name}</span>
-            <span class="file-pill-size">{formatBytes(file.size)}</span>
+            {#if file.size > 0}
+              <span class="file-pill-size">{formatBytes(file.size)}</span>
+            {/if}
             <button
               class="pill-remove"
               onclick={() => removeFile(file.name)}
@@ -1267,6 +1275,20 @@
     font-size: var(--font-size-xs);
     color: var(--color-text-primary);
     max-width: 200px;
+  }
+
+  .file-pill.loading {
+    opacity: 0.7;
+  }
+
+  .file-pill-spinner {
+    width: 12px;
+    height: 12px;
+    border: 1.5px solid var(--color-border-secondary);
+    border-top-color: var(--color-accent-copper);
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    flex-shrink: 0;
   }
 
   .file-pill-icon {

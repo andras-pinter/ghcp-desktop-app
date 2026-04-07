@@ -78,6 +78,18 @@
         viewDropActive = false;
         const paths = event.payload.paths;
         if (!paths || paths.length === 0) return;
+
+        // Show placeholder pills instantly (name from path, loading state)
+        const placeholders: ChatFileData[] = paths.map((p) => ({
+          name: p.split("/").pop() || p.split("\\").pop() || p,
+          contentType: "application/octet-stream",
+          size: 0,
+          contentBase64: "",
+          loading: true,
+        }));
+        pendingDropFiles = placeholders;
+
+        // Read actual content in background, then replace placeholders
         try {
           const files = await readDroppedFiles(paths);
           if (files.length > 0) {
@@ -85,6 +97,8 @@
           }
         } catch (e) {
           console.error("Failed to read dropped files:", e);
+          // Clear loading placeholders on error
+          pendingDropFiles = [];
         }
       }
     });
