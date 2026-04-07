@@ -2,7 +2,7 @@
 
 use crate::db::queries;
 use crate::state::AppState;
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Manager};
 
 /// List all skills.
 #[tauri::command]
@@ -195,8 +195,11 @@ pub async fn fetch_git_skills(
     let state = app.state::<AppState>();
     let client = &state.http_client;
     let token = copilot_api::DeviceFlowAuth::load_github_token().ok();
-    crate::registry::fetch_git_definitions(client, &git_url, Some("skill"), token.as_deref())
-        .await
+    let emitter = app.clone();
+    crate::registry::fetch_git_definitions(client, &git_url, Some("skill"), token.as_deref(), |p| {
+        let _ = emitter.emit("git-import-progress", &p);
+    })
+    .await
 }
 
 /// Import a single skill from a fetched SKILL.md content.

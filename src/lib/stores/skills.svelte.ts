@@ -27,6 +27,7 @@ let registryTotal = $state<number | null>(null);
 let gitImportUrl = $state("");
 let gitDiscoveredFiles = $state<GitSkillFile[]>([]);
 let gitImporting = $state(false);
+let gitProgress = $state<{ total: number; fetched: number; phase: string } | null>(null);
 
 /** Load skills from the backend. Call once after auth. */
 export async function initSkills(): Promise<void> {
@@ -104,6 +105,7 @@ export function clearRegistrySearch(): void {
 export async function discoverGitSkills(url: string): Promise<void> {
   gitImportUrl = url;
   gitImporting = true;
+  gitProgress = null;
   try {
     gitDiscoveredFiles = await fetchGitSkillsCmd(url);
   } catch (e) {
@@ -112,6 +114,7 @@ export async function discoverGitSkills(url: string): Promise<void> {
     throw e;
   } finally {
     gitImporting = false;
+    gitProgress = null;
   }
 }
 
@@ -132,6 +135,18 @@ export async function importFromGit(file: GitSkillFile): Promise<Skill | null> {
 export function clearGitImport(): void {
   gitImportUrl = "";
   gitDiscoveredFiles = [];
+  gitProgress = null;
+}
+
+/** Update git import progress (called from event listener). */
+export function updateGitProgress(
+  progress: {
+    total: number;
+    fetched: number;
+    phase: string;
+  } | null,
+): void {
+  gitProgress = progress;
 }
 
 /** Create a manual skill (not from registry/git). */
@@ -185,6 +200,9 @@ export function getSkillStore() {
     },
     get gitImporting() {
       return gitImporting;
+    },
+    get gitProgress() {
+      return gitProgress;
     },
   };
 }

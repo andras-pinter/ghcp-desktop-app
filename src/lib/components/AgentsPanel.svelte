@@ -13,6 +13,7 @@
     clearAgentRegistrySearch,
     discoverGitAgents,
     importAgentFromGit,
+    updateAgentGitProgress,
   } from "$lib/stores/agents.svelte";
   import { getSkillStore, initSkills } from "$lib/stores/skills.svelte";
   import { getMcpState, initMcp } from "$lib/stores/mcp.svelte";
@@ -20,6 +21,7 @@
   import type { RegistryItem, GitSkillFile } from "$lib/types/registry";
   import { renderMarkdown, stripFrontmatter } from "$lib/utils/markdown";
   import { onMount, onDestroy } from "svelte";
+  import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 
   interface Props {
     onBack: () => void;
@@ -125,16 +127,25 @@
 
   // ── Lifecycle ───────────────────────────────────────────────
 
-  onMount(() => {
+  let unlistenProgress: UnlistenFn | null = null;
+
+  onMount(async () => {
     document.addEventListener("click", handleClickOutside);
     if (!agentStore.loaded) initAgents();
     if (!skillStore.loaded) initSkills();
     if (mcpState.servers.length === 0) initMcp();
+    unlistenProgress = await listen<{ total: number; fetched: number; phase: string }>(
+      "git-import-progress",
+      (event) => {
+        updateAgentGitProgress(event.payload);
+      },
+    );
   });
 
   onDestroy(() => {
     document.removeEventListener("click", handleClickOutside);
     if (registrySearchDebounce) clearTimeout(registrySearchDebounce);
+    unlistenProgress?.();
   });
 
   // ── Registry / Git Handlers ────────────────────────────────
@@ -608,7 +619,34 @@
               <div class="git-error" role="alert">{gitError}</div>
             {/if}
 
-            {#if agentStore.gitDiscoveredFiles.length > 0}
+            {#if agentStore.gitImporting}
+              <div class="git-progress-area">
+                {#if agentStore.gitProgress}
+                  <div class="git-progress-info">
+                    {#if agentStore.gitProgress.phase === "tree"}
+                      <span class="loading-spinner"></span> Scanning repository structure…
+                    {:else}
+                      <span class="loading-spinner"></span> Fetching files… {agentStore.gitProgress
+                        .fetched}/{agentStore.gitProgress.total}
+                    {/if}
+                  </div>
+                  {#if agentStore.gitProgress.phase === "fetch" && agentStore.gitProgress.total > 0}
+                    <div class="git-progress-bar">
+                      <div
+                        class="git-progress-fill"
+                        style="width: {Math.round(
+                          (agentStore.gitProgress.fetched / agentStore.gitProgress.total) * 100,
+                        )}%"
+                      ></div>
+                    </div>
+                  {/if}
+                {:else}
+                  <div class="registry-loading">
+                    <span class="loading-spinner"></span> Discovering agent files…
+                  </div>
+                {/if}
+              </div>
+            {:else if agentStore.gitDiscoveredFiles.length > 0}
               <div class="git-results" role="list">
                 {#each agentStore.gitDiscoveredFiles as file (file.path)}
                   <article class="git-file-card" role="listitem">
@@ -1643,5 +1681,37 @@
     font-family: var(--font-mono);
     color: var(--color-text-primary);
     word-break: break-all;
+  }
+
+  /* ── Git Import Progress ── */
+
+  .git-progress-area {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-sm) 0;
+  }
+
+  .git-progress-info {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+  }
+
+  .git-progress-bar {
+    width: 100%;
+    height: 6px;
+    background: var(--color-bg-tertiary);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .git-progress-fill {
+    height: 100%;
+    background: var(--color-accent);
+    border-radius: 3px;
+    transition: width 0.2s ease;
   }
 </style>

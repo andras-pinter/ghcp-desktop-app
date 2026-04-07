@@ -591,25 +591,51 @@ fn classify_definition_file(path: &str) -> Option<&'static str> {
     }
 }
 
+/// Progress update for git definition discovery.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GitImportProgress {
+    /// Total files to fetch.
+    pub total: usize,
+    /// Files fetched so far.
+    pub fetched: usize,
+    /// Current phase: "tree" (scanning repo) or "fetch" (downloading files).
+    pub phase: String,
+}
+
 /// Fetch definition files (SKILL.md + *.agent.md) from a git repository URL.
 ///
 /// Discovers both skills and agents. Optionally filter by `kind_filter`
 /// ("skill" or "agent"); pass `None` to get both.
 /// If `github_token` is provided, it's used for authenticated GitHub API requests.
-pub async fn fetch_git_definitions(
+/// `on_progress` is called with progress updates during fetching.
+pub async fn fetch_git_definitions<F>(
     client: &Client,
     git_url: &str,
     kind_filter: Option<&str>,
     github_token: Option<&str>,
-) -> Result<Vec<GitSkillFile>, String> {
+    on_progress: F,
+) -> Result<Vec<GitSkillFile>, String>
+where
+    F: Fn(GitImportProgress),
+{
     let parsed = parse_git_url(git_url)?;
     let repo_url = format!("https://{}/{}/{}", parsed.host, parsed.owner, parsed.repo);
 
     if let Some(path) = parsed.file_path {
-        // Fetch specific file
+        on_progress(GitImportProgress {
+            total: 1,
+            fetched: 0,
+            phase: "fetch".to_string(),
+        });
         let kind = classify_definition_file(&path).unwrap_or("skill");
         let content =
             fetch_github_file(client, &parsed.owner, &parsed.repo, &path, github_token).await?;
+        on_progress(GitImportProgress {
+            total: 1,
+            fetched: 1,
+            phase: "fetch".to_string(),
+        });
         return Ok(vec![GitSkillFile {
             path,
             content,
@@ -618,7 +644,13 @@ pub async fn fetch_git_definitions(
         }]);
     }
 
-    // Use the GitHub tree API to recursively find definition files
+    // Phase 1: Scan the repo tree
+    on_progress(GitImportProgress {
+        total: 0,
+        fetched: 0,
+        phase: "tree".to_string(),
+    });
+
     let tree_url = format!(
         "https://api.github.com/repos/{}/{}/git/trees/main?recursive=1",
         parsed.owner, parsed.repo
@@ -685,8 +717,16 @@ pub async fn fetch_git_definitions(
         ));
     }
 
+    // Phase 2: Fetch file contents with progress
+    let total = def_paths.len();
+    on_progress(GitImportProgress {
+        total,
+        fetched: 0,
+        phase: "fetch".to_string(),
+    });
+
     let mut found = Vec::new();
-    for (path, kind) in def_paths {
+    for (i, (path, kind)) in def_paths.into_iter().enumerate() {
         if let Ok(content) =
             fetch_github_file(client, &parsed.owner, &parsed.repo, &path, github_token).await
         {
@@ -697,6 +737,11 @@ pub async fn fetch_git_definitions(
                 kind: kind.to_string(),
             });
         }
+        on_progress(GitImportProgress {
+            total,
+            fetched: i + 1,
+            phase: "fetch".to_string(),
+        });
     }
 
     if found.is_empty() {

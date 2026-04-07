@@ -28,6 +28,7 @@ let registryQuery = $state("");
 let gitDiscoveredFiles = $state<GitSkillFile[]>([]);
 let gitImporting = $state(false);
 let gitImportUrl = $state("");
+let gitProgress = $state<{ total: number; fetched: number; phase: string } | null>(null);
 
 /** Load agents from the backend. Call once after auth. */
 export async function initAgents(): Promise<void> {
@@ -144,6 +145,7 @@ export async function discoverGitAgents(url: string): Promise<void> {
   const { fetchGitAgents } = await import("$lib/utils/commands");
   gitImportUrl = url;
   gitImporting = true;
+  gitProgress = null;
   try {
     gitDiscoveredFiles = await fetchGitAgents(url);
   } catch (e) {
@@ -152,6 +154,7 @@ export async function discoverGitAgents(url: string): Promise<void> {
     throw e;
   } finally {
     gitImporting = false;
+    gitProgress = null;
   }
 }
 
@@ -171,6 +174,18 @@ export async function importAgentFromGit(file: GitSkillFile): Promise<Agent | nu
 export function clearAgentGitImport(): void {
   gitImportUrl = "";
   gitDiscoveredFiles = [];
+  gitProgress = null;
+}
+
+/** Update git import progress (called from event listener). */
+export function updateAgentGitProgress(
+  progress: {
+    total: number;
+    fetched: number;
+    phase: string;
+  } | null,
+): void {
+  gitProgress = progress;
 }
 
 /** Reactive getters. */
@@ -202,6 +217,9 @@ export function getAgentStore() {
     },
     get gitImportUrl() {
       return gitImportUrl;
+    },
+    get gitProgress() {
+      return gitProgress;
     },
   };
 }

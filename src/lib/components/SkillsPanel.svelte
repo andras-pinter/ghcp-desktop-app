@@ -10,12 +10,14 @@
     discoverGitSkills,
     importFromGit,
     clearGitImport,
+    updateGitProgress,
   } from "$lib/stores/skills.svelte";
   import { getMcpState } from "$lib/stores/mcp.svelte";
   import { renderMarkdown, stripFrontmatter } from "$lib/utils/markdown";
   import type { Skill } from "$lib/types/skill";
   import type { RegistryItem, GitSkillFile } from "$lib/types/registry";
   import { onMount, onDestroy } from "svelte";
+  import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 
   interface Props {
     onBack: () => void;
@@ -255,12 +257,21 @@
     );
   }
 
-  onMount(() => {
+  let unlistenProgress: UnlistenFn | null = null;
+
+  onMount(async () => {
     initSkills();
+    unlistenProgress = await listen<{ total: number; fetched: number; phase: string }>(
+      "git-import-progress",
+      (event) => {
+        updateGitProgress(event.payload);
+      },
+    );
   });
 
   onDestroy(() => {
     if (searchDebounce) clearTimeout(searchDebounce);
+    unlistenProgress?.();
   });
 </script>
 
@@ -796,8 +807,31 @@
             {/if}
 
             {#if store.gitImporting}
-              <div class="registry-loading">
-                <span class="loading-spinner"></span> Discovering SKILL.md files…
+              <div class="git-progress-area">
+                {#if store.gitProgress}
+                  <div class="git-progress-info">
+                    {#if store.gitProgress.phase === "tree"}
+                      <span class="loading-spinner"></span> Scanning repository structure…
+                    {:else}
+                      <span class="loading-spinner"></span> Fetching files… {store.gitProgress
+                        .fetched}/{store.gitProgress.total}
+                    {/if}
+                  </div>
+                  {#if store.gitProgress.phase === "fetch" && store.gitProgress.total > 0}
+                    <div class="git-progress-bar">
+                      <div
+                        class="git-progress-fill"
+                        style="width: {Math.round(
+                          (store.gitProgress.fetched / store.gitProgress.total) * 100,
+                        )}%"
+                      ></div>
+                    </div>
+                  {/if}
+                {:else}
+                  <div class="registry-loading">
+                    <span class="loading-spinner"></span> Discovering SKILL.md files…
+                  </div>
+                {/if}
               </div>
             {:else if store.gitDiscoveredFiles.length > 0}
               <div class="git-results" role="list">
@@ -1578,6 +1612,38 @@
     font-family: var(--font-mono);
     color: var(--color-text-primary);
     word-break: break-all;
+  }
+
+  /* ── Git Import Progress ── */
+
+  .git-progress-area {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-sm) 0;
+  }
+
+  .git-progress-info {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+  }
+
+  .git-progress-bar {
+    width: 100%;
+    height: 6px;
+    background: var(--color-bg-tertiary);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .git-progress-fill {
+    height: 100%;
+    background: var(--color-accent);
+    border-radius: 3px;
+    transition: width 0.2s ease;
   }
 
   /* ── Create Custom Skill ── */
