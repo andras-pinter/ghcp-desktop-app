@@ -330,3 +330,55 @@ pub async fn extract_file_text(
     .await
     .map_err(|e| format!("Extraction task failed: {e}"))?
 }
+
+/// Read files from OS-level drag-and-drop paths (provided by Tauri's
+/// `onDragDropEvent`).  Returns base64-encoded content for each valid file.
+#[tauri::command]
+pub async fn read_dropped_files(paths: Vec<String>) -> Result<Vec<ChatFileData>, String> {
+    use base64::Engine;
+
+    const MAX_FILE_SIZE: usize = 50 * 1024 * 1024;
+    let mut results = Vec::new();
+
+    for path_str in &paths {
+        let path = std::path::Path::new(path_str);
+
+        // Skip directories
+        if path.is_dir() {
+            continue;
+        }
+
+        let name = path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("file")
+            .to_string();
+
+        let content = match std::fs::read(path) {
+            Ok(c) => c,
+            Err(e) => {
+                log::warn!("read_dropped_files: failed to read {}: {e}", path_str);
+                continue;
+            }
+        };
+
+        if content.len() > MAX_FILE_SIZE {
+            log::warn!(
+                "read_dropped_files: {} is too large ({} bytes)",
+                name,
+                content.len()
+            );
+            continue;
+        }
+
+        let content_type = guess_content_type(&name);
+        results.push(ChatFileData {
+            name,
+            content_type,
+            size: content.len(),
+            content_base64: base64::engine::general_purpose::STANDARD.encode(&content),
+        });
+    }
+
+    Ok(results)
+}

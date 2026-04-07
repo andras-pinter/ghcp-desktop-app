@@ -10,6 +10,7 @@
     stopStreaming,
     updateConversation,
     extractFileText,
+    readDroppedFiles,
   } from "$lib/utils/commands";
   import {
     onStreamingToken,
@@ -18,6 +19,7 @@
     onContextSummarized,
   } from "$lib/utils/events";
   import { onMount, onDestroy } from "svelte";
+  import { getCurrentWebview } from "@tauri-apps/api/webview";
   import type { UnlistenFn } from "@tauri-apps/api/event";
   import {
     getConversationStore,
@@ -58,57 +60,34 @@
   let extractingFiles = $state(false);
   const greeting = greetings[Math.floor(Math.random() * greetings.length)];
 
-  // Full-window drag-and-drop: files dropped anywhere in the chat view
-  // are forwarded to the InputArea component.
+  // Full-window drag-and-drop via Tauri's native onDragDropEvent.
+  // HTML5 drag events don't receive file data in Tauri's webview — the
+  // native layer intercepts OS-level file drops and provides file paths.
   let viewDropActive = $state(false);
   let pendingDropFiles: ChatFileData[] = $state([]);
+  let unlistenDragDrop: UnlistenFn | undefined;
 
-  function handleViewDragOver(event: DragEvent) {
-    event.preventDefault();
-    if (event.dataTransfer?.types.includes("Files")) {
-      viewDropActive = true;
-    }
-  }
-
-  function handleViewDragLeave(event: DragEvent) {
-    // Only deactivate when leaving the chat-view itself (not child elements)
-    const related = event.relatedTarget as Node | null;
-    const current = event.currentTarget as HTMLElement;
-    if (!related || !current.contains(related)) {
-      viewDropActive = false;
-    }
-  }
-
-  async function handleViewDrop(event: DragEvent) {
-    event.preventDefault();
-    viewDropActive = false;
-    const files = event.dataTransfer?.files;
-    if (!files || files.length === 0) return;
-
-    const MAX_FILE_SIZE = 50 * 1024 * 1024;
-    const newFiles: ChatFileData[] = [];
-    for (const file of files) {
-      if (file.size > MAX_FILE_SIZE) {
-        console.warn(`File "${file.name}" too large (${file.size} bytes)`);
-        continue;
+  async function setupDragDrop() {
+    const webview = getCurrentWebview();
+    unlistenDragDrop = await webview.onDragDropEvent(async (event) => {
+      if (event.payload.type === "enter" || event.payload.type === "over") {
+        viewDropActive = true;
+      } else if (event.payload.type === "leave") {
+        viewDropActive = false;
+      } else if (event.payload.type === "drop") {
+        viewDropActive = false;
+        const paths = event.payload.paths;
+        if (!paths || paths.length === 0) return;
+        try {
+          const files = await readDroppedFiles(paths);
+          if (files.length > 0) {
+            pendingDropFiles = files;
+          }
+        } catch (e) {
+          console.error("Failed to read dropped files:", e);
+        }
       }
-      const arrayBuf = await file.arrayBuffer();
-      const bytes = new Uint8Array(arrayBuf);
-      let binary = "";
-      for (let i = 0; i < bytes.length; i++) {
-        binary += String.fromCharCode(bytes[i]);
-      }
-      const base64 = btoa(binary);
-      newFiles.push({
-        name: file.name,
-        contentType: file.type || "application/octet-stream",
-        size: file.size,
-        contentBase64: base64,
-      });
-    }
-    if (newFiles.length > 0) {
-      pendingDropFiles = newFiles;
-    }
+    });
   }
 
   function clearPendingDropFiles() {
@@ -155,6 +134,8 @@
       draftText = await loadDraft(store.activeConversationId);
     }
 
+    setupDragDrop();
+
     unlistenToken = await onStreamingToken((token) => {
       appendStreamingToken(token);
       requestAnimationFrame(() => {
@@ -198,6 +179,7 @@
     unlistenComplete?.();
     unlistenError?.();
     unlistenSummarized?.();
+    unlistenDragDrop?.();
     if (draftTimer) clearTimeout(draftTimer);
   });
 
@@ -449,15 +431,20 @@
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 <div
   class="chat-view"
-  class:drop-active={viewDropActive}
   role="region"
   aria-label="Chat"
   tabindex="-1"
   onkeydown={handleGlobalKeydown}
-  ondragover={handleViewDragOver}
-  ondragleave={handleViewDragLeave}
-  ondrop={handleViewDrop}
 >
+  {#if viewDropActive}
+    <div class="drop-overlay" role="status" aria-label="Drop files to attach">
+      <div class="drop-overlay-inner">
+        <span class="drop-icon">📎</span>
+        <span class="drop-text">Drop files to attach</span>
+      </div>
+    </div>
+  {/if}
+
   {#if store.messages.length === 0}
     <div class="welcome-container">
       <div class="welcome">
@@ -556,10 +543,41 @@
     position: relative;
   }
 
-  .chat-view.drop-active {
-    outline: 2px dashed var(--color-accent-copper);
-    outline-offset: -4px;
-    background: color-mix(in srgb, var(--color-accent-copper) 4%, transparent);
+  /* ── Drop overlay ── */
+
+  .drop-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 50;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: color-mix(in srgb, var(--color-bg) 85%, transparent);
+    backdrop-filter: blur(4px);
+    animation: fadeIn 150ms ease both;
+  }
+
+  .drop-overlay-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-md);
+    padding: var(--spacing-3xl) var(--spacing-4xl);
+    border: 2px dashed var(--color-accent-copper);
+    border-radius: var(--radius-xl);
+    background: color-mix(in srgb, var(--color-accent-copper) 6%, transparent);
+  }
+
+  .drop-icon {
+    font-size: 2.5rem;
+  }
+
+  .drop-text {
+    font-family: var(--font-body);
+    font-size: var(--font-size-lg);
+    font-weight: 500;
+    color: var(--color-accent-copper);
+    letter-spacing: var(--letter-spacing-tight);
   }
 
   /* ── Welcome ── */

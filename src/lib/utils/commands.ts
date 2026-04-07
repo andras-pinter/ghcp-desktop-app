@@ -555,3 +555,10 @@ export async function extractFileText(
 ): Promise<string | null> {
   return invoke<string | null>("extract_file_text", { contentBase64, contentType, name });
 }
+
+/** Read files from OS-level drag-and-drop paths via Tauri backend. */
+export async function readDroppedFiles(
+  paths: string[],
+): Promise<import("$lib/types/project").ChatFileData[]> {
+  return invoke<import("$lib/types/project").ChatFileData[]>("read_dropped_files", { paths });
+}

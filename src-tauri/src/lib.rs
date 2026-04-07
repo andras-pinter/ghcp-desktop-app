@@ -138,6 +138,7 @@ pub fn run(force_logout: bool) {
             commands::projects::pick_file_for_upload,
             commands::projects::pick_file_for_chat,
             commands::projects::extract_file_text,
+            commands::projects::read_dropped_files,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Chuck");
