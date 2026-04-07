@@ -139,13 +139,13 @@ export function clearAgentRegistrySearch(): void {
 
 // ── Git Import ──────────────────────────────────────────────────
 
-/** Fetch SKILL.md files from a git URL for agent import. */
+/** Fetch agent definition files from a git URL. */
 export async function discoverGitAgents(url: string): Promise<void> {
-  const { fetchGitSkills } = await import("$lib/utils/commands");
+  const { fetchGitAgents } = await import("$lib/utils/commands");
   gitImportUrl = url;
   gitImporting = true;
   try {
-    gitDiscoveredFiles = await fetchGitSkills(url);
+    gitDiscoveredFiles = await fetchGitAgents(url);
   } catch (e) {
     logFrontend("error", `Git agent discovery failed: ${e}`);
     gitDiscoveredFiles = [];

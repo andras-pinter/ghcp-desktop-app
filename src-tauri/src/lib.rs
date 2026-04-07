@@ -114,6 +114,7 @@ pub fn run(force_logout: bool) {
             commands::agents::set_agent_mcp_connections,
             commands::agents::install_agent_from_registry,
             commands::agents::import_agent_from_git,
+            commands::agents::fetch_git_agents,
             commands::skills::get_skills,
             commands::skills::create_skill,
             commands::skills::update_skill,

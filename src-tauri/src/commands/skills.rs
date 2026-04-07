@@ -194,7 +194,7 @@ pub async fn fetch_git_skills(
 ) -> Result<Vec<crate::registry::GitSkillFile>, String> {
     let state = app.state::<AppState>();
     let client = &state.http_client;
-    crate::registry::fetch_git_skills(client, &git_url).await
+    crate::registry::fetch_git_definitions(client, &git_url, Some("skill")).await
 }
 
 /// Import a single skill from a fetched SKILL.md content.

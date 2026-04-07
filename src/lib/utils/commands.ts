@@ -446,6 +446,11 @@ export async function fetchGitSkills(gitUrl: string): Promise<GitSkillFile[]> {
   return invoke<GitSkillFile[]>("fetch_git_skills", { gitUrl });
 }
 
+/** Fetch agent definition files (*.agent.md) from a git repository URL. */
+export async function fetchGitAgents(gitUrl: string): Promise<GitSkillFile[]> {
+  return invoke<GitSkillFile[]>("fetch_git_agents", { gitUrl });
+}
+
 /** Import a parsed SKILL.md content as a skill. */
 export async function importGitSkill(
   content: string,

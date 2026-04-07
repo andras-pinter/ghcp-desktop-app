@@ -168,7 +168,7 @@ pub async fn install_agent_from_registry(
     .map_err(|e| format!("Failed to save agent: {e}"))
 }
 
-/// Import an agent from a git SKILL.md file content.
+/// Import an agent from a git definition file content.
 #[tauri::command]
 pub fn import_agent_from_git(
     app: AppHandle,
@@ -177,7 +177,7 @@ pub fn import_agent_from_git(
     path: String,
 ) -> Result<queries::Agent, String> {
     let parsed =
-        crate::skillmd::parse(&content).map_err(|e| format!("Failed to parse SKILL.md: {e}"))?;
+        crate::skillmd::parse(&content).map_err(|e| format!("Failed to parse agent file: {e}"))?;
 
     let id = uuid::Uuid::new_v4().to_string();
     let state = app.state::<AppState>();
@@ -194,4 +194,15 @@ pub fn import_agent_from_git(
         "git",
     )
     .map_err(|e| format!("Failed to save agent: {e}"))
+}
+
+/// Fetch agent definition files (*.agent.md, AGENT.md) from a git repository URL.
+#[tauri::command]
+pub async fn fetch_git_agents(
+    app: AppHandle,
+    git_url: String,
+) -> Result<Vec<crate::registry::GitSkillFile>, String> {
+    let state = app.state::<AppState>();
+    let client = &state.http_client;
+    crate::registry::fetch_git_definitions(client, &git_url, Some("agent")).await
 }

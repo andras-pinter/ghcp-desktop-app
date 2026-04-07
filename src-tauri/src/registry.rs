@@ -491,16 +491,18 @@ async fn fetch_aitmpl_content(client: &Client, item_id: &str) -> Result<String, 
 
 // ── Git URL Import ─────────────────────────────────────────────
 
-/// A discovered SKILL.md file from a git repository.
+/// A discovered definition file (SKILL.md or *.agent.md) from a git repository.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GitSkillFile {
     /// Path within the repository.
     pub path: String,
-    /// The raw SKILL.md content.
+    /// The raw file content.
     pub content: String,
     /// The repo URL it came from.
     pub repo_url: String,
+    /// What kind of definition: "skill" or "agent".
+    pub kind: String,
 }
 
 /// Parsed git URL components.
@@ -577,24 +579,43 @@ fn parse_git_url(input: &str) -> Result<ParsedGitUrl, String> {
     })
 }
 
-/// Fetch SKILL.md files from a git repository URL.
+/// Classify a file path as "skill" or "agent" based on filename patterns.
+fn classify_definition_file(path: &str) -> Option<&'static str> {
+    let name = path.rsplit('/').next().unwrap_or(path);
+    if name.eq_ignore_ascii_case("SKILL.md") {
+        Some("skill")
+    } else if name.ends_with(".agent.md") || name.eq_ignore_ascii_case("AGENT.md") {
+        Some("agent")
+    } else {
+        None
+    }
+}
+
+/// Fetch definition files (SKILL.md + *.agent.md) from a git repository URL.
 ///
-/// Discovers SKILL.md files in standard locations or at a specific path.
-pub async fn fetch_git_skills(client: &Client, git_url: &str) -> Result<Vec<GitSkillFile>, String> {
+/// Discovers both skills and agents. Optionally filter by `kind_filter`
+/// ("skill" or "agent"); pass `None` to get both.
+pub async fn fetch_git_definitions(
+    client: &Client,
+    git_url: &str,
+    kind_filter: Option<&str>,
+) -> Result<Vec<GitSkillFile>, String> {
     let parsed = parse_git_url(git_url)?;
     let repo_url = format!("https://{}/{}/{}", parsed.host, parsed.owner, parsed.repo);
 
     if let Some(path) = parsed.file_path {
         // Fetch specific file
+        let kind = classify_definition_file(&path).unwrap_or("skill");
         let content = fetch_github_file(client, &parsed.owner, &parsed.repo, &path).await?;
         return Ok(vec![GitSkillFile {
             path,
             content,
             repo_url,
+            kind: kind.to_string(),
         }]);
     }
 
-    // Use the GitHub tree API to recursively find all SKILL.md files
+    // Use the GitHub tree API to recursively find definition files
     let tree_url = format!(
         "https://api.github.com/repos/{}/{}/git/trees/main?recursive=1",
         parsed.owner, parsed.repo
@@ -632,29 +653,33 @@ pub async fn fetch_git_skills(client: &Client, git_url: &str) -> Result<Vec<GitS
         .await
         .map_err(|e| format!("Failed to parse tree response: {e}"))?;
 
-    // Collect all SKILL.md / SKILL.MD paths (cap at 50 to avoid huge repos)
-    let skill_paths: Vec<String> = tree
+    // Collect matching paths: SKILL.md + *.agent.md (cap at 50)
+    let def_paths: Vec<(String, &str)> = tree
         .tree
         .iter()
-        .filter(|t| {
-            t.item_type == "blob" && {
-                let name = t.path.rsplit('/').next().unwrap_or(&t.path);
-                name.eq_ignore_ascii_case("SKILL.md")
+        .filter(|t| t.item_type == "blob")
+        .filter_map(|t| {
+            let kind = classify_definition_file(&t.path)?;
+            if let Some(filter) = kind_filter {
+                if kind != filter {
+                    return None;
+                }
             }
+            Some((t.path.clone(), kind))
         })
         .take(50)
-        .map(|t| t.path.clone())
         .collect();
 
-    if skill_paths.is_empty() {
+    let kind_label = kind_filter.unwrap_or("definition");
+    if def_paths.is_empty() {
         return Err(format!(
-            "No SKILL.md files found in {}/{}",
+            "No {kind_label} files found in {}/{}",
             parsed.owner, parsed.repo
         ));
     }
 
     let mut found = Vec::new();
-    for path in skill_paths {
+    for (path, kind) in def_paths {
         if let Ok(content) =
             fetch_github_file(client, &parsed.owner, &parsed.repo, &path).await
         {
@@ -662,13 +687,14 @@ pub async fn fetch_git_skills(client: &Client, git_url: &str) -> Result<Vec<GitS
                 path,
                 content,
                 repo_url: repo_url.clone(),
+                kind: kind.to_string(),
             });
         }
     }
 
     if found.is_empty() {
         Err(format!(
-            "Found SKILL.md files but could not fetch their content in {}/{}",
+            "Found {kind_label} files but could not fetch their content in {}/{}",
             parsed.owner, parsed.repo
         ))
     } else {

@@ -22,9 +22,11 @@ export interface RegistrySearchResult {
   total: number | null;
 }
 
-/** A discovered SKILL.md file from a git repository. */
+/** A discovered definition file (SKILL.md or *.agent.md) from a git repository. */
 export interface GitSkillFile {
   path: string;
   content: string;
   repoUrl: string;
+  /** "skill" or "agent" */
+  kind: string;
 }
