@@ -24,7 +24,6 @@ pub fn get_agent(app: AppHandle, id: String) -> Result<Option<queries::Agent>, S
 #[tauri::command]
 pub fn create_agent(
     app: AppHandle,
-    id: String,
     name: String,
     avatar: Option<String>,
     system_prompt: String,
@@ -37,6 +36,7 @@ pub fn create_agent(
     if system_prompt.trim().is_empty() {
         return Err("System prompt cannot be empty".to_string());
     }
+    let id = uuid::Uuid::new_v4().to_string();
     let state = app.state::<AppState>();
     let db = state.db.lock().map_err(|e| e.to_string())?;
     queries::create_agent(

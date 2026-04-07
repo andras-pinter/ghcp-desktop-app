@@ -213,7 +213,8 @@ pub async fn fetch_skill_content(
     match source {
         RegistrySource::SkillsSh => {
             // skills.sh hosts SKILL.md on GitHub, try raw content
-            let url = format!("https://skills.sh/api/skill/{skill_id}");
+            let encoded_id = urlencoding::encode(skill_id);
+            let url = format!("https://skills.sh/api/skill/{encoded_id}");
             let resp = client
                 .get(&url)
                 .header("Accept", "text/plain")
@@ -229,8 +230,9 @@ pub async fn fetch_skill_content(
             }
 
             // Fallback: try GitHub raw
+            let encoded_id = urlencoding::encode(skill_id);
             let github_url = format!(
-                "https://raw.githubusercontent.com/nicepkg/nice-copilot-skills/main/skills/{skill_id}/SKILL.md"
+                "https://raw.githubusercontent.com/nicepkg/nice-copilot-skills/main/skills/{encoded_id}/SKILL.md"
             );
             let resp = client
                 .get(&github_url)
@@ -266,26 +268,50 @@ pub struct GitSkillFile {
     pub repo_url: String,
 }
 
-/// Parse a git URL input into (owner, repo, optional path).
+/// Parsed git URL components.
+struct ParsedGitUrl {
+    /// The host domain (e.g., "github.com", "gitlab.com").
+    host: String,
+    owner: String,
+    repo: String,
+    file_path: Option<String>,
+}
+
+/// Parse a git URL input into structured components.
 ///
 /// Accepts:
-/// - `owner/repo`
+/// - `owner/repo` (defaults to github.com)
 /// - `https://github.com/owner/repo`
 /// - `https://github.com/owner/repo/blob/main/path/to/SKILL.md`
 /// - `https://gitlab.com/owner/repo`
-fn parse_git_url(input: &str) -> Result<(String, String, Option<String>), String> {
+///
+/// Only GitHub and GitLab domains are allowed for security (SSRF prevention).
+fn parse_git_url(input: &str) -> Result<ParsedGitUrl, String> {
     let trimmed = input.trim();
 
-    // Handle short form: owner/repo
+    // Handle short form: owner/repo (defaults to GitHub)
     if !trimmed.contains("://") && trimmed.matches('/').count() == 1 {
         let parts: Vec<&str> = trimmed.split('/').collect();
-        return Ok((parts[0].to_string(), parts[1].to_string(), None));
+        return Ok(ParsedGitUrl {
+            host: "github.com".to_string(),
+            owner: parts[0].to_string(),
+            repo: parts[1].to_string(),
+            file_path: None,
+        });
     }
 
     // Parse full URL
     let url = url::Url::parse(trimmed).map_err(|_| {
         "Invalid URL format. Use owner/repo or a full GitHub/GitLab URL.".to_string()
     })?;
+
+    // Validate domain — only allow GitHub and GitLab
+    let host = url.host_str().ok_or("URL must have a host")?.to_lowercase();
+    if host != "github.com" && host != "gitlab.com" {
+        return Err(format!(
+            "Only github.com and gitlab.com are supported, got: {host}"
+        ));
+    }
 
     let segments: Vec<&str> = url
         .path_segments()
@@ -308,19 +334,24 @@ fn parse_git_url(input: &str) -> Result<(String, String, Option<String>), String
         None
     };
 
-    Ok((owner, repo, file_path))
+    Ok(ParsedGitUrl {
+        host,
+        owner,
+        repo,
+        file_path,
+    })
 }
 
 /// Fetch SKILL.md files from a git repository URL.
 ///
 /// Discovers SKILL.md files in standard locations or at a specific path.
 pub async fn fetch_git_skills(client: &Client, git_url: &str) -> Result<Vec<GitSkillFile>, String> {
-    let (owner, repo, specific_path) = parse_git_url(git_url)?;
-    let repo_url = format!("https://github.com/{owner}/{repo}");
+    let parsed = parse_git_url(git_url)?;
+    let repo_url = format!("https://{}/{}/{}", parsed.host, parsed.owner, parsed.repo);
 
-    if let Some(path) = specific_path {
+    if let Some(path) = parsed.file_path {
         // Fetch specific file
-        let content = fetch_github_file(client, &owner, &repo, &path).await?;
+        let content = fetch_github_file(client, &parsed.owner, &parsed.repo, &path).await?;
         return Ok(vec![GitSkillFile {
             path,
             content,
@@ -336,7 +367,9 @@ pub async fn fetch_git_skills(client: &Client, git_url: &str) -> Result<Vec<GitS
     for search_path in search_paths {
         if search_path.contains('.') {
             // Direct file path
-            if let Ok(content) = fetch_github_file(client, &owner, &repo, search_path).await {
+            if let Ok(content) =
+                fetch_github_file(client, &parsed.owner, &parsed.repo, search_path).await
+            {
                 found.push(GitSkillFile {
                     path: search_path.to_string(),
                     content,
@@ -345,13 +378,16 @@ pub async fn fetch_git_skills(client: &Client, git_url: &str) -> Result<Vec<GitS
             }
         } else {
             // Directory — list contents
-            if let Ok(entries) = list_github_dir(client, &owner, &repo, search_path).await {
+            if let Ok(entries) =
+                list_github_dir(client, &parsed.owner, &parsed.repo, search_path).await
+            {
                 for entry in entries {
                     if entry.name.ends_with(".md")
                         && (entry.name == "SKILL.md" || entry.name.to_lowercase().contains("skill"))
                     {
                         if let Ok(content) =
-                            fetch_github_file(client, &owner, &repo, &entry.path).await
+                            fetch_github_file(client, &parsed.owner, &parsed.repo, &entry.path)
+                                .await
                         {
                             found.push(GitSkillFile {
                                 path: entry.path,
@@ -367,7 +403,8 @@ pub async fn fetch_git_skills(client: &Client, git_url: &str) -> Result<Vec<GitS
 
     if found.is_empty() {
         Err(format!(
-            "No SKILL.md files found in {owner}/{repo}. Searched: SKILL.md, skills/, .agents/skills/, .copilot/skills/"
+            "No SKILL.md files found in {}/{}. Searched: SKILL.md, skills/, .agents/skills/, .copilot/skills/",
+            parsed.owner, parsed.repo
         ))
     } else {
         Ok(found)
@@ -447,43 +484,52 @@ mod tests {
 
     #[test]
     fn test_parse_git_url_short_form() {
-        let (owner, repo, path) = parse_git_url("octocat/hello-world").unwrap();
-        assert_eq!(owner, "octocat");
-        assert_eq!(repo, "hello-world");
-        assert!(path.is_none());
+        let parsed = parse_git_url("octocat/hello-world").unwrap();
+        assert_eq!(parsed.host, "github.com");
+        assert_eq!(parsed.owner, "octocat");
+        assert_eq!(parsed.repo, "hello-world");
+        assert!(parsed.file_path.is_none());
     }
 
     #[test]
     fn test_parse_git_url_github() {
-        let (owner, repo, path) = parse_git_url("https://github.com/octocat/hello-world").unwrap();
-        assert_eq!(owner, "octocat");
-        assert_eq!(repo, "hello-world");
-        assert!(path.is_none());
+        let parsed = parse_git_url("https://github.com/octocat/hello-world").unwrap();
+        assert_eq!(parsed.host, "github.com");
+        assert_eq!(parsed.owner, "octocat");
+        assert_eq!(parsed.repo, "hello-world");
+        assert!(parsed.file_path.is_none());
     }
 
     #[test]
     fn test_parse_git_url_with_path() {
-        let (owner, repo, path) = parse_git_url(
+        let parsed = parse_git_url(
             "https://github.com/octocat/hello-world/blob/main/skills/review/SKILL.md",
         )
         .unwrap();
-        assert_eq!(owner, "octocat");
-        assert_eq!(repo, "hello-world");
-        assert_eq!(path, Some("skills/review/SKILL.md".to_string()));
+        assert_eq!(parsed.owner, "octocat");
+        assert_eq!(parsed.repo, "hello-world");
+        assert_eq!(parsed.file_path, Some("skills/review/SKILL.md".to_string()));
     }
 
     #[test]
     fn test_parse_git_url_dot_git() {
-        let (owner, repo, _) = parse_git_url("https://github.com/octocat/hello-world.git").unwrap();
-        assert_eq!(repo, "hello-world");
-        assert_eq!(owner, "octocat");
+        let parsed = parse_git_url("https://github.com/octocat/hello-world.git").unwrap();
+        assert_eq!(parsed.repo, "hello-world");
+        assert_eq!(parsed.owner, "octocat");
     }
 
     #[test]
     fn test_parse_git_url_gitlab() {
-        let (owner, repo, _) = parse_git_url("https://gitlab.com/mygroup/myproject").unwrap();
-        assert_eq!(owner, "mygroup");
-        assert_eq!(repo, "myproject");
+        let parsed = parse_git_url("https://gitlab.com/mygroup/myproject").unwrap();
+        assert_eq!(parsed.host, "gitlab.com");
+        assert_eq!(parsed.owner, "mygroup");
+        assert_eq!(parsed.repo, "myproject");
+    }
+
+    #[test]
+    fn test_parse_git_url_rejects_unknown_domains() {
+        assert!(parse_git_url("https://evil.com/owner/repo").is_err());
+        assert!(parse_git_url("https://bitbucket.org/owner/repo").is_err());
     }
 
     #[test]
@@ -494,8 +540,8 @@ mod tests {
 
     #[test]
     fn test_parse_git_url_with_whitespace() {
-        let (owner, repo, _) = parse_git_url("  octocat/hello-world  ").unwrap();
-        assert_eq!(owner, "octocat");
-        assert_eq!(repo, "hello-world");
+        let parsed = parse_git_url("  octocat/hello-world  ").unwrap();
+        assert_eq!(parsed.owner, "octocat");
+        assert_eq!(parsed.repo, "hello-world");
     }
 }
