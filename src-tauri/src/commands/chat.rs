@@ -1,19 +1,41 @@
 //! Chat commands: send_message, stop_streaming, regenerate.
 
+use crate::db::queries;
 use crate::state::AppState;
 use copilot_api::client::StreamEvent;
-use copilot_api::types::{ChatMessage, ChatRequest};
+use copilot_api::types::{ChatMessage, ChatRequest, MessageRole};
 use tauri::{AppHandle, Emitter, Manager};
+
+/// Build the system prompt for an agent by combining its prompt with skill instructions.
+fn build_agent_system_prompt(agent: &queries::Agent, skills: &[queries::Skill]) -> String {
+    let mut parts = vec![agent.system_prompt.clone()];
+
+    for skill in skills {
+        if skill.enabled {
+            if let Some(ref instructions) = skill.instructions {
+                if !instructions.is_empty() {
+                    parts.push(format!("\n---\n## Skill: {}\n{}", skill.name, instructions));
+                }
+            }
+        }
+    }
+
+    parts.join("\n")
+}
 
 /// Send a chat message and stream the response via events.
 ///
 /// The frontend receives `streaming-token`, `streaming-complete`, or
 /// `streaming-error` events as the response arrives.
+///
+/// When `agent_id` is provided, the agent's system prompt and enabled skill
+/// instructions are prepended as a system message.
 #[tauri::command]
 pub async fn send_message(
     app: AppHandle,
     messages: Vec<ChatMessage>,
     model: String,
+    agent_id: Option<String>,
 ) -> Result<(), String> {
     if messages.is_empty() {
         return Err("At least one message is required".to_string());
@@ -24,9 +46,39 @@ pub async fn send_message(
 
     let state = app.state::<AppState>();
 
+    // Build messages with optional agent system prompt prepended
+    let final_messages = if let Some(ref aid) = agent_id {
+        let (agent_opt, skills) = {
+            let db = state.db.lock().map_err(|e| e.to_string())?;
+            let agent = queries::get_agent(&db, aid).map_err(|e| e.to_string())?;
+            let skills = if agent.is_some() {
+                queries::get_agent_skills(&db, aid).map_err(|e| e.to_string())?
+            } else {
+                vec![]
+            };
+            (agent, skills)
+        };
+
+        if let Some(agent) = agent_opt {
+            let system_prompt = build_agent_system_prompt(&agent, &skills);
+            let mut msgs = vec![ChatMessage {
+                role: MessageRole::System,
+                content: system_prompt,
+                name: None,
+                tool_call_id: None,
+            }];
+            msgs.extend(messages);
+            msgs
+        } else {
+            messages
+        }
+    } else {
+        messages
+    };
+
     let request = ChatRequest {
         model,
-        messages,
+        messages: final_messages,
         temperature: None,
         max_tokens: None,
         stream: true,

@@ -7,6 +7,9 @@ pub fn run(conn: &Connection, current_version: i32) -> Result<(), Box<dyn std::e
     if current_version < 1 {
         migrate_v1(conn)?;
     }
+    if current_version < 2 {
+        migrate_v2(conn)?;
+    }
     Ok(())
 }
 
@@ -149,6 +152,37 @@ fn migrate_v1(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+/// Version 2: Add skill instructions, source tracking, and updated_at to skills.
+fn migrate_v2(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
+    conn.execute_batch(
+        "
+        -- Skills: add instructions body (markdown from SKILL.md)
+        ALTER TABLE skills ADD COLUMN instructions TEXT;
+
+        -- Skills: track where the skill was imported from
+        ALTER TABLE skills ADD COLUMN source_url TEXT;
+
+        -- Skills: source type discriminator
+        ALTER TABLE skills ADD COLUMN source_type TEXT DEFAULT 'builtin';
+
+        -- Skills: add updated_at for edit tracking
+        ALTER TABLE skills ADD COLUMN updated_at TEXT;
+
+        -- Agents: track where the agent template came from
+        ALTER TABLE agents ADD COLUMN source_url TEXT;
+
+        -- Agents: source type discriminator
+        ALTER TABLE agents ADD COLUMN source_type TEXT DEFAULT 'local';
+
+        -- Bump schema version
+        UPDATE config SET value = '2' WHERE key = 'schema_version';
+        ",
+    )?;
+
+    log::info!("Database migrated to schema version 2");
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -158,7 +192,7 @@ mod tests {
     fn test_migration_v1() {
         let conn = Connection::open_in_memory().unwrap();
         conn.execute_batch("PRAGMA foreign_keys=ON;").unwrap();
-        run(&conn, 0).unwrap();
+        migrate_v1(&conn).unwrap();
 
         // Verify tables exist
         let tables: Vec<String> = conn
@@ -194,11 +228,80 @@ mod tests {
     }
 
     #[test]
+    fn test_migration_v2() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch("PRAGMA foreign_keys=ON;").unwrap();
+        run(&conn, 0).unwrap();
+
+        // Verify schema version is now 2
+        let version: String = conn
+            .query_row(
+                "SELECT value FROM config WHERE key='schema_version'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(version, "2");
+
+        // Verify new skill columns exist
+        conn.execute(
+            "INSERT INTO skills (id, name, source, instructions, source_url, source_type, updated_at, created_at)
+             VALUES ('test', 'Test Skill', 'registry_aitmpl', 'some instructions', 'https://example.com', 'registry_aitmpl', datetime('now'), datetime('now'))",
+            [],
+        )
+        .unwrap();
+
+        let instructions: Option<String> = conn
+            .query_row(
+                "SELECT instructions FROM skills WHERE id = 'test'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(instructions, Some("some instructions".to_string()));
+
+        // Verify new agent columns exist
+        let source_type: Option<String> = conn
+            .query_row(
+                "SELECT source_type FROM agents WHERE is_default = 1",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(source_type, Some("local".to_string()));
+    }
+
+    #[test]
     fn test_idempotent_migration() {
         let conn = Connection::open_in_memory().unwrap();
         conn.execute_batch("PRAGMA foreign_keys=ON;").unwrap();
         run(&conn, 0).unwrap();
-        // Running again should not fail
+        // Running v1 again should not fail (IF NOT EXISTS)
+        migrate_v1(&conn).unwrap();
+        // v2 ALTER TABLE would fail on re-run, but run() skips it via version check
+    }
+
+    #[test]
+    fn test_incremental_migration() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch("PRAGMA foreign_keys=ON;").unwrap();
+        // Simulate existing v1 database
         run(&conn, 0).unwrap();
+
+        // Now simulate upgrading from v1 to v2 only
+        let conn2 = Connection::open_in_memory().unwrap();
+        conn2.execute_batch("PRAGMA foreign_keys=ON;").unwrap();
+        migrate_v1(&conn2).unwrap();
+        // Run from v1 should only apply v2
+        run(&conn2, 1).unwrap();
+
+        let version: String = conn2
+            .query_row(
+                "SELECT value FROM config WHERE key='schema_version'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(version, "2");
     }
 }

@@ -22,6 +22,7 @@
     deleteMessagesAfter,
   } from "$lib/stores/conversations.svelte";
   import { getModelStore, setDefaultModel } from "$lib/stores/models.svelte";
+  import { getAgentStore, selectAgent } from "$lib/stores/agents.svelte";
 
   const greetings = [
     "Your co-pilot is ready. Where to?",
@@ -36,6 +37,7 @@
 
   const store = getConversationStore();
   const modelStore = getModelStore();
+  const agentStore = getAgentStore();
   let chatContainer: HTMLElement | undefined = $state();
   let streaming = $state(false);
   let selectedModel = $state("gpt-4o");
@@ -122,7 +124,8 @@
       convId = conv.id;
     }
 
-    // Clear draft
+    // Clear draft and cancel any pending save
+    if (draftTimer) clearTimeout(draftTimer);
     clearDraft(convId);
     draftText = "";
 
@@ -177,7 +180,7 @@
       .map((m) => ({ role: m.role, content: m.content }));
 
     try {
-      await sendMessage(apiMessages, selectedModel);
+      await sendMessage(apiMessages, selectedModel, agentStore.selectedAgentId);
     } catch (e) {
       streaming = false;
       streamingAssistantId = null;
@@ -280,7 +283,7 @@
       .map((m) => ({ role: m.role, content: m.content }));
 
     try {
-      await sendMessage(apiMessages, selectedModel);
+      await sendMessage(apiMessages, selectedModel, agentStore.selectedAgentId);
     } catch (e) {
       streaming = false;
       streamingAssistantId = null;
@@ -338,6 +341,10 @@
           onSetDefault={setDefaultModel}
           initialValue={draftText}
           onInput={handleDraftChange}
+          agents={agentStore.agents}
+          agentsLoaded={agentStore.loaded}
+          selectedAgentId={agentStore.selectedAgentId}
+          onAgentChange={selectAgent}
         />
       </div>
     </div>
@@ -375,6 +382,10 @@
         onSetDefault={setDefaultModel}
         initialValue={draftText}
         onInput={handleDraftChange}
+        agents={agentStore.agents}
+        agentsLoaded={agentStore.loaded}
+        selectedAgentId={agentStore.selectedAgentId}
+        onAgentChange={selectAgent}
       />
     </div>
   {/if}

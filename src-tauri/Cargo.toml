@@ -40,5 +40,15 @@ chrono.workspace = true
 # Database
 rusqlite = { version = "0.33", features = ["bundled"] }
 
+# SKILL.md parsing
+serde_norway.workspace = true
+
+# Async trait for registry provider abstraction
+async-trait = "0.1"
+
+# HTTP client + URL parsing (re-exported for registry/git import)
+reqwest.workspace = true
+url.workspace = true
+
 # Logging
 env_logger = "0.11"

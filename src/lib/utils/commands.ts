@@ -5,6 +5,9 @@ import type { AuthState, DeviceCodeResponse, GitHubUser } from "$lib/types/auth"
 import type { Conversation } from "$lib/types/conversation";
 import type { Message, ChatMessage, Model } from "$lib/types/message";
 import type { SearchResult, ExtractedContent } from "$lib/types/web-research";
+import type { Agent } from "$lib/types/agent";
+import type { Skill } from "$lib/types/skill";
+import type { RegistrySearchResult, GitSkillFile, RegistryItem } from "$lib/types/registry";
 import type {
   McpConnectionInfo,
   McpServerConfig,
@@ -45,8 +48,12 @@ export async function doLogout(): Promise<void> {
 // ── Chat ────────────────────────────────────────────────────────
 
 /** Send chat messages and start streaming the response. */
-export async function sendMessage(messages: ChatMessage[], model: string): Promise<void> {
-  return invoke("send_message", { messages, model });
+export async function sendMessage(
+  messages: ChatMessage[],
+  model: string,
+  agentId?: string | null,
+): Promise<void> {
+  return invoke("send_message", { messages, model, agentId: agentId ?? null });
 }
 
 /** Cancel an in-flight streaming response. */
@@ -254,4 +261,201 @@ export async function fetchMcpRegistry(query?: string, cursor?: string): Promise
     query: query ?? null,
     cursor: cursor ?? null,
   });
+}
+
+// ── Agents ──────────────────────────────────────────────────────
+
+/** List all agents. */
+export async function getAgents(): Promise<Agent[]> {
+  return invoke<Agent[]>("get_agents");
+}
+
+/** Get a single agent by ID. */
+export async function getAgent(id: string): Promise<Agent> {
+  return invoke<Agent>("get_agent", { id });
+}
+
+/** Create a new agent. */
+export async function createAgent(
+  name: string,
+  systemPrompt: string,
+  avatar?: string | null,
+  sourceUrl?: string | null,
+  sourceType?: string | null,
+): Promise<Agent> {
+  return invoke<Agent>("create_agent", {
+    name,
+    systemPrompt,
+    avatar: avatar ?? null,
+    sourceUrl: sourceUrl ?? null,
+    sourceType: sourceType ?? null,
+  });
+}
+
+/** Update an agent's fields. */
+export async function updateAgent(
+  id: string,
+  name: string,
+  systemPrompt: string,
+  avatar?: string | null,
+  sourceUrl?: string | null,
+  sourceType?: string | null,
+): Promise<void> {
+  return invoke("update_agent", {
+    id,
+    name,
+    systemPrompt,
+    avatar: avatar ?? null,
+    sourceUrl: sourceUrl ?? null,
+    sourceType: sourceType ?? null,
+  });
+}
+
+/** Delete an agent. Cannot delete the default agent. */
+export async function deleteAgent(id: string): Promise<void> {
+  return invoke("delete_agent", { id });
+}
+
+/** Set skills assigned to an agent (replaces existing). */
+export async function setAgentSkills(agentId: string, skillIds: string[]): Promise<void> {
+  return invoke("set_agent_skills", { agentId, skillIds });
+}
+
+/** Set MCP connections assigned to an agent (replaces existing). */
+export async function setAgentMcpConnections(
+  agentId: string,
+  mcpServerIds: string[],
+): Promise<void> {
+  return invoke("set_agent_mcp_connections", { agentId, mcpServerIds });
+}
+
+/** Install an agent from a registry (aitmpl.com). */
+export async function installAgentFromRegistry(
+  itemId: string,
+  source: string,
+  sourceRepo?: string | null,
+  itemUrl?: string | null,
+  itemContent?: string | null,
+  itemName?: string | null,
+): Promise<Agent> {
+  return invoke<Agent>("install_agent_from_registry", {
+    itemId,
+    source,
+    sourceRepo: sourceRepo ?? null,
+    itemUrl: itemUrl ?? null,
+    itemContent: itemContent ?? null,
+    itemName: itemName ?? null,
+  });
+}
+
+/** Import an agent from a git SKILL.md file. */
+export async function importAgentFromGit(
+  content: string,
+  repoUrl: string,
+  path: string,
+): Promise<Agent> {
+  return invoke<Agent>("import_agent_from_git", { content, repoUrl, path });
+}
+
+// ── Skills ──────────────────────────────────────────────────────
+
+/** List all skills. */
+export async function getSkills(): Promise<Skill[]> {
+  return invoke<Skill[]>("get_skills");
+}
+
+/** Create a skill. */
+export async function createSkill(
+  id: string,
+  name: string,
+  description: string | null,
+  source: string,
+  mcpServerId: string | null,
+  config: string | null,
+  instructions: string | null,
+  sourceUrl: string | null,
+  sourceType: string,
+): Promise<Skill> {
+  return invoke<Skill>("create_skill", {
+    id,
+    name,
+    description,
+    source,
+    mcpServerId,
+    config,
+    instructions,
+    sourceUrl,
+    sourceType,
+  });
+}
+
+/** Update a skill. */
+export async function updateSkill(
+  id: string,
+  name: string,
+  description: string | null,
+  config: string | null,
+  instructions: string | null,
+): Promise<void> {
+  return invoke("update_skill", { id, name, description, config, instructions });
+}
+
+/** Delete a skill. */
+export async function deleteSkill(id: string): Promise<void> {
+  return invoke("delete_skill", { id });
+}
+
+/** Toggle a skill's enabled state. */
+export async function toggleSkill(id: string, enabled: boolean): Promise<void> {
+  return invoke("toggle_skill", { id, enabled });
+}
+
+// ── Registry ────────────────────────────────────────────────────
+
+/** Search skill registries (aitmpl.com). */
+export async function searchRegistry(query: string, limit?: number): Promise<RegistrySearchResult> {
+  return invoke<RegistrySearchResult>("search_registry", {
+    query,
+    limit: limit ?? null,
+  });
+}
+
+/** Install a skill from a registry. */
+export async function installFromRegistry(
+  skillId: string,
+  source: string,
+  sourceRepo?: string | null,
+  itemUrl?: string | null,
+  itemContent?: string | null,
+  itemName?: string | null,
+): Promise<RegistryItem> {
+  return invoke<RegistryItem>("install_from_registry", {
+    skillId,
+    source,
+    sourceRepo: sourceRepo ?? null,
+    itemUrl: itemUrl ?? null,
+    itemContent: itemContent ?? null,
+    itemName: itemName ?? null,
+  });
+}
+
+// ── Git Import ──────────────────────────────────────────────────
+
+/** Fetch SKILL.md files from a git repository URL. */
+export async function fetchGitSkills(gitUrl: string): Promise<GitSkillFile[]> {
+  return invoke<GitSkillFile[]>("fetch_git_skills", { gitUrl });
+}
+
+/** Fetch agent definition files (*.agent.md) from a git repository URL. */
+export async function fetchGitAgents(gitUrl: string): Promise<GitSkillFile[]> {
+  return invoke<GitSkillFile[]>("fetch_git_agents", { gitUrl });
+}
+
+/** Import a parsed SKILL.md content as a skill. */
+export async function importGitSkill(
+  content: string,
+  repoUrl: string,
+  path: string,
+): Promise<Skill> {
+  return invoke<Skill>("import_git_skill", { content, repoUrl, path });
 }

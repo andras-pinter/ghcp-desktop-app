@@ -3,13 +3,17 @@
   import ChatView from "$lib/components/ChatView.svelte";
   import AuthScreen from "$lib/components/AuthScreen.svelte";
   import McpSettings from "$lib/components/McpSettings.svelte";
+  import SkillsPanel from "$lib/components/SkillsPanel.svelte";
+  import AgentsPanel from "$lib/components/AgentsPanel.svelte";
   import { initAuth, getAuth } from "$lib/stores/auth.svelte";
   import { initModels } from "$lib/stores/models.svelte";
   import { initConversations } from "$lib/stores/conversations.svelte";
   import { initMcp } from "$lib/stores/mcp.svelte";
+  import { initAgents } from "$lib/stores/agents.svelte";
+  import { initSkills } from "$lib/stores/skills.svelte";
   import { onMount } from "svelte";
 
-  type AppView = "chat" | "mcp-settings";
+  type AppView = "chat" | "mcp-settings" | "skills" | "agents";
 
   let sidebarCollapsed = $state(false);
   let dataLoaded = $state(false);
@@ -24,7 +28,7 @@
   $effect(() => {
     if (auth.authenticated && !dataLoaded) {
       dataLoaded = true;
-      Promise.all([initConversations(), initModels(), initMcp()]);
+      Promise.all([initConversations(), initModels(), initMcp(), initAgents(), initSkills()]);
     } else if (!auth.authenticated) {
       dataLoaded = false;
     }
@@ -36,6 +40,10 @@
 
   function navigateTo(view: string) {
     currentView = view as AppView;
+  }
+
+  function navigateBack() {
+    currentView = "chat";
   }
 
   function handleKeydown(event: KeyboardEvent) {
@@ -101,7 +109,11 @@
       </aside>
       <main class="main-container">
         {#if currentView === "mcp-settings"}
-          <McpSettings onBack={() => navigateTo("chat")} />
+          <McpSettings onBack={navigateBack} />
+        {:else if currentView === "skills"}
+          <SkillsPanel onBack={navigateBack} />
+        {:else if currentView === "agents"}
+          <AgentsPanel onBack={navigateBack} />
         {:else}
           <ChatView />
         {/if}

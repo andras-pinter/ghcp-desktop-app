@@ -145,6 +145,15 @@ function escapeHtml(str: string): string {
     .replace(/"/g, "&quot;");
 }
 
+/** Strip YAML frontmatter (---\n...\n---) from markdown content. */
+export function stripFrontmatter(text: string): string {
+  const trimmed = text.trimStart();
+  if (!trimmed.startsWith("---")) return text;
+  const endIdx = trimmed.indexOf("\n---", 3);
+  if (endIdx === -1) return text;
+  return trimmed.slice(endIdx + 4).trimStart();
+}
+
 /** Escape for use inside HTML attribute values. */
 function escapeAttr(str: string): string {
   return str

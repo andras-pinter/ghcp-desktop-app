@@ -2,6 +2,8 @@
 
 mod commands;
 mod db;
+pub mod registry;
+pub mod skillmd;
 mod state;
 
 use state::AppState;
@@ -103,6 +105,25 @@ pub fn run(force_logout: bool) {
             commands::mcp::get_mcp_tools,
             commands::mcp::invoke_mcp_tool,
             commands::mcp::fetch_mcp_registry,
+            commands::agents::get_agents,
+            commands::agents::get_agent,
+            commands::agents::create_agent,
+            commands::agents::update_agent,
+            commands::agents::delete_agent,
+            commands::agents::set_agent_skills,
+            commands::agents::set_agent_mcp_connections,
+            commands::agents::install_agent_from_registry,
+            commands::agents::import_agent_from_git,
+            commands::agents::fetch_git_agents,
+            commands::skills::get_skills,
+            commands::skills::create_skill,
+            commands::skills::update_skill,
+            commands::skills::delete_skill,
+            commands::skills::toggle_skill,
+            commands::skills::search_registry,
+            commands::skills::install_from_registry,
+            commands::skills::fetch_git_skills,
+            commands::skills::import_git_skill,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Chuck");
