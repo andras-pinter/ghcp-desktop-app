@@ -158,7 +158,7 @@ export async function discoverGitAgents(url: string): Promise<void> {
   }
 }
 
-/** Import a discovered SKILL.md file as an agent. */
+/** Import a discovered agent definition file. */
 export async function importAgentFromGit(file: GitSkillFile): Promise<Agent | null> {
   try {
     const agent = await importAgentFromGitCmd(file.content, file.repoUrl, file.path);

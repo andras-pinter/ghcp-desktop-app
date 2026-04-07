@@ -824,8 +824,8 @@ and **events** (`listen()`/`emit()`). This is the only bridge between the two la
 | `conversations.rs` | `get_conversations` — list from SQLite; `get_conversation` — single by ID; `create_conversation` — new conversation; `update_conversation` — rename/update metadata; `delete_conversation` — remove conversation + messages; `get_messages` — messages for a conversation; `create_message` — insert message; `update_message_content` — update after streaming/edit; `delete_messages_after` — discard messages after sort order (for editing) | ✅ |
 | `models.rs` | `get_models` — fetch available Copilot models (deduplicates API response) | ✅ |
 | `settings.rs` | `get_setting` — read config key; `update_setting` — write config key-value; `get_db_size` — return database file size; `save_draft` — persist input draft; `get_draft` — retrieve draft for conversation; `delete_draft` — clear draft | ✅ |
-| `agents.rs` | `get_agents` — list agent personas; `get_agent` — single by ID; `create_agent` — new agent; `update_agent` — edit agent; `delete_agent` — remove agent (blocks default); `set_agent_skills` — assign skills to agent; `set_agent_mcp_connections` — assign MCP servers to agent | ⬚ stub |
-| `skills.rs` | `get_skills` — list all skills (MCP tools + built-in + registry-imported); `create_skill` — add new skill; `update_skill` — edit skill; `delete_skill` — remove skill; `toggle_skill` — enable/disable; `search_registry` — search skills.sh + aitmpl.com registries; `install_from_registry` — fetch SKILL.md + save to SQLite; `fetch_git_skills` — discover SKILL.md files from git URL; `import_git_skill` — save parsed skill from git | ⬚ stub |
+| `agents.rs` | `get_agents` — list agent personas; `get_agent` — single by ID; `create_agent` — new agent; `update_agent` — edit agent; `delete_agent` — remove agent (blocks default); `set_agent_skills` — assign skills; `set_agent_mcp_connections` — assign MCP servers; `install_agent_from_registry` — install from aitmpl.com; `import_agent_from_git` — import from git; `fetch_git_agents` — discover agent files from git repo | ✅ |
+| `skills.rs` | `get_skills` — list all skills; `create_skill` — add new skill; `update_skill` — edit skill; `delete_skill` — remove skill; `toggle_skill` — enable/disable; `search_registry` — search aitmpl.com registry; `install_from_registry` — fetch SKILL.md + save; `fetch_git_skills` — discover SKILL.md files from git URL; `import_git_skill` — save parsed skill from git | ✅ |
 | `projects.rs` | `get_projects` — list projects; `create_project` — new project; `update_project` — edit instructions/name; `delete_project` — remove project; `add_project_file` — attach file (BLOB); `remove_project_file` — detach file | ⬚ stub |
 | `mcp.rs` | `get_mcp_servers` — list configured servers; `add_mcp_server` — register new server; `update_mcp_server` — update server config; `remove_mcp_server` — delete server; `connect_mcp_server` — connect to server; `disconnect_mcp_server` — disconnect; `test_mcp_connection` — verify server responds; `get_mcp_tools` — list discovered tools; `invoke_mcp_tool` — call an MCP tool; `fetch_mcp_registry` — browse official MCP Registry | ✅ |
 | `web_research.rs` | `web_search` — trigger web search via API; `fetch_url` — fetch + extract URL content | ✅ |
@@ -837,7 +837,7 @@ and **events** (`listen()`/`emit()`). This is the only bridge between the two la
 - `auth-state-changed` — login/logout
 - `network-status` — online/offline
 - `update-available` — new version found
-- etc.
+- `git-import-progress` — progress updates during git skill/agent import (total, fetched, phase)
 
 ---
 
@@ -869,8 +869,8 @@ copilot-desktop/
 │   │   │   ├── AuthScreen.svelte        # OAuth login/welcome screen
 │   │   │   ├── SettingsPanel.svelte     # Settings (account, theme, model, MCP, export, DB, shortcuts) (⬚ Phase 10)
 │   │   │   ├── ProjectView.svelte       # Project detail (instructions, files, conversations) (⬚ Phase 9)
-│   │   │   ├── AgentsPanel.svelte       # Agent management (create/edit/delete + registry browse + git import) (⬚ Phase 8)
-│   │   │   ├── SkillsPanel.svelte       # Skills browser (local + registry + git import, toggle on/off) (⬚ Phase 8)
+│   │   │   ├── AgentsPanel.svelte       # Agent management (create/edit/delete + registry browse + git import)
+│   │   │   ├── SkillsPanel.svelte       # Skills browser (local + registry + git import, toggle on/off)
 │   │   │   ├── McpSettings.svelte       # MCP server management (add, configure, test, browse registry)
 │   │   │   ├── McpServerForm.svelte    # MCP server add/edit form with registry pre-fill
 │   │   │   ├── UpdateBanner.svelte      # Auto-update notification + download progress (⬚ Phase 11)
@@ -880,8 +880,8 @@ copilot-desktop/
 │   │   │   ├── auth.svelte.ts           # Auth state (token, user info)
 │   │   │   ├── models.svelte.ts         # Available models state
 │   │   │   ├── mcp.svelte.ts            # MCP server connections state
-│   │   │   ├── agents.svelte.ts         # Agent personas state (⬚ Phase 8)
-│   │   │   ├── skills.svelte.ts         # Skills/extensions state (⬚ Phase 8)
+│   │   │   ├── agents.svelte.ts         # Agent personas state
+│   │   │   ├── skills.svelte.ts         # Skills/extensions state
 │   │   │   ├── projects.svelte.ts       # Projects state (⬚ Phase 9)
 │   │   │   ├── settings.svelte.ts       # User preferences (⬚ Phase 10)
 │   │   │   ├── theme.svelte.ts          # Light/dark theme state (⬚ Phase 10)
@@ -894,6 +894,7 @@ copilot-desktop/
 │   │   │   ├── web-research.ts
 │   │   │   ├── agent.ts
 │   │   │   ├── skill.ts
+│   │   │   ├── registry.ts
 │   │   │   └── project.ts
 │   │   ├── strings/               # Centralized user-facing strings (i18n prep)
 │   │   │   └── en.ts              # English strings (default)

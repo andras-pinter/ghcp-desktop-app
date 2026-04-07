@@ -298,7 +298,15 @@ fn extract_body_description(content: &str) -> Option<String> {
     }
 
     Some(if cleaned.len() > 200 {
-        let end = cleaned[..200].rfind(' ').unwrap_or(200);
+        // Use char boundary-safe truncation to avoid panicking on multi-byte UTF-8
+        let safe_end = cleaned
+            .char_indices()
+            .take_while(|&(i, _)| i < 200)
+            .last()
+            .map(|(i, c)| i + c.len_utf8())
+            .unwrap_or(cleaned.len());
+        let truncated = &cleaned[..safe_end];
+        let end = truncated.rfind(' ').unwrap_or(safe_end);
         format!("{}…", &cleaned[..end])
     } else {
         cleaned
@@ -784,7 +792,6 @@ async fn fetch_github_file(
         .await
         .map_err(|e| format!("Failed to read file content: {e}"))
 }
-
 
 #[cfg(test)]
 mod tests {
