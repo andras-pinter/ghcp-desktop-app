@@ -173,8 +173,8 @@ custom agent personas, and streaming responses.
 - **Projects** — group conversations + attached files under named projects with custom instructions
 - **Web research** — AI-driven web search (via search API) + manual URL fetching/extraction for context
 - **MCP integration** — connect to MCP servers for extended tool capabilities; browse the official MCP Registry + custom server configuration
-- **Skills management** — enable/disable/configure Copilot Extensions (tools/plugins) that extend what Copilot can do in conversations
-- **Agents management** — create custom agent personas with specific system prompts, assigned skills, and MCP connections
+- **Skills management** — enable/disable/configure skills that extend what Copilot can do in conversations. Skills can come from MCP tools, built-in capabilities, or external registries. Browse and install skills from **skills.sh** and **aitmpl.com** registries, or import from any **git URL** pointing to SKILL.md files.
+- **Agents management** — create custom agent personas with specific system prompts, assigned skills, and MCP connections. Browse and install pre-built agent templates from the **aitmpl.com** registry, or import from **git URLs**.
 - **Model selector** — pick from available Copilot models (implement always; gracefully hide if API returns only one model)
 - **Light/dark theme** — follow system preference, manual toggle (CSS custom properties)
 - **Global hotkey** — summon the app from anywhere (e.g., Cmd+Shift+Space) via `tauri-plugin-global-shortcut`
@@ -205,7 +205,7 @@ custom agent personas, and streaming responses.
 - The app stores **only** its own data: conversations (SQLite in app data dir), auth tokens (OS keychain), and user preferences (app config dir)
 - No shell execution, no subprocess spawning, no system command access — **with one exception:** MCP stdio transport may spawn user-approved MCP server binaries (see MCP Security below)
 - No screen capture, no clipboard snooping, no background scanning
-- No network requests except to: GitHub Copilot API, GitHub OAuth endpoints, **user-configured MCP servers**, **web search API**, **user-provided URLs**, and **GitHub Releases API** (for auto-update)
+- No network requests except to: GitHub Copilot API, GitHub OAuth endpoints, **user-configured MCP servers**, **web search API**, **user-provided URLs**, **GitHub Releases API** (for auto-update), **skills.sh API** (skill registry), **aitmpl.com API** (skill/agent registry), and **GitHub/GitLab raw content APIs** (for git URL skill/agent imports)
 - All outbound network destinations beyond GitHub must be **explicitly configured or initiated by the user**
 - **URL fetching safeguards:** the app must block requests to private IP ranges (10.x, 172.16-31.x, 192.168.x), localhost, link-local (169.254.x), and cloud metadata endpoints (169.254.169.254). Only fetch public HTTPS URLs.
 - **Tauri capabilities** must be configured with minimal permissions — only the specific APIs each window/webview actually needs
@@ -525,13 +525,16 @@ Accessed from sidebar "Agents" section or Settings.
 - Default Agent card has no Edit/Delete — it's built-in and immutable
 - Edit opens inline form (same screen, replaces list) or slide-over
 - System prompt is a textarea with syntax hints
-- Skills list populated from registered skills (extensions + MCP tools)
+- Skills list populated from registered skills (extensions + MCP tools + registry-imported + git-imported)
 - MCP connections list populated from configured MCP servers
 - Agent deletion requires confirmation; orphaned conversations keep agent name as text
+- Source badge on imported agents: "aitmpl.com" or "git" with link to origin
+- **Browse Registry** section at bottom: search aitmpl.com for pre-built agent templates, one-click import
+- **Import from Git** field: paste a git URL (e.g., `owner/repo`), click Fetch to discover agent definitions
 
 ### 6. Skills Panel
 
-Browse and manage all available skills (Copilot Extensions + MCP tools).
+Browse and manage all available skills (built-in + MCP tools + registry-imported + git-imported).
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
@@ -556,19 +559,15 @@ Browse and manage all available skills (Copilot Extensions + MCP tools).
 │       Search GitHub repositories by query                        │
 │       Source: MCP · GitHub                                        │
 │                                                                  │
-│  [ ]  🐛 search_issues                                            │
-│       Search issues and pull requests                            │
-│       Source: MCP · GitHub                                        │
+│  ── Registry / Git Imported ──────────────────────────────────   │
 │                                                                  │
-│  [ ]  📝 get_file_contents                                        │
-│       Read file contents from a repository                       │
-│       Source: MCP · GitHub                                        │
+│  [✓]  🎨 frontend-design                                          │
+│       Create production-grade frontend interfaces                │
+│       Source: skills.sh · vercel-labs/agent-skills                │
 │                                                                  │
-│  ── MCP Tools (PostgreSQL Server) ────────────────────────────   │
-│                                                                  │
-│  [✓]  🗃️ query_database                                           │
-│       Execute read-only SQL queries                              │
-│       Source: MCP · PostgreSQL          [Configure ⚙️]            │
+│  [ ]  📝 code-review                                               │
+│       Review code for bugs and best practices                    │
+│       Source: git · github.com/acme/skills                       │
 │                                                                  │
 │  ── Copilot Extensions ───────────────────────────────────────   │
 │                                                                  │
@@ -576,20 +575,46 @@ Browse and manage all available skills (Copilot Extensions + MCP tools).
 │       Docker container management and debugging                  │
 │       Source: extension                                           │
 │                                                                  │
-│  [ ]  ☁️ @azure                                                    │
-│       Azure resource management                                  │
-│       Source: extension                                           │
+│  ═══════════════════════════════════════════════════════════════  │
+│                                                                  │
+│  ── Browse Registry ──────────────────────────────────────────   │
+│                                                                  │
+│  🔍 Search skills.sh + aitmpl.com...                              │
+│                                                                  │
+│  ┌──────────────────────────────────────────────────────────┐    │
+│  │  🎯 frontend-design         skills.sh    218K installs   │    │
+│  │     Create distinctive frontend interfaces           [+] │    │
+│  ├──────────────────────────────────────────────────────────┤    │
+│  │  🔬 deep-research            aitmpl.com                   │    │
+│  │     Research assistant with citations                 [+] │    │
+│  ├──────────────────────────────────────────────────────────┤    │
+│  │  📊 data-analysis            skills.sh    45K installs    │    │
+│  │     Analyze datasets and generate insights            [+] │    │
+│  └──────────────────────────────────────────────────────────┘    │
+│           ... (infinite scroll loads more) ...                   │
+│                                                                  │
+│  ── Import from Git ──────────────────────────────────────────   │
+│                                                                  │
+│  [ owner/repo or full git URL          ]  [ Fetch ]              │
 │                                                                  │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
 **Key behaviors:**
 - Toggle checkbox to enable/disable a skill globally
-- Skills grouped by source: Built-in → MCP (per server) → Extensions
+- Skills grouped by source: Built-in → MCP (per server) → Registry/Git Imported → Extensions
 - Configure button opens per-skill settings (e.g., connection string)
-- Filter field does fuzzy search across name + description
+- Filter field does fuzzy search across name + description (local skills only)
 - Disabled MCP skills (server disconnected) shown grayed out with status
 - Skills assigned to agents are marked but can be toggled independently here
+- **Browse Registry** section: unified search across skills.sh + aitmpl.com
+  - Results show source badge, install count (if available), and one-click [+] install button
+  - Installing fetches the SKILL.md content, parses it, and saves to SQLite
+  - Infinite scroll pagination for registry results
+- **Import from Git** section: text field for git URL + Fetch button
+  - Accepts: `owner/repo`, full GitHub/GitLab URLs, direct paths to SKILL.md
+  - Fetch discovers SKILL.md files → shows selection dialog → import selected skills
+  - Imported skills show git source badge with link to origin
 
 ### 7. MCP Settings
 
@@ -799,8 +824,8 @@ and **events** (`listen()`/`emit()`). This is the only bridge between the two la
 | `conversations.rs` | `get_conversations` — list from SQLite; `get_conversation` — single by ID; `create_conversation` — new conversation; `update_conversation` — rename/update metadata; `delete_conversation` — remove conversation + messages; `get_messages` — messages for a conversation; `create_message` — insert message; `update_message_content` — update after streaming/edit; `delete_messages_after` — discard messages after sort order (for editing) | ✅ |
 | `models.rs` | `get_models` — fetch available Copilot models (deduplicates API response) | ✅ |
 | `settings.rs` | `get_setting` — read config key; `update_setting` — write config key-value; `get_db_size` — return database file size; `save_draft` — persist input draft; `get_draft` — retrieve draft for conversation; `delete_draft` — clear draft | ✅ |
-| `agents.rs` | `get_agents` — list agent personas; `create_agent` — new agent; `update_agent` — edit agent; `delete_agent` — remove agent | ⬚ stub |
-| `skills.rs` | `get_skills` — list all skills (MCP tools + extensions); `toggle_skill` — enable/disable; `configure_skill` — update skill config | ⬚ stub |
+| `agents.rs` | `get_agents` — list agent personas; `get_agent` — single by ID; `create_agent` — new agent; `update_agent` — edit agent; `delete_agent` — remove agent (blocks default); `set_agent_skills` — assign skills to agent; `set_agent_mcp_connections` — assign MCP servers to agent | ⬚ stub |
+| `skills.rs` | `get_skills` — list all skills (MCP tools + built-in + registry-imported); `create_skill` — add new skill; `update_skill` — edit skill; `delete_skill` — remove skill; `toggle_skill` — enable/disable; `search_registry` — search skills.sh + aitmpl.com registries; `install_from_registry` — fetch SKILL.md + save to SQLite; `fetch_git_skills` — discover SKILL.md files from git URL; `import_git_skill` — save parsed skill from git | ⬚ stub |
 | `projects.rs` | `get_projects` — list projects; `create_project` — new project; `update_project` — edit instructions/name; `delete_project` — remove project; `add_project_file` — attach file (BLOB); `remove_project_file` — detach file | ⬚ stub |
 | `mcp.rs` | `get_mcp_servers` — list configured servers; `add_mcp_server` — register new server; `update_mcp_server` — update server config; `remove_mcp_server` — delete server; `connect_mcp_server` — connect to server; `disconnect_mcp_server` — disconnect; `test_mcp_connection` — verify server responds; `get_mcp_tools` — list discovered tools; `invoke_mcp_tool` — call an MCP tool; `fetch_mcp_registry` — browse official MCP Registry | ✅ |
 | `web_research.rs` | `web_search` — trigger web search via API; `fetch_url` — fetch + extract URL content | ✅ |
@@ -844,8 +869,8 @@ copilot-desktop/
 │   │   │   ├── AuthScreen.svelte        # OAuth login/welcome screen
 │   │   │   ├── SettingsPanel.svelte     # Settings (account, theme, model, MCP, export, DB, shortcuts) (⬚ Phase 10)
 │   │   │   ├── ProjectView.svelte       # Project detail (instructions, files, conversations) (⬚ Phase 9)
-│   │   │   ├── AgentsPanel.svelte       # Agent management (create/edit/delete personas) (⬚ Phase 8)
-│   │   │   ├── SkillsPanel.svelte       # Skills browser (MCP tools + extensions, toggle on/off) (⬚ Phase 8)
+│   │   │   ├── AgentsPanel.svelte       # Agent management (create/edit/delete + registry browse + git import) (⬚ Phase 8)
+│   │   │   ├── SkillsPanel.svelte       # Skills browser (local + registry + git import, toggle on/off) (⬚ Phase 8)
 │   │   │   ├── McpSettings.svelte       # MCP server management (add, configure, test, browse registry)
 │   │   │   ├── McpServerForm.svelte    # MCP server add/edit form with registry pre-fill
 │   │   │   ├── UpdateBanner.svelte      # Auto-update notification + download progress (⬚ Phase 11)
@@ -893,13 +918,15 @@ copilot-desktop/
 │       ├── main.rs               # Entry point (Tauri bootstrap)
 │       ├── lib.rs                # Tauri app setup, plugin registration, state init
 │       ├── state.rs              # Tauri managed state (AppState, DB pool, etc.)
+│       ├── skillmd.rs            # SKILL.md parser (YAML frontmatter + markdown body)
+│       ├── registry.rs           # Skill/agent registry client (skills.sh + aitmpl.com APIs)
 │       ├── commands/             # Tauri command handlers (IPC bridge to frontend)
 │       │   ├── mod.rs
 │       │   ├── chat.rs           # send_message, stop_streaming, regenerate
 │       │   ├── auth.rs           # authenticate, logout, get_auth_state
 │       │   ├── conversations.rs  # CRUD conversations + messages
-│       │   ├── agents.rs         # CRUD agent personas
-│       │   ├── skills.rs         # List/toggle/configure skills
+│       │   ├── agents.rs         # CRUD agent personas + registry import
+│       │   ├── skills.rs         # List/toggle/configure skills + registry search + git import
 │       │   ├── projects.rs       # CRUD projects + file attachments
 │       │   ├── mcp.rs            # MCP server management + tool invocation
 │       │   ├── web_research.rs   # Web search + URL fetching
@@ -1368,23 +1395,85 @@ Users can also add custom MCP servers manually in settings (`McpSettings.svelte`
 
 | Concept | What It Is | Example |
 |---|---|---|
-| **Skill** | A capability/tool that extends what the AI can do. Can be an MCP tool (from a connected MCP server) or a built-in tool (e.g., web search). Legacy Copilot Extensions may also be represented as skills if the API still supports them. | "Web Search", "GitHub PR Lookup", "SQL Query" |
-| **Agent** | A named persona with a system prompt, a set of assigned skills, and optionally specific MCP server connections. Agents define *how* the AI behaves and *what tools* it has access to. | "Research Agent" with web search + URL fetch skills |
+| **Skill** | A capability/instruction set that extends what the AI can do. Can be: a built-in tool (e.g., web search), an MCP tool (from a connected MCP server), a SKILL.md-based instruction set (imported from registries or git), or a legacy Copilot Extension. When enabled, skill instructions are injected into the system prompt. | "Web Search", "Code Review", "Frontend Design" |
+| **Agent** | A named persona with a system prompt, a set of assigned skills, and optionally specific MCP server connections. Agents define *how* the AI behaves and *what tools* it has access to. Can be created locally or imported from registries/git. | "Research Agent" with web search + URL fetch skills |
+| **SKILL.md** | The open standard for defining AI agent skills. A markdown file with YAML frontmatter (`name`, `description`) and a markdown body containing instructions for the AI. Used by 40+ agent platforms (Claude Code, Codex, Cursor, GitHub Copilot, etc.). | See SKILL.md Standard section below |
 | **Copilot Extension** | A GitHub-hosted plugin/tool. **Note:** GitHub deprecated Extensions in Nov 2025 in favor of MCP. The app should support them if the API still offers them, but prioritize MCP tools as the primary extensibility mechanism. | `@docker`, `@azure` |
 | **MCP Tool** | A tool exposed by a connected MCP server. Also represented as a Skill in this app. | `query_database`, `search_files` |
+
+### SKILL.md Standard
+
+Skills follow the [Agent Skills Specification](https://agentskills.io/specification) — an open standard adopted by 40+ AI agent platforms:
+
+```markdown
+---
+name: code-review
+description: Reviews code for bugs, security issues, and best practices.
+license: MIT
+metadata:
+  author: example-org
+  version: "1.0"
+compatibility: Works with any chat-based AI agent.
+---
+
+# Code Review Skill
+
+When asked to review code, follow these steps:
+
+1. Check for bugs and logic errors
+2. Identify security vulnerabilities
+3. Suggest performance improvements
+4. Ensure code follows best practices
+
+## Output Format
+
+Provide feedback as a numbered list with severity levels.
+```
+
+**Required fields:** `name` (1-64 lowercase chars, hyphens allowed), `description` (1-1024 chars)
+**Optional fields:** `license`, `compatibility`, `metadata` (key-value), `allowed-tools`
+
+In Chuck, the SKILL.md markdown body becomes the skill's `instructions` field in SQLite. When the skill is enabled on an agent, these instructions are injected into the system prompt alongside the agent's own system prompt.
+
+### Skill & Agent Registries
+
+Chuck can browse, search, and install skills/agents from two public registries plus arbitrary git URLs:
+
+| Source | What It Provides | API |
+|---|---|---|
+| **[skills.sh](https://skills.sh)** | Open agent skills ecosystem (Vercel Labs). Thousands of SKILL.md-based skills from GitHub repos. | `GET https://skills.sh/api/search?q={query}&limit={limit}` |
+| **[aitmpl.com](https://www.aitmpl.com)** | AI Templates marketplace. 1000+ agents, skills, commands, and MCP integrations. | Web API (agents + skills catalogs) |
+| **Git URL** | Any git repository containing SKILL.md files. Supports GitHub shorthand (`owner/repo`), full URLs, direct paths to specific skills, and GitLab. | GitHub Contents API / raw.githubusercontent.com |
+
+**Installation flow:**
+1. User searches or browses a registry → sees results with source badges
+2. Clicks "Install" → app fetches the SKILL.md content from GitHub
+3. YAML frontmatter is parsed → skill preview shown (name, description, instructions)
+4. User confirms → skill saved to SQLite (`skills` table with `source_type` indicating origin)
+5. User can assign the skill to agents → instructions injected into system prompt when active
+
+**Git URL import flow:**
+1. User pastes a git URL (e.g., `vercel-labs/agent-skills` or `https://github.com/owner/repo`)
+2. App fetches the repo contents via GitHub API
+3. Discovers SKILL.md files in standard locations (`skills/`, root, `.agents/skills/`, etc.)
+4. Shows list of discovered skills → user selects which to import
+5. Selected skills saved to SQLite
 
 ### How Agents Map to API Calls
 
 When a conversation uses a custom agent, the Rust backend constructs the Copilot API request as follows:
 
 ```
-System message = [Agent system prompt] + [Project instructions (if any)]
+System message = [Agent system prompt]
+               + [Enabled skill instructions (concatenated)]
+               + [Project instructions (if any)]
 Tools/functions = [Agent's assigned skills as function definitions]
                 + [MCP tools from agent's connected MCP servers]
 Messages = [Conversation history]
 ```
 
 - The agent's system prompt is prepended as a `system` role message
+- Enabled skill instructions are appended to the system message (each skill's `instructions` field)
 - Skills are exposed as `tools` / `functions` in the API request (OpenAI function calling format)
 - When the AI calls a tool, the Rust backend routes it: Copilot Extensions → GitHub API, MCP tools → MCP server, built-in tools (web search) → web-research crate
 - Tool results are sent back as `tool` role messages in the next API call
@@ -1459,6 +1548,8 @@ CREATE TABLE agents (
     avatar TEXT,                   -- Emoji or icon identifier
     system_prompt TEXT NOT NULL,
     is_default INTEGER DEFAULT 0,  -- 1 for the built-in default agent
+    source_url TEXT,               -- Registry permalink or git URL (NULL for local)
+    source_type TEXT DEFAULT 'local', -- "local", "registry_aitmpl", "git"
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
@@ -1477,13 +1568,16 @@ CREATE TABLE agent_mcp_connections (
     PRIMARY KEY (agent_id, mcp_server_id)
 );
 
--- Skills (Copilot Extensions + MCP tools registry)
+-- Skills (built-in + MCP tools + registry-imported + git-imported)
 CREATE TABLE skills (
     id TEXT PRIMARY KEY,           -- Unique skill ID
     name TEXT NOT NULL,
     description TEXT,
-    source TEXT NOT NULL,          -- "extension" or "mcp"
-    mcp_server_id TEXT REFERENCES mcp_servers(id),  -- NULL for extensions
+    source TEXT NOT NULL,          -- "extension" or "mcp" (legacy)
+    source_type TEXT DEFAULT 'builtin', -- "builtin", "mcp", "registry_skills_sh", "registry_aitmpl", "git"
+    source_url TEXT,               -- Registry permalink or git URL (NULL for built-in/MCP)
+    instructions TEXT,             -- Markdown body from SKILL.md (injected into system prompt when active)
+    mcp_server_id TEXT REFERENCES mcp_servers(id),  -- NULL for non-MCP skills
     config TEXT,                   -- JSON config blob
     enabled INTEGER DEFAULT 1,
     created_at TEXT NOT NULL
@@ -1602,28 +1696,37 @@ INSERT INTO config (key, value) VALUES ('schema_version', '1');
 23. ✅ **mcp-settings** — `McpSettings.svelte` + `McpServerForm.svelte`: manage MCP connections. Add custom servers (URL + auth or binary path), enable/disable, test connectivity, browse discovered tools. Server cards with live 🟢/🔴 status indicators. Confirmation dialog on removal. ARIA attributes throughout.
 
 ### Phase 8: Skills & Agents
-24. ⬚ **skills-manager** — `SkillsPanel.svelte`: browse Copilot Extensions + MCP tools as unified skill list. Toggle on/off, configure per-skill settings. Persist to SQLite.
-25. ⬚ **agents-manager** — `AgentsPanel.svelte`: create/edit/delete custom agent personas. Each agent has name, avatar, system prompt, assigned skills, MCP connections. Default agent is built-in and undeletable.
-26. ⬚ **agent-selector** — Agent picker in `InputArea.svelte`. Conversations tied to an agent. Agent config maps to API request structure.
+24. ⬚ **schema-migration-v2** — DB migration v2: add `instructions`, `source_url`, `source_type` columns to `skills` and `agents` tables. Update Rust structs and TypeScript types.
+25. ⬚ **skillmd-parser** — `src-tauri/src/skillmd.rs`: parse SKILL.md files (YAML frontmatter + markdown body). Extract `name`, `description`, `license`, `metadata`. Return `ParsedSkillMd` struct. Unit tests.
+26. ⬚ **agent-skill-queries** — Implement full CRUD queries in `queries.rs` for agents (list, get, create, update, delete, get/set skills, get/set MCP connections) and skills (list, get, create, update, delete, toggle).
+27. ⬚ **agent-skill-commands** — Tauri commands in `agents.rs` and `skills.rs`: full CRUD operations, register in `lib.rs`.
+28. ⬚ **registry-client** — `src-tauri/src/registry.rs`: unified registry API client for skills.sh (`/api/search`) + aitmpl.com. Tauri commands: `search_registry`, `install_from_registry`. Rate limiting + response validation.
+29. ⬚ **git-import** — Git URL skill/agent import: accept `owner/repo`, GitHub/GitLab URLs, direct SKILL.md paths. Discover SKILL.md files via GitHub API. Tauri commands: `fetch_git_skills`, `import_git_skill`.
+30. ⬚ **chat-agent-integration** — Modify `send_message()` to accept `agent_id`. Fetch agent + enabled skills from DB, build system prompt with skill instructions, inject as system message.
+31. ⬚ **skills-agents-frontend** — Frontend command wrappers + Svelte stores (`agents.svelte.ts`, `skills.svelte.ts`). Agent/skill CRUD, registry search, git import wrappers.
+32. ⬚ **skills-panel** — `SkillsPanel.svelte`: skill list grouped by source, toggle on/off, unified registry browser (skills.sh + aitmpl.com with source badges), git URL import field, filter/search. Warm Ink styling.
+33. ⬚ **agents-panel** — `AgentsPanel.svelte`: agent list with CRUD, skill/MCP assignment, registry browser for agent templates, git URL import. Warm Ink styling.
+34. ⬚ **agent-selector** — Agent picker in `InputArea.svelte` next to model selector. Conversations tied to agents. Mid-conversation change warning.
+35. ⬚ **sidebar-skills-agents** — Add Skills (⚡) and Agents (🤖) nav buttons to Sidebar bottom section.
 
 ### Phase 9: Projects & File Context
-27. ⬚ **projects** — `ProjectView.svelte`: named project containers with custom instructions, pinned files (stored as BLOBs in SQLite), grouped conversations. Project selector in sidebar.
-28. ⬚ **file-context** — User-initiated only: read file contents into memory via drag-and-drop or `tauri-plugin-dialog` file picker. Preview in input. Never retain paths or re-read from disk.
-29. ⬚ **context-window** — Implement conversation summarization for long chats. Older messages summarized into condensed recap. Visual indicator when summarization has occurred.
+36. ⬚ **projects** — `ProjectView.svelte`: named project containers with custom instructions, pinned files (stored as BLOBs in SQLite), grouped conversations. Project selector in sidebar.
+37. ⬚ **file-context** — User-initiated only: read file contents into memory via drag-and-drop or `tauri-plugin-dialog` file picker. Preview in input. Never retain paths or re-read from disk.
+38. ⬚ **context-window** — Implement conversation summarization for long chats. Older messages summarized into condensed recap. Visual indicator when summarization has occurred.
 
 ### Phase 10: Polish & Platform Features
-30. ⬚ **settings-panel** — `SettingsPanel.svelte`: account, theme, font size, default model, keyboard shortcuts, MCP management, conversation export (JSON + Markdown), database size display + cleanup, clear history
-31. ⬚ **global-hotkey** — System-wide app summon via `tauri-plugin-global-shortcut` (Cmd+Shift+Space or configurable)
-32. ⬚ **system-tray** — Tauri core `tray-icon` feature: minimize to tray instead of closing. Streaming continues when window is hidden. Right-click menu: New Chat, Show, Quit. Status indicator.
-33. ⬚ **keyboard-shortcuts** — Cmd+N (new chat), Cmd+K (search conversations), Cmd+F (search in conversation), Cmd+, (settings), Cmd+Shift+S (toggle sidebar), Escape (cancel streaming). Send shortcut configuration (Enter vs Cmd+Enter / Ctrl+Enter) persisted via `send_shortcut` config key.
-34. ⬚ **offline-mode** — Detect network status. Full read access when offline, sending disabled with clear indicator. Auto-reconnect with "Back online" toast.
-35. ⬚ **accessibility** — Semantic HTML, ARIA roles/labels, keyboard navigation, focus management, visible focus indicators, screen reader testing
+39. ⬚ **settings-panel** — `SettingsPanel.svelte`: account, theme, font size, default model, keyboard shortcuts, MCP management, conversation export (JSON + Markdown), database size display + cleanup, clear history
+40. ⬚ **global-hotkey** — System-wide app summon via `tauri-plugin-global-shortcut` (Cmd+Shift+Space or configurable)
+41. ⬚ **system-tray** — Tauri core `tray-icon` feature: minimize to tray instead of closing. Streaming continues when window is hidden. Right-click menu: New Chat, Show, Quit. Status indicator.
+42. ⬚ **keyboard-shortcuts** — Cmd+N (new chat), Cmd+K (search conversations), Cmd+F (search in conversation), Cmd+, (settings), Cmd+Shift+S (toggle sidebar), Escape (cancel streaming). Send shortcut configuration (Enter vs Cmd+Enter / Ctrl+Enter) persisted via `send_shortcut` config key.
+43. ⬚ **offline-mode** — Detect network status. Full read access when offline, sending disabled with clear indicator. Auto-reconnect with "Back online" toast.
+44. ⬚ **accessibility** — Semantic HTML, ARIA roles/labels, keyboard navigation, focus management, visible focus indicators, screen reader testing
 
 ### Phase 11: Auto-Update
-36. ⬚ **auto-update** — Configure `tauri-plugin-updater` with GitHub Releases endpoint. `UpdateBanner.svelte` for notifications. Show changelog/release notes. Allow "skip this version" and "remind me later". Settings toggle to disable auto-update. Ed25519 signature verification.
+45. ⬚ **auto-update** — Configure `tauri-plugin-updater` with GitHub Releases endpoint. `UpdateBanner.svelte` for notifications. Show changelog/release notes. Allow "skip this version" and "remind me later". Settings toggle to disable auto-update. Ed25519 signature verification.
 
 ### Phase 12: Distribution
-37. ⬚ **app-packaging** — `cargo tauri build` for all platforms. `.dmg` (macOS with code signing + App Sandbox + notarization), `.AppImage`/`.deb` (Linux), `.msi`/`.nsis` (Windows). GitHub Actions CI/CD for automated builds. Publish releases to GitHub Releases for auto-update consumption.
+46. ⬚ **app-packaging** — `cargo tauri build` for all platforms. `.dmg` (macOS with code signing + App Sandbox + notarization), `.AppImage`/`.deb` (Linux), `.msi`/`.nsis` (Windows). GitHub Actions CI/CD for automated builds. Publish releases to GitHub Releases for auto-update consumption.
 
 ---
 
@@ -1699,6 +1802,9 @@ cargo update && pnpm update
 | Web search API costs/limits | Rate limiting or billing | Cache results, respect rate limits, show clear errors |
 | Large conversation DB | Slow queries, high disk usage | Indexed columns, lazy loading, pagination, cleanup UI, 500MB warning |
 | Schema migration on update | Data loss or app crash after update | Forward-only migrations, backup DB before migration, test migrations in CI |
+| Skill registry API changes | skills.sh or aitmpl.com API may change or go offline | Cache last-known results, graceful fallback (show error, allow manual git import), abstract registry client behind trait |
+| Untrusted SKILL.md content | Imported skills could contain misleading instructions | SKILL.md content is text only (no code execution); instructions are injected as system prompt context; user reviews before installing; source badge shows origin |
+| Git URL fetch failures | Private repos, rate limits, non-standard git hosts | GitHub API with auth token fallback, raw.githubusercontent.com fallback, clear error messages, support for common hosts only (GitHub, GitLab) |
 
 ---
 
