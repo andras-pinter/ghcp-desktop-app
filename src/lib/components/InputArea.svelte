@@ -224,7 +224,12 @@
         attachedFiles = [...attachedFiles, data];
       }
     } catch (e) {
-      fileError = String(e);
+      const msg = String(e);
+      if (msg.includes("too large")) {
+        fileError = "File is too large. Maximum size is 50 MB.";
+      } else {
+        fileError = msg;
+      }
     }
   }
 

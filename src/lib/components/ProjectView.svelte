@@ -138,13 +138,23 @@
 
     uploadError = null;
     uploading = true;
+    const MAX_FILE_SIZE = 50 * 1024 * 1024;
     try {
       for (let i = 0; i < files.length; i++) {
+        if (files[i].size > MAX_FILE_SIZE) {
+          uploadError = `"${files[i].name}" is too large (${formatBytes(files[i].size)}). Maximum is 50 MB.`;
+          continue;
+        }
         const fileData = await readBrowserFile(files[i]);
         await uploadProjectFile(fileData);
       }
     } catch (e) {
-      uploadError = e instanceof Error ? e.message : String(e);
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.includes("too large")) {
+        uploadError = "File is too large. Maximum size is 50 MB.";
+      } else {
+        uploadError = msg;
+      }
     } finally {
       uploading = false;
       // Reset input so the same file can be re-selected
