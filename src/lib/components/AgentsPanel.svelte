@@ -502,7 +502,7 @@
               {/if}
             </div>
 
-            {#if agentStore.registryResults.length > 0}
+            {#if agentStore.registryResults.length > 0 && registrySearchInput.trim()}
               <div class="registry-results" role="list">
                 {#each agentStore.registryResults as item (item.id + item.source + item.kind)}
                   <article

@@ -670,7 +670,7 @@
               <div class="registry-loading">
                 <span class="loading-spinner"></span> Searching registries…
               </div>
-            {:else if store.registryResults.length > 0}
+            {:else if store.registryResults.length > 0 && searchQuery.trim()}
               {#if store.registryTotal !== null}
                 <p class="result-count">
                   {store.registryTotal} result{store.registryTotal !== 1 ? "s" : ""} found
