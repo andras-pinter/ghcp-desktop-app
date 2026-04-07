@@ -53,3 +53,7 @@ url.workspace = true
 
 # Logging
 env_logger = "0.11"
+
+# Text extraction from file attachments
+pdf-extract = "0.10"
+zip = "2"

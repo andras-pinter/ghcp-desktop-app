@@ -287,3 +287,21 @@ fn guess_content_type(filename: &str) -> String {
     }
     .to_string()
 }
+
+/// Extract readable text from a base64-encoded file.
+///
+/// Delegates to the `text_extract` module which supports PDF, DOCX, XLSX, PPTX,
+/// RTF, and all text-based formats.
+#[tauri::command]
+pub fn extract_file_text(
+    content_base64: String,
+    content_type: String,
+    name: String,
+) -> Result<Option<String>, String> {
+    use base64::Engine;
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(&content_base64)
+        .map_err(|e| format!("Invalid base64: {e}"))?;
+
+    Ok(crate::text_extract::extract(&bytes, &content_type, &name))
+}

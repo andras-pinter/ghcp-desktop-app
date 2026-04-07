@@ -24,6 +24,19 @@
 
   onMount(() => {
     initAuth();
+
+    // Prevent Tauri webview from navigating when files are dragged anywhere
+    // outside the designated drop zone. Our InputArea handles its own drops.
+    const preventNav = (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+    };
+    document.addEventListener("dragover", preventNav);
+    document.addEventListener("drop", preventNav);
+    return () => {
+      document.removeEventListener("dragover", preventNav);
+      document.removeEventListener("drop", preventNav);
+    };
   });
 
   // Load conversations & models whenever auth becomes true (startup or fresh login)

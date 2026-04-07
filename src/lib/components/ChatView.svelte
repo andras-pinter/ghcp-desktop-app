@@ -5,7 +5,12 @@
   import type { Message, ChatMessage } from "$lib/types/message";
   import type { UrlPreview } from "$lib/types/web-research";
   import type { ChatFileData } from "$lib/types/project";
-  import { sendMessage, stopStreaming, updateConversation } from "$lib/utils/commands";
+  import {
+    sendMessage,
+    stopStreaming,
+    updateConversation,
+    extractFileText,
+  } from "$lib/utils/commands";
   import {
     onStreamingToken,
     onStreamingComplete,
@@ -167,25 +172,30 @@
       }
     }
 
-    // Append file content as context (text files decoded, binary summarized)
+    // Append file content as context — use Rust text extraction for all formats
     if (files && files.length > 0) {
-      const fileContext = files
-        .map((f) => {
-          if (f.contentType.startsWith("text/") || f.contentType === "application/json") {
-            try {
-              const decoded = atob(f.contentBase64);
-              const truncated =
-                decoded.length > 50_000
-                  ? decoded.slice(0, 50_000) + `\n...[truncated, ${decoded.length} chars total]`
-                  : decoded;
-              return `\n\n---\n📎 ${f.name} (${f.contentType})\n\n\`\`\`\n${truncated}\n\`\`\``;
-            } catch {
-              return `\n\n---\n📎 ${f.name} (${f.contentType}, binary, not shown)`;
-            }
+      const extractedParts: string[] = [];
+      for (const f of files) {
+        try {
+          const extracted = await extractFileText(f.contentBase64, f.contentType, f.name);
+          if (extracted) {
+            const truncated =
+              extracted.length > 50_000
+                ? extracted.slice(0, 50_000) + `\n...[truncated, ${extracted.length} chars total]`
+                : extracted;
+            extractedParts.push(
+              `\n\n---\n📎 ${f.name} (${f.contentType})\n\n\`\`\`\n${truncated}\n\`\`\``,
+            );
+          } else {
+            extractedParts.push(
+              `\n\n---\n📎 ${f.name} (${f.contentType}, unsupported format — content not shown)`,
+            );
           }
-          return `\n\n---\n📎 ${f.name} (${f.contentType}, binary, not shown)`;
-        })
-        .join("");
+        } catch {
+          extractedParts.push(`\n\n---\n📎 ${f.name} (${f.contentType}, extraction failed)`);
+        }
+      }
+      const fileContext = extractedParts.join("");
       if (fileContext) {
         content = content + fileContext;
       }

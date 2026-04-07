@@ -546,3 +546,12 @@ export async function pickFileForUpload(): Promise<FileUpload | null> {
 export async function pickFileForChat(): Promise<ChatFileData | null> {
   return invoke<ChatFileData | null>("pick_file_for_chat");
 }
+
+/** Extract readable text from a base64-encoded file (PDF, DOCX, XLSX, PPTX, RTF, text, etc.). */
+export async function extractFileText(
+  contentBase64: string,
+  contentType: string,
+  name: string,
+): Promise<string | null> {
+  return invoke<string | null>("extract_file_text", { contentBase64, contentType, name });
+}
