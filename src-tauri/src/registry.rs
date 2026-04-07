@@ -389,6 +389,9 @@ pub async fn search_registries(
         Err(e) => log::warn!("aitmpl.com search failed: {e}"),
     }
 
+    // Sort by download count (highest first, items without counts last)
+    items.sort_by(|a, b| b.installs.unwrap_or(0).cmp(&a.installs.unwrap_or(0)));
+
     let total = items.len() as u64;
     Ok(RegistrySearchResult {
         items,
