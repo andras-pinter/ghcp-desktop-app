@@ -329,6 +329,20 @@ export async function setAgentMcpConnections(
   return invoke("set_agent_mcp_connections", { agentId, mcpServerIds });
 }
 
+/** Install an agent from a registry (skills.sh or aitmpl.com). */
+export async function installAgentFromRegistry(itemId: string, source: string): Promise<Agent> {
+  return invoke<Agent>("install_agent_from_registry", { itemId, source });
+}
+
+/** Import an agent from a git SKILL.md file. */
+export async function importAgentFromGit(
+  content: string,
+  repoUrl: string,
+  path: string,
+): Promise<Agent> {
+  return invoke<Agent>("import_agent_from_git", { content, repoUrl, path });
+}
+
 // ── Skills ──────────────────────────────────────────────────────
 
 /** List all skills. */

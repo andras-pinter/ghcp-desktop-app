@@ -8,10 +8,16 @@
     removeAgent,
     assignAgentSkills,
     assignAgentMcp,
+    searchAgentRegistries,
+    installAgentFromRegistry,
+    clearAgentRegistrySearch,
+    discoverGitAgents,
+    importAgentFromGit,
   } from "$lib/stores/agents.svelte";
   import { getSkillStore, initSkills } from "$lib/stores/skills.svelte";
   import { getMcpState, initMcp } from "$lib/stores/mcp.svelte";
   import type { Agent } from "$lib/types/agent";
+  import type { RegistryItem, GitSkillFile } from "$lib/types/registry";
   import { onMount, onDestroy } from "svelte";
 
   interface Props {
@@ -73,6 +79,19 @@
   let confirmDelete = $state<Agent | null>(null);
   let deleting = $state(false);
 
+  // ── Registry / Git state ──────────────────────────────────────
+
+  let registryExpanded = $state(false);
+  let gitExpanded = $state(false);
+  let registrySearchInput = $state("");
+  let registrySearchDebounce: ReturnType<typeof setTimeout> | null = null;
+  let gitUrl = $state("");
+  let gitError = $state<string | null>(null);
+  let installingId = $state<string | null>(null);
+  let installedId = $state<string | null>(null);
+  let importingPath = $state<string | null>(null);
+  let importedPath = $state<string | null>(null);
+
   // ── Derived ─────────────────────────────────────────────────
 
   let defaultAgent = $derived(agentStore.agents.find((a) => a.isDefault));
@@ -110,7 +129,70 @@
 
   onDestroy(() => {
     document.removeEventListener("click", handleClickOutside);
+    if (registrySearchDebounce) clearTimeout(registrySearchDebounce);
   });
+
+  // ── Registry / Git Handlers ────────────────────────────────
+
+  function handleRegistrySearch(query: string) {
+    registrySearchInput = query;
+    if (registrySearchDebounce) clearTimeout(registrySearchDebounce);
+    if (!query.trim()) {
+      clearAgentRegistrySearch();
+      return;
+    }
+    registrySearchDebounce = setTimeout(() => {
+      searchAgentRegistries(query.trim());
+    }, 400);
+  }
+
+  async function handleRegistryInstall(item: RegistryItem) {
+    installingId = item.id;
+    try {
+      await installAgentFromRegistry(item);
+      installedId = item.id;
+      setTimeout(() => {
+        installedId = null;
+      }, 2000);
+    } catch {
+      // Error logged in store
+    } finally {
+      installingId = null;
+    }
+  }
+
+  function isAgentAlreadyInstalled(item: RegistryItem): boolean {
+    return agentStore.agents.some((a) => a.sourceUrl?.includes(item.id) || a.name === item.name);
+  }
+
+  async function handleGitDiscover() {
+    gitError = null;
+    if (!gitUrl.trim()) return;
+    try {
+      await discoverGitAgents(gitUrl.trim());
+    } catch (e: unknown) {
+      gitError = e instanceof Error ? e.message : String(e);
+    }
+  }
+
+  async function handleGitImport(file: GitSkillFile) {
+    importingPath = file.path;
+    try {
+      await importAgentFromGit(file);
+      importedPath = file.path;
+      setTimeout(() => {
+        importedPath = null;
+      }, 2000);
+    } catch {
+      // Error logged in store
+    } finally {
+      importingPath = null;
+    }
+  }
+
+  function registrySourceLabel(source: string): string {
+    return source === "skills_sh" ? "skills.sh" : "aitmpl.com";
+  }
 
   // ── Handlers ────────────────────────────────────────────────
 
@@ -318,6 +400,145 @@
           <p class="section-empty">No agents configured. Create one to get started.</p>
         {/if}
       </div>
+
+      <!-- ── Registry Browser ────────────────────────────────── -->
+      <section class="catalog-section">
+        <button
+          class="collapsible-heading"
+          onclick={() => (registryExpanded = !registryExpanded)}
+          aria-expanded={registryExpanded}
+        >
+          <span class="collapse-arrow" class:expanded={registryExpanded}>▶</span>
+          <h3 class="section-heading inline">Browse Agent Catalog</h3>
+        </button>
+
+        {#if registryExpanded}
+          <div class="section-content">
+            <div class="search-row">
+              <input
+                class="search-input"
+                type="search"
+                placeholder="Search agents on skills.sh & aitmpl.com…"
+                value={registrySearchInput}
+                oninput={(e) => handleRegistrySearch(e.currentTarget.value)}
+              />
+              {#if agentStore.registrySearching}
+                <span class="search-spinner">⟳</span>
+              {/if}
+            </div>
+
+            {#if agentStore.registryResults.length > 0}
+              <div class="registry-results" role="list">
+                {#each agentStore.registryResults as item (item.id + item.source)}
+                  <article class="registry-card" role="listitem">
+                    <div class="registry-info">
+                      <strong class="registry-name">{item.name}</strong>
+                      <span class="source-badge">{registrySourceLabel(item.source)}</span>
+                      {#if item.url}
+                        <a
+                          href={item.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          class="source-link"
+                          aria-label="View on {registrySourceLabel(item.source)}"
+                        >
+                          ↗
+                        </a>
+                      {/if}
+                    </div>
+                    {#if item.description}
+                      <p class="registry-desc">{item.description}</p>
+                    {/if}
+                    <div class="registry-actions">
+                      {#if isAgentAlreadyInstalled(item)}
+                        <span class="installed-badge">✓ Installed</span>
+                      {:else if installedId === item.id}
+                        <span class="installed-badge">✓ Installed</span>
+                      {:else}
+                        <button
+                          class="action-btn primary"
+                          onclick={() => handleRegistryInstall(item)}
+                          disabled={installingId === item.id}
+                        >
+                          {installingId === item.id ? "Installing…" : "Install"}
+                        </button>
+                      {/if}
+                    </div>
+                  </article>
+                {/each}
+              </div>
+            {:else if registrySearchInput.trim() && !agentStore.registrySearching}
+              <p class="section-empty">No agent templates found.</p>
+            {/if}
+          </div>
+        {/if}
+      </section>
+
+      <!-- ── Git Import ──────────────────────────────────────── -->
+      <section class="catalog-section">
+        <button
+          class="collapsible-heading"
+          onclick={() => (gitExpanded = !gitExpanded)}
+          aria-expanded={gitExpanded}
+        >
+          <span class="collapse-arrow" class:expanded={gitExpanded}>▶</span>
+          <h3 class="section-heading inline">Import from Git</h3>
+        </button>
+
+        {#if gitExpanded}
+          <div class="section-content">
+            <p class="section-desc">
+              Enter a GitHub or GitLab repository URL to discover SKILL.md agent templates.
+            </p>
+            <div class="git-row">
+              <input
+                class="search-input"
+                type="url"
+                placeholder="https://github.com/user/repo"
+                bind:value={gitUrl}
+              />
+              <button
+                class="action-btn primary"
+                onclick={handleGitDiscover}
+                disabled={agentStore.gitImporting || !gitUrl.trim()}
+              >
+                {agentStore.gitImporting ? "Scanning…" : "Scan"}
+              </button>
+            </div>
+
+            {#if gitError}
+              <div class="git-error" role="alert">{gitError}</div>
+            {/if}
+
+            {#if agentStore.gitDiscoveredFiles.length > 0}
+              <div class="git-results" role="list">
+                {#each agentStore.gitDiscoveredFiles as file (file.path)}
+                  <article class="git-file-card" role="listitem">
+                    <div class="git-file-info">
+                      <span class="git-file-path">{file.path}</span>
+                    </div>
+                    <div class="git-file-actions">
+                      {#if importedPath === file.path}
+                        <span class="installed-badge">✓ Imported</span>
+                      {:else}
+                        <button
+                          class="action-btn primary"
+                          onclick={() => handleGitImport(file)}
+                          disabled={importingPath === file.path}
+                        >
+                          {importingPath === file.path ? "Importing…" : "Import as Agent"}
+                        </button>
+                      {/if}
+                    </div>
+                  </article>
+                {/each}
+              </div>
+            {:else if gitUrl.trim() && !agentStore.gitImporting && !gitError}
+              <p class="section-empty">No SKILL.md files found in this repository.</p>
+            {/if}
+          </div>
+        {/if}
+      </section>
 
       <!-- ── Delete confirmation overlay ─────────────────── -->
       {#if confirmDelete}
@@ -1077,5 +1298,195 @@
     to {
       transform: rotate(360deg);
     }
+  }
+
+  /* ── Catalog Sections (Registry + Git) ── */
+
+  .catalog-section {
+    margin-top: var(--spacing-lg);
+  }
+
+  .collapsible-heading {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: var(--spacing-xs) 0;
+    width: 100%;
+    text-align: left;
+    color: var(--color-text-primary);
+  }
+
+  .collapsible-heading:hover {
+    color: var(--color-accent-copper, var(--color-accent));
+  }
+
+  .collapse-arrow {
+    font-size: 10px;
+    transition: transform 0.2s ease;
+    color: var(--color-text-tertiary);
+  }
+
+  .collapse-arrow.expanded {
+    transform: rotate(90deg);
+  }
+
+  .section-heading.inline {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    color: inherit;
+    margin: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .section-content {
+    padding: var(--spacing-sm) 0;
+  }
+
+  .section-desc {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+    margin: 0 0 var(--spacing-sm);
+    line-height: var(--leading-relaxed, 1.6);
+  }
+
+  .section-empty {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    font-style: italic;
+  }
+
+  .search-row {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-sm);
+  }
+
+  .search-input {
+    flex: 1;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    font-size: var(--font-size-sm);
+    font-family: var(--font-body);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-bg-primary);
+    color: var(--color-text-primary);
+    transition:
+      border-color 0.15s,
+      box-shadow 0.15s;
+  }
+
+  .search-input:focus {
+    outline: none;
+    border-color: var(--color-accent);
+    box-shadow: var(--shadow-input-focus, 0 0 0 2px rgba(180, 83, 9, 0.15));
+  }
+
+  .search-spinner {
+    animation: spin 0.8s linear infinite;
+    color: var(--color-text-tertiary);
+  }
+
+  .git-row {
+    display: flex;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-sm);
+  }
+
+  .git-error {
+    font-size: var(--font-size-sm);
+    color: var(--color-error, #dc2626);
+    background: color-mix(in srgb, var(--color-error, #dc2626) 8%, transparent);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--radius-sm);
+    margin-bottom: var(--spacing-sm);
+  }
+
+  .registry-results,
+  .git-results {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+  }
+
+  .registry-card,
+  .git-file-card {
+    padding: var(--spacing-sm);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md, var(--radius-sm));
+    background: var(--color-bg-primary);
+  }
+
+  .registry-info {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-xxs, 4px);
+  }
+
+  .registry-name {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-primary);
+  }
+
+  .source-badge {
+    font-size: var(--font-size-xs);
+    padding: 1px 6px;
+    border-radius: var(--radius-sm);
+    background: var(--color-bg-tertiary, var(--color-bg-secondary));
+    color: var(--color-text-tertiary);
+  }
+
+  .source-link {
+    font-size: var(--font-size-xs);
+    color: var(--color-accent);
+    text-decoration: none;
+    margin-left: auto;
+  }
+
+  .source-link:hover {
+    text-decoration: underline;
+  }
+
+  .registry-desc {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+    margin: 0 0 var(--spacing-xs);
+    line-height: var(--leading-relaxed, 1.6);
+  }
+
+  .registry-actions,
+  .git-file-actions {
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .installed-badge {
+    font-size: var(--font-size-xs);
+    color: var(--color-success, #16a34a);
+    font-weight: var(--font-weight-medium);
+  }
+
+  .git-file-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .git-file-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .git-file-path {
+    font-size: var(--font-size-xs);
+    font-family: var(--font-mono);
+    color: var(--color-text-primary);
+    word-break: break-all;
   }
 </style>

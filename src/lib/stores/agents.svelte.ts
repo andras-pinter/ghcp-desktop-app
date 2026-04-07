@@ -7,13 +7,27 @@ import {
   deleteAgent as deleteAgentCmd,
   setAgentSkills as setAgentSkillsCmd,
   setAgentMcpConnections as setAgentMcpCmd,
+  installAgentFromRegistry as installAgentFromRegistryCmd,
+  importAgentFromGit as importAgentFromGitCmd,
   logFrontend,
 } from "$lib/utils/commands";
+import { searchRegistry as searchRegistryCmd } from "$lib/utils/commands";
 import type { Agent } from "$lib/types/agent";
+import type { RegistryItem, RegistrySearchResult, GitSkillFile } from "$lib/types/registry";
 
 let agents = $state<Agent[]>([]);
 let loaded = $state(false);
 let selectedAgentId = $state<string | null>(null);
+
+// ── Registry state ──────────────────────────────────────────────
+let registryResults = $state<RegistryItem[]>([]);
+let registrySearching = $state(false);
+let registryQuery = $state("");
+
+// ── Git import state ────────────────────────────────────────────
+let gitDiscoveredFiles = $state<GitSkillFile[]>([]);
+let gitImporting = $state(false);
+let gitImportUrl = $state("");
 
 /** Load agents from the backend. Call once after auth. */
 export async function initAgents(): Promise<void> {
@@ -80,6 +94,78 @@ export function getDefaultAgent(): Agent | undefined {
   return agents.find((a) => a.isDefault);
 }
 
+// ── Registry ────────────────────────────────────────────────────
+
+/** Search registries for agents and update results. */
+export async function searchAgentRegistries(query: string): Promise<void> {
+  registryQuery = query;
+  registrySearching = true;
+  try {
+    const result: RegistrySearchResult = await searchRegistryCmd(query);
+    // Filter to agent-kind items only
+    registryResults = result.items.filter((i) => i.kind === "agent");
+  } catch (e) {
+    logFrontend("error", `Agent registry search failed: ${e}`);
+    registryResults = [];
+  } finally {
+    registrySearching = false;
+  }
+}
+
+/** Install an agent from a registry result. */
+export async function installAgentFromRegistry(item: RegistryItem): Promise<Agent | null> {
+  try {
+    const agent = await installAgentFromRegistryCmd(item.id, item.source);
+    agents = [...agents, agent];
+    return agent;
+  } catch (e) {
+    logFrontend("error", `Agent registry install failed: ${e}`);
+    return null;
+  }
+}
+
+/** Clear registry search state. */
+export function clearAgentRegistrySearch(): void {
+  registryQuery = "";
+  registryResults = [];
+}
+
+// ── Git Import ──────────────────────────────────────────────────
+
+/** Fetch SKILL.md files from a git URL for agent import. */
+export async function discoverGitAgents(url: string): Promise<void> {
+  const { fetchGitSkills } = await import("$lib/utils/commands");
+  gitImportUrl = url;
+  gitImporting = true;
+  try {
+    gitDiscoveredFiles = await fetchGitSkills(url);
+  } catch (e) {
+    logFrontend("error", `Git agent discovery failed: ${e}`);
+    gitDiscoveredFiles = [];
+    throw e;
+  } finally {
+    gitImporting = false;
+  }
+}
+
+/** Import a discovered SKILL.md file as an agent. */
+export async function importAgentFromGit(file: GitSkillFile): Promise<Agent | null> {
+  try {
+    const agent = await importAgentFromGitCmd(file.content, file.repoUrl, file.path);
+    agents = [...agents, agent];
+    return agent;
+  } catch (e) {
+    logFrontend("error", `Git agent import failed: ${e}`);
+    return null;
+  }
+}
+
+/** Clear git import state. */
+export function clearAgentGitImport(): void {
+  gitImportUrl = "";
+  gitDiscoveredFiles = [];
+}
+
 /** Reactive getters. */
 export function getAgentStore() {
   return {
@@ -91,6 +177,24 @@ export function getAgentStore() {
     },
     get selectedAgentId() {
       return selectedAgentId;
+    },
+    get registryResults() {
+      return registryResults;
+    },
+    get registrySearching() {
+      return registrySearching;
+    },
+    get registryQuery() {
+      return registryQuery;
+    },
+    get gitDiscoveredFiles() {
+      return gitDiscoveredFiles;
+    },
+    get gitImporting() {
+      return gitImporting;
+    },
+    get gitImportUrl() {
+      return gitImportUrl;
     },
   };
 }

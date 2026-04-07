@@ -110,3 +110,80 @@ pub fn set_agent_mcp_connections(
     let db = state.db.lock().map_err(|e| e.to_string())?;
     queries::set_agent_mcp_connections(&db, &agent_id, &mcp_server_ids).map_err(|e| e.to_string())
 }
+
+/// Install an agent from a registry (skills.sh or aitmpl.com).
+/// Fetches the SKILL.md content, parses it, and creates an agent.
+#[tauri::command]
+pub async fn install_agent_from_registry(
+    app: AppHandle,
+    item_id: String,
+    source: String,
+) -> Result<queries::Agent, String> {
+    let state = app.state::<AppState>();
+    let client = &state.http_client;
+
+    let registry_source = match source.as_str() {
+        "skills_sh" => crate::registry::RegistrySource::SkillsSh,
+        "aitmpl" => crate::registry::RegistrySource::Aitmpl,
+        _ => return Err(format!("Unknown registry source: {source}")),
+    };
+
+    let content =
+        crate::registry::fetch_skill_content(client, &item_id, &registry_source).await?;
+    let parsed =
+        crate::skillmd::parse(&content).map_err(|e| format!("Failed to parse SKILL.md: {e}"))?;
+
+    let id = uuid::Uuid::new_v4().to_string();
+    let source_type = match registry_source {
+        crate::registry::RegistrySource::SkillsSh => "registry_skills_sh",
+        crate::registry::RegistrySource::Aitmpl => "registry_aitmpl",
+    };
+    let source_url = match registry_source {
+        crate::registry::RegistrySource::SkillsSh => {
+            format!("https://skills.sh/{item_id}")
+        }
+        crate::registry::RegistrySource::Aitmpl => {
+            format!("https://aitmpl.com/{item_id}")
+        }
+    };
+
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+    queries::create_agent(
+        &db,
+        &id,
+        &parsed.name,
+        None,
+        &parsed.instructions,
+        Some(&source_url),
+        source_type,
+    )
+    .map_err(|e| format!("Failed to save agent: {e}"))
+}
+
+/// Import an agent from a git SKILL.md file content.
+#[tauri::command]
+pub fn import_agent_from_git(
+    app: AppHandle,
+    content: String,
+    repo_url: String,
+    path: String,
+) -> Result<queries::Agent, String> {
+    let parsed =
+        crate::skillmd::parse(&content).map_err(|e| format!("Failed to parse SKILL.md: {e}"))?;
+
+    let id = uuid::Uuid::new_v4().to_string();
+    let state = app.state::<AppState>();
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+
+    let source_url = format!("{repo_url}/blob/main/{path}");
+    queries::create_agent(
+        &db,
+        &id,
+        &parsed.name,
+        None,
+        &parsed.instructions,
+        Some(&source_url),
+        "git",
+    )
+    .map_err(|e| format!("Failed to save agent: {e}"))
+}
