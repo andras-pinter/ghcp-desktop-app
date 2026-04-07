@@ -194,7 +194,9 @@ pub async fn fetch_git_skills(
 ) -> Result<Vec<crate::registry::GitSkillFile>, String> {
     let state = app.state::<AppState>();
     let client = &state.http_client;
-    crate::registry::fetch_git_definitions(client, &git_url, Some("skill")).await
+    let token = copilot_api::DeviceFlowAuth::load_github_token().ok();
+    crate::registry::fetch_git_definitions(client, &git_url, Some("skill"), token.as_deref())
+        .await
 }
 
 /// Import a single skill from a fetched SKILL.md content.

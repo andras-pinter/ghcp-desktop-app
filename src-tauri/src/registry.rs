@@ -595,10 +595,12 @@ fn classify_definition_file(path: &str) -> Option<&'static str> {
 ///
 /// Discovers both skills and agents. Optionally filter by `kind_filter`
 /// ("skill" or "agent"); pass `None` to get both.
+/// If `github_token` is provided, it's used for authenticated GitHub API requests.
 pub async fn fetch_git_definitions(
     client: &Client,
     git_url: &str,
     kind_filter: Option<&str>,
+    github_token: Option<&str>,
 ) -> Result<Vec<GitSkillFile>, String> {
     let parsed = parse_git_url(git_url)?;
     let repo_url = format!("https://{}/{}/{}", parsed.host, parsed.owner, parsed.repo);
@@ -606,7 +608,8 @@ pub async fn fetch_git_definitions(
     if let Some(path) = parsed.file_path {
         // Fetch specific file
         let kind = classify_definition_file(&path).unwrap_or("skill");
-        let content = fetch_github_file(client, &parsed.owner, &parsed.repo, &path).await?;
+        let content =
+            fetch_github_file(client, &parsed.owner, &parsed.repo, &path, github_token).await?;
         return Ok(vec![GitSkillFile {
             path,
             content,
@@ -620,10 +623,14 @@ pub async fn fetch_git_definitions(
         "https://api.github.com/repos/{}/{}/git/trees/main?recursive=1",
         parsed.owner, parsed.repo
     );
-    let resp = client
+    let mut req = client
         .get(&tree_url)
         .header("Accept", "application/vnd.github+json")
-        .header("User-Agent", "Chuck-Desktop/0.1")
+        .header("User-Agent", "Chuck-Desktop/0.1");
+    if let Some(token) = github_token {
+        req = req.header("Authorization", format!("token {token}"));
+    }
+    let resp = req
         .send()
         .await
         .map_err(|e| format!("GitHub tree API failed: {e}"))?;
@@ -681,7 +688,7 @@ pub async fn fetch_git_definitions(
     let mut found = Vec::new();
     for (path, kind) in def_paths {
         if let Ok(content) =
-            fetch_github_file(client, &parsed.owner, &parsed.repo, &path).await
+            fetch_github_file(client, &parsed.owner, &parsed.repo, &path, github_token).await
         {
             found.push(GitSkillFile {
                 path,
@@ -708,13 +715,18 @@ async fn fetch_github_file(
     owner: &str,
     repo: &str,
     path: &str,
+    github_token: Option<&str>,
 ) -> Result<String, String> {
     let url = format!("https://api.github.com/repos/{owner}/{repo}/contents/{path}");
 
-    let resp = client
+    let mut req = client
         .get(&url)
         .header("Accept", "application/vnd.github.raw+json")
-        .header("User-Agent", "Chuck-Desktop/0.1")
+        .header("User-Agent", "Chuck-Desktop/0.1");
+    if let Some(token) = github_token {
+        req = req.header("Authorization", format!("token {token}"));
+    }
+    let resp = req
         .send()
         .await
         .map_err(|e| format!("GitHub API request failed: {e}"))?;

@@ -204,5 +204,7 @@ pub async fn fetch_git_agents(
 ) -> Result<Vec<crate::registry::GitSkillFile>, String> {
     let state = app.state::<AppState>();
     let client = &state.http_client;
-    crate::registry::fetch_git_definitions(client, &git_url, Some("agent")).await
+    let token = copilot_api::DeviceFlowAuth::load_github_token().ok();
+    crate::registry::fetch_git_definitions(client, &git_url, Some("agent"), token.as_deref())
+        .await
 }
