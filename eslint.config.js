@@ -22,6 +22,10 @@ export default tseslint.config(
         parser: tseslint.parser,
       },
     },
+    rules: {
+      // We sanitize all HTML through DOMPurify in renderMarkdown()
+      "svelte/no-at-html-tags": "off",
+    },
   },
   {
     files: ["**/*.svelte.ts"],

@@ -12,6 +12,7 @@
     clearGitImport,
   } from "$lib/stores/skills.svelte";
   import { getMcpState } from "$lib/stores/mcp.svelte";
+  import { renderMarkdown } from "$lib/utils/markdown";
   import type { Skill } from "$lib/types/skill";
   import type { RegistryItem, GitSkillFile } from "$lib/types/registry";
   import { onMount, onDestroy } from "svelte";
@@ -44,6 +45,7 @@
   let deleteConfirmId = $state<string | null>(null);
 
   let expandedSkillId = $state<string | null>(null);
+  let expandedRegistryKey = $state<string | null>(null);
 
   type SkillViewState = "list" | "create";
   let skillView = $state<SkillViewState>("list");
@@ -173,6 +175,15 @@
 
   function toggleExpandSkill(id: string) {
     expandedSkillId = expandedSkillId === id ? null : id;
+  }
+
+  function registryKey(item: RegistryItem): string {
+    return item.id + item.source + item.kind;
+  }
+
+  function toggleExpandRegistry(item: RegistryItem) {
+    const key = registryKey(item);
+    expandedRegistryKey = expandedRegistryKey === key ? null : key;
   }
 
   function openCreateForm() {
@@ -321,7 +332,9 @@
               {#if expandedSkillId === skill.id}
                 <div class="skill-details">
                   {#if skill.instructions}
-                    <pre class="skill-instructions">{skill.instructions}</pre>
+                    <div class="skill-instructions md-content">
+                      {@html renderMarkdown(skill.instructions)}
+                    </div>
                   {/if}
                   {#if skill.sourceUrl}
                     <div class="skill-detail-row">
@@ -379,7 +392,9 @@
               {#if expandedSkillId === skill.id}
                 <div class="skill-details">
                   {#if skill.instructions}
-                    <pre class="skill-instructions">{skill.instructions}</pre>
+                    <div class="skill-instructions md-content">
+                      {@html renderMarkdown(skill.instructions)}
+                    </div>
                   {/if}
                   {#if skill.sourceUrl}
                     <div class="skill-detail-row">
@@ -441,7 +456,9 @@
                   {#if expandedSkillId === skill.id}
                     <div class="skill-details">
                       {#if skill.instructions}
-                        <pre class="skill-instructions">{skill.instructions}</pre>
+                        <div class="skill-instructions md-content">
+                          {@html renderMarkdown(skill.instructions)}
+                        </div>
                       {/if}
                       {#if skill.sourceUrl}
                         <div class="skill-detail-row">
@@ -528,7 +545,9 @@
               {#if expandedSkillId === skill.id}
                 <div class="skill-details">
                   {#if skill.instructions}
-                    <pre class="skill-instructions">{skill.instructions}</pre>
+                    <div class="skill-instructions md-content">
+                      {@html renderMarkdown(skill.instructions)}
+                    </div>
                   {/if}
                   {#if skill.sourceUrl}
                     <div class="skill-detail-row">
@@ -613,7 +632,9 @@
               {#if expandedSkillId === skill.id}
                 <div class="skill-details">
                   {#if skill.instructions}
-                    <pre class="skill-instructions">{skill.instructions}</pre>
+                    <div class="skill-instructions md-content">
+                      {@html renderMarkdown(skill.instructions)}
+                    </div>
                   {/if}
                   {#if skill.sourceUrl}
                     <div class="skill-detail-row">
@@ -671,17 +692,39 @@
                 </p>
               {/if}
               <div class="registry-list">
-                {#each store.registryResults as item (item.id + item.source)}
-                  <div class="registry-item">
+                {#each store.registryResults as item (item.id + item.source + item.kind)}
+                  <div
+                    class="registry-item"
+                    role="button"
+                    tabindex="0"
+                    ondblclick={() => toggleExpandRegistry(item)}
+                    title="Double-click to expand"
+                  >
                     <div class="registry-item-info">
+                      <button
+                        class="skill-expand-btn"
+                        class:expanded={expandedRegistryKey === registryKey(item)}
+                        onclick={(e: MouseEvent) => {
+                          e.stopPropagation();
+                          toggleExpandRegistry(item);
+                        }}
+                        aria-label={expandedRegistryKey === registryKey(item)
+                          ? "Collapse"
+                          : "Expand"}>▶</button
+                      >
                       <strong class="registry-item-name">{item.name}</strong>
                       <span class="source-badge registry">{registrySourceLabel(item.source)}</span>
                       {#if item.installs !== null}
                         <span class="install-count">{item.installs} installs</span>
                       {/if}
                     </div>
-                    {#if item.description}
+                    {#if expandedRegistryKey !== registryKey(item) && item.description}
                       <p class="registry-item-desc">{item.description}</p>
+                    {/if}
+                    {#if expandedRegistryKey === registryKey(item) && item.description}
+                      <div class="registry-item-expanded md-content">
+                        {@html renderMarkdown(item.description)}
+                      </div>
                     {/if}
                     <div class="registry-item-actions">
                       {#if item.url}
@@ -1368,6 +1411,20 @@
     overflow: hidden;
   }
 
+  .registry-item-expanded {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+    margin: var(--spacing-sm) 0 0 0;
+    padding: var(--spacing-sm);
+    background: var(--color-bg-primary);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--color-border-primary);
+    line-height: var(--line-height-relaxed);
+    max-height: 300px;
+    overflow-y: auto;
+    animation: fadeIn 150ms ease both;
+  }
+
   .registry-item-actions {
     display: flex;
     align-items: center;
@@ -1523,14 +1580,12 @@
   }
 
   .skill-instructions {
-    font-family: var(--font-mono);
     font-size: var(--font-size-xs);
     color: var(--color-text-secondary);
     background: var(--color-bg-tertiary, var(--color-bg-secondary));
     border-radius: var(--radius-sm);
     padding: var(--spacing-sm);
     margin: 0 0 var(--spacing-xs);
-    white-space: pre-wrap;
     word-break: break-word;
     max-height: 200px;
     overflow-y: auto;

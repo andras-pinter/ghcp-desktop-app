@@ -18,6 +18,7 @@
   import { getMcpState, initMcp } from "$lib/stores/mcp.svelte";
   import type { Agent } from "$lib/types/agent";
   import type { RegistryItem, GitSkillFile } from "$lib/types/registry";
+  import { renderMarkdown } from "$lib/utils/markdown";
   import { onMount, onDestroy } from "svelte";
 
   interface Props {
@@ -94,6 +95,7 @@
 
   // Expand/collapse for individual agent cards
   let expandedAgentId = $state<string | null>(null);
+  let expandedRegistryKey = $state<string | null>(null);
 
   // ── Derived ─────────────────────────────────────────────────
 
@@ -266,6 +268,15 @@
     expandedAgentId = expandedAgentId === id ? null : id;
   }
 
+  function registryKey(item: RegistryItem): string {
+    return item.id + item.source + item.kind;
+  }
+
+  function toggleExpandRegistry(item: RegistryItem) {
+    const key = registryKey(item);
+    expandedRegistryKey = expandedRegistryKey === key ? null : key;
+  }
+
   function cancelDelete() {
     confirmDelete = null;
   }
@@ -386,7 +397,9 @@
             {/if}
             {#if expandedAgentId === defaultAgent.id}
               <div class="agent-details">
-                <pre class="agent-prompt-full">{defaultAgent.systemPrompt}</pre>
+                <div class="agent-prompt-full md-content">
+                  {@html renderMarkdown(defaultAgent.systemPrompt)}
+                </div>
               </div>
             {/if}
             <div class="agent-meta">
@@ -443,7 +456,9 @@
               {/if}
               {#if expandedAgentId === agent.id}
                 <div class="agent-details">
-                  <pre class="agent-prompt-full">{agent.systemPrompt}</pre>
+                  <div class="agent-prompt-full md-content">
+                    {@html renderMarkdown(agent.systemPrompt)}
+                  </div>
                   {#if agent.sourceUrl}
                     <div class="agent-detail-row">
                       <span>Source:</span>
@@ -492,9 +507,25 @@
 
             {#if agentStore.registryResults.length > 0}
               <div class="registry-results" role="list">
-                {#each agentStore.registryResults as item (item.id + item.source)}
-                  <article class="registry-card" role="listitem">
+                {#each agentStore.registryResults as item (item.id + item.source + item.kind)}
+                  <article
+                    class="registry-card"
+                    role="listitem"
+                    ondblclick={() => toggleExpandRegistry(item)}
+                    title="Double-click to expand"
+                  >
                     <div class="registry-info">
+                      <button
+                        class="agent-expand-btn"
+                        class:expanded={expandedRegistryKey === registryKey(item)}
+                        onclick={(e: MouseEvent) => {
+                          e.stopPropagation();
+                          toggleExpandRegistry(item);
+                        }}
+                        aria-label={expandedRegistryKey === registryKey(item)
+                          ? "Collapse"
+                          : "Expand"}>▶</button
+                      >
                       <strong class="registry-name">{item.name}</strong>
                       <span class="source-badge">{registrySourceLabel(item.source)}</span>
                       {#if item.url}
@@ -509,8 +540,13 @@
                         </a>
                       {/if}
                     </div>
-                    {#if item.description}
+                    {#if expandedRegistryKey !== registryKey(item) && item.description}
                       <p class="registry-desc">{item.description}</p>
+                    {/if}
+                    {#if expandedRegistryKey === registryKey(item) && item.description}
+                      <div class="registry-expanded md-content">
+                        {@html renderMarkdown(item.description)}
+                      </div>
                     {/if}
                     <div class="registry-actions">
                       {#if isAgentAlreadyInstalled(item)}
@@ -960,13 +996,11 @@
   .agent-prompt-full {
     font-size: var(--font-size-xs);
     color: var(--color-text-secondary);
-    white-space: pre-wrap;
     word-break: break-word;
     line-height: var(--line-height-relaxed);
     max-height: 300px;
     overflow-y: auto;
     margin: 0;
-    font-family: var(--font-mono);
   }
 
   .agent-detail-row {
@@ -1555,6 +1589,25 @@
     color: var(--color-text-secondary);
     margin: 0 0 var(--spacing-xs);
     line-height: var(--leading-relaxed, 1.6);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .registry-expanded {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+    margin: var(--spacing-sm) 0 0 0;
+    padding: var(--spacing-sm);
+    background: var(--color-bg-primary);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--color-border-primary);
+    line-height: var(--line-height-relaxed);
+    max-height: 300px;
+    overflow-y: auto;
+    animation: fadeIn 150ms ease both;
   }
 
   .registry-actions,
