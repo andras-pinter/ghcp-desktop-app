@@ -45,8 +45,12 @@ export async function doLogout(): Promise<void> {
 // ── Chat ────────────────────────────────────────────────────────
 
 /** Send chat messages and start streaming the response. */
-export async function sendMessage(messages: ChatMessage[], model: string): Promise<void> {
-  return invoke("send_message", { messages, model });
+export async function sendMessage(
+  messages: ChatMessage[],
+  model: string,
+  agentId?: string | null,
+): Promise<void> {
+  return invoke("send_message", { messages, model, agentId: agentId ?? null });
 }
 
 /** Cancel an in-flight streaming response. */

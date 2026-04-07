@@ -786,7 +786,6 @@ pub fn toggle_skill(conn: &Connection, id: &str, enabled: bool) -> Result<(), ru
 }
 
 /// Get skills assigned to an agent (with full skill data).
-#[allow(dead_code)]
 pub fn get_agent_skills(conn: &Connection, agent_id: &str) -> Result<Vec<Skill>, rusqlite::Error> {
     let mut stmt = conn.prepare(
         "SELECT s.id, s.name, s.description, s.source, s.mcp_server_id, s.config,
