@@ -71,11 +71,19 @@
   // Absorb files injected externally (e.g. dropped on the ChatView area)
   $effect(() => {
     if (externalFiles && externalFiles.length > 0) {
+      let updated = [...attachedFiles];
       for (const f of externalFiles) {
-        if (!attachedFiles.some((a) => a.name === f.name)) {
-          attachedFiles = [...attachedFiles, f];
+        const idx = updated.findIndex((a) => a.name === f.name);
+        if (idx >= 0) {
+          // Replace loading placeholder with real file data
+          if (updated[idx].loading && !f.loading) {
+            updated[idx] = f;
+          }
+        } else {
+          updated = [...updated, f];
         }
       }
+      attachedFiles = updated;
       onExternalFilesConsumed?.();
     }
   });
