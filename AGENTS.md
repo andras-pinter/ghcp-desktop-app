@@ -1695,19 +1695,19 @@ INSERT INTO config (key, value) VALUES ('schema_version', '1');
 22. ✅ **mcp-registry** — Browse servers from official MCP Registry (`registry.modelcontextprotocol.io`). Server-side search via `?search=` API parameter, cursor-based pagination (20 per page with infinite scroll), first-party server prioritization heuristic. Multi-package registry types (npm/pypi/nuget). One-click add with auto-filled `npx -y`/`uvx`/`dotnet tool run` commands including `packageArguments`. Registry detail view with setup guides and connection options. Auto-connect on server add.
 23. ✅ **mcp-settings** — `McpSettings.svelte` + `McpServerForm.svelte`: manage MCP connections. Add custom servers (URL + auth or binary path), enable/disable, test connectivity, browse discovered tools. Server cards with live 🟢/🔴 status indicators. Confirmation dialog on removal. ARIA attributes throughout.
 
-### Phase 8: Skills & Agents
-24. ⬚ **schema-migration-v2** — DB migration v2: add `instructions`, `source_url`, `source_type` columns to `skills` and `agents` tables. Update Rust structs and TypeScript types.
-25. ⬚ **skillmd-parser** — `src-tauri/src/skillmd.rs`: parse SKILL.md files (YAML frontmatter + markdown body). Extract `name`, `description`, `license`, `metadata`. Return `ParsedSkillMd` struct. Unit tests.
-26. ⬚ **agent-skill-queries** — Implement full CRUD queries in `queries.rs` for agents (list, get, create, update, delete, get/set skills, get/set MCP connections) and skills (list, get, create, update, delete, toggle).
-27. ⬚ **agent-skill-commands** — Tauri commands in `agents.rs` and `skills.rs`: full CRUD operations, register in `lib.rs`.
-28. ⬚ **registry-client** — `src-tauri/src/registry.rs`: unified registry API client for skills.sh (`/api/search`) + aitmpl.com. Tauri commands: `search_registry`, `install_from_registry`. Rate limiting + response validation.
-29. ⬚ **git-import** — Git URL skill/agent import: accept `owner/repo`, GitHub/GitLab URLs, direct SKILL.md paths. Discover SKILL.md files via GitHub API. Tauri commands: `fetch_git_skills`, `import_git_skill`.
-30. ⬚ **chat-agent-integration** — Modify `send_message()` to accept `agent_id`. Fetch agent + enabled skills from DB, build system prompt with skill instructions, inject as system message.
-31. ⬚ **skills-agents-frontend** — Frontend command wrappers + Svelte stores (`agents.svelte.ts`, `skills.svelte.ts`). Agent/skill CRUD, registry search, git import wrappers.
-32. ⬚ **skills-panel** — `SkillsPanel.svelte`: skill list grouped by source, toggle on/off, unified registry browser (skills.sh + aitmpl.com with source badges), git URL import field, filter/search. Warm Ink styling.
-33. ⬚ **agents-panel** — `AgentsPanel.svelte`: agent list with CRUD, skill/MCP assignment, registry browser for agent templates, git URL import. Warm Ink styling.
-34. ⬚ **agent-selector** — Agent picker in `InputArea.svelte` next to model selector. Conversations tied to agents. Mid-conversation change warning.
-35. ⬚ **sidebar-skills-agents** — Add Skills (⚡) and Agents (🤖) nav buttons to Sidebar bottom section.
+### Phase 8: Skills & Agents ✅
+24. ✅ **schema-migration-v2** — DB migration v2: add `instructions`, `source_url`, `source_type` columns to `skills` and `agents` tables. Update Rust structs and TypeScript types.
+25. ✅ **skillmd-parser** — `src-tauri/src/skillmd.rs`: parse SKILL.md files (YAML frontmatter + markdown body). Extract `name`, `description`, `license`, `metadata`. Return `ParsedSkillMd` struct. Unit tests.
+26. ✅ **agent-skill-queries** — Implement full CRUD queries in `queries.rs` for agents (list, get, create, update, delete, get/set skills, get/set MCP connections) and skills (list, get, create, update, delete, toggle).
+27. ✅ **agent-skill-commands** — Tauri commands in `agents.rs` and `skills.rs`: full CRUD operations, register in `lib.rs`.
+28. ✅ **registry-client** — `src-tauri/src/registry.rs`: unified registry API client for skills.sh (`/api/search`) + aitmpl.com. Tauri commands: `search_registry`, `install_from_registry`. Rate limiting + response validation.
+29. ✅ **git-import** — Git URL skill/agent import: accept `owner/repo`, GitHub/GitLab URLs, direct SKILL.md paths. Discover SKILL.md files via GitHub API. Tauri commands: `fetch_git_skills`, `import_git_skill`.
+30. ✅ **chat-agent-integration** — Modify `send_message()` to accept `agent_id`. Fetch agent + enabled skills from DB, build system prompt with skill instructions, inject as system message.
+31. ✅ **skills-agents-frontend** — Frontend command wrappers + Svelte stores (`agents.svelte.ts`, `skills.svelte.ts`). Agent/skill CRUD, registry search, git import wrappers.
+32. ✅ **skills-panel** — `SkillsPanel.svelte`: skill list grouped by source, toggle on/off, unified registry browser (skills.sh + aitmpl.com with source badges), git URL import field, filter/search. Warm Ink styling.
+33. ✅ **agents-panel** — `AgentsPanel.svelte`: agent list with CRUD, skill/MCP assignment, registry browser for agent templates, git URL import. Warm Ink styling.
+34. ✅ **agent-selector** — Agent picker in `InputArea.svelte` next to model selector. Conversations tied to agents. Mid-conversation change warning.
+35. ✅ **sidebar-skills-agents** — Add Skills (⚡) and Agents (🤖) nav buttons to Sidebar bottom section.
 
 ### Phase 9: Projects & File Context
 36. ⬚ **projects** — `ProjectView.svelte`: named project containers with custom instructions, pinned files (stored as BLOBs in SQLite), grouped conversations. Project selector in sidebar.
