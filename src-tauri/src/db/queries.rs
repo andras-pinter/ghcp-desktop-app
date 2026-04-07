@@ -611,9 +611,9 @@ mod tests {
     fn test_settings() {
         let conn = setup_db();
 
-        // Schema version was seeded
+        // Schema version was seeded (v2 after all migrations)
         let ver = get_setting(&conn, "schema_version").unwrap();
-        assert_eq!(ver, Some("1".to_string()));
+        assert_eq!(ver, Some("2".to_string()));
 
         // Set new value
         set_setting(&conn, "theme", "dark").unwrap();

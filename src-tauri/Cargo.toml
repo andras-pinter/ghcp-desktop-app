@@ -40,5 +40,8 @@ chrono.workspace = true
 # Database
 rusqlite = { version = "0.33", features = ["bundled"] }
 
+# SKILL.md parsing
+serde_norway.workspace = true
+
 # Logging
 env_logger = "0.11"

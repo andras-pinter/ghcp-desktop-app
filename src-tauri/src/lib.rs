@@ -2,6 +2,7 @@
 
 mod commands;
 mod db;
+pub mod skillmd;
 mod state;
 
 use state::AppState;

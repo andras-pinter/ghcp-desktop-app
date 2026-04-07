@@ -1,4 +1,6 @@
-export type SkillSource = "extension" | "mcp";
+export type SkillSource = "extension" | "mcp" | "builtin" | "registry_skills_sh" | "registry_aitmpl" | "git";
+
+export type SkillSourceType = SkillSource;
 
 export interface Skill {
   id: string;
@@ -7,6 +9,10 @@ export interface Skill {
   source: SkillSource;
   mcpServerId: string | null;
   config: string | null;
+  instructions: string | null;
+  sourceUrl: string | null;
+  sourceType: SkillSourceType;
   enabled: boolean;
   createdAt: string;
+  updatedAt: string | null;
 }
