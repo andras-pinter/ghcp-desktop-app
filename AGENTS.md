@@ -173,7 +173,7 @@ custom agent personas, and streaming responses.
 - **Projects** — group conversations + attached files under named projects with custom instructions
 - **Web research** — AI-driven web search (via search API) + manual URL fetching/extraction for context
 - **MCP integration** — connect to MCP servers for extended tool capabilities; browse the official MCP Registry + custom server configuration
-- **Skills management** — enable/disable/configure skills that extend what Copilot can do in conversations. Skills can come from MCP tools, built-in capabilities, or external registries. Browse and install skills from **skills.sh** and **aitmpl.com** registries, or import from any **git URL** pointing to SKILL.md files.
+- **Skills management** — enable/disable/configure skills that extend what Copilot can do in conversations. Skills can come from MCP tools, built-in capabilities, or external registries. Browse and install skills from the **aitmpl.com** registry, or import from any **git URL** pointing to SKILL.md files.
 - **Agents management** — create custom agent personas with specific system prompts, assigned skills, and MCP connections. Browse and install pre-built agent templates from the **aitmpl.com** registry, or import from **git URLs**.
 - **Model selector** — pick from available Copilot models (implement always; gracefully hide if API returns only one model)
 - **Light/dark theme** — follow system preference, manual toggle (CSS custom properties)
@@ -205,7 +205,7 @@ custom agent personas, and streaming responses.
 - The app stores **only** its own data: conversations (SQLite in app data dir), auth tokens (OS keychain), and user preferences (app config dir)
 - No shell execution, no subprocess spawning, no system command access — **with one exception:** MCP stdio transport may spawn user-approved MCP server binaries (see MCP Security below)
 - No screen capture, no clipboard snooping, no background scanning
-- No network requests except to: GitHub Copilot API, GitHub OAuth endpoints, **user-configured MCP servers**, **web search API**, **user-provided URLs**, **GitHub Releases API** (for auto-update), **skills.sh API** (skill registry), **aitmpl.com API** (skill/agent registry), and **GitHub/GitLab raw content APIs** (for git URL skill/agent imports)
+- No network requests except to: GitHub Copilot API, GitHub OAuth endpoints, **user-configured MCP servers**, **web search API**, **user-provided URLs**, **GitHub Releases API** (for auto-update), **aitmpl.com API** (skill/agent registry), and **GitHub raw content APIs** (for git URL skill/agent imports)
 - All outbound network destinations beyond GitHub must be **explicitly configured or initiated by the user**
 - **URL fetching safeguards:** the app must block requests to private IP ranges (10.x, 172.16-31.x, 192.168.x), localhost, link-local (169.254.x), and cloud metadata endpoints (169.254.169.254). Only fetch public HTTPS URLs.
 - **Tauri capabilities** must be configured with minimal permissions — only the specific APIs each window/webview actually needs
@@ -563,7 +563,7 @@ Browse and manage all available skills (built-in + MCP tools + registry-imported
 │                                                                  │
 │  [✓]  🎨 frontend-design                                          │
 │       Create production-grade frontend interfaces                │
-│       Source: skills.sh · vercel-labs/agent-skills                │
+│       Source: aitmpl.com · vercel-labs/agent-skills               │
 │                                                                  │
 │  [ ]  📝 code-review                                               │
 │       Review code for bugs and best practices                    │
@@ -579,16 +579,16 @@ Browse and manage all available skills (built-in + MCP tools + registry-imported
 │                                                                  │
 │  ── Browse Registry ──────────────────────────────────────────   │
 │                                                                  │
-│  🔍 Search skills.sh + aitmpl.com...                              │
+│  🔍 Search aitmpl.com...                                           │
 │                                                                  │
 │  ┌──────────────────────────────────────────────────────────┐    │
-│  │  🎯 frontend-design         skills.sh    218K installs   │    │
+│  │  🎯 frontend-design         aitmpl.com   218K installs   │    │
 │  │     Create distinctive frontend interfaces           [+] │    │
 │  ├──────────────────────────────────────────────────────────┤    │
 │  │  🔬 deep-research            aitmpl.com                   │    │
 │  │     Research assistant with citations                 [+] │    │
 │  ├──────────────────────────────────────────────────────────┤    │
-│  │  📊 data-analysis            skills.sh    45K installs    │    │
+│  │  📊 data-analysis            aitmpl.com   45K installs    │    │
 │  │     Analyze datasets and generate insights            [+] │    │
 │  └──────────────────────────────────────────────────────────┘    │
 │           ... (infinite scroll loads more) ...                   │
@@ -607,12 +607,13 @@ Browse and manage all available skills (built-in + MCP tools + registry-imported
 - Filter field does fuzzy search across name + description (local skills only)
 - Disabled MCP skills (server disconnected) shown grayed out with status
 - Skills assigned to agents are marked but can be toggled independently here
-- **Browse Registry** section: unified search across skills.sh + aitmpl.com
-  - Results show source badge, install count (if available), and one-click [+] install button
+- **Browse Registry** section: search aitmpl.com catalog
+  - Results show install count and one-click [+] install button
+  - Expandable cards show full description before installing
   - Installing fetches the SKILL.md content, parses it, and saves to SQLite
   - Infinite scroll pagination for registry results
 - **Import from Git** section: text field for git URL + Fetch button
-  - Accepts: `owner/repo`, full GitHub/GitLab URLs, direct paths to SKILL.md
+  - Accepts: `owner/repo`, full GitHub URLs, direct paths to SKILL.md or *.agent.md
   - Fetch discovers SKILL.md files → shows selection dialog → import selected skills
   - Imported skills show git source badge with link to origin
 
@@ -835,9 +836,9 @@ and **events** (`listen()`/`emit()`). This is the only bridge between the two la
 - `streaming-complete` — response finished
 - `streaming-error` — error during streaming
 - `auth-state-changed` — login/logout
-- `network-status` — online/offline
-- `update-available` — new version found
 - `git-import-progress` — progress updates during git skill/agent import (total, fetched, phase)
+- `network-status` — online/offline *(⬚ Phase 10)*
+- `update-available` — new version found *(⬚ Phase 11)*
 
 ---
 
@@ -920,7 +921,7 @@ copilot-desktop/
 │       ├── lib.rs                # Tauri app setup, plugin registration, state init
 │       ├── state.rs              # Tauri managed state (AppState, DB pool, etc.)
 │       ├── skillmd.rs            # SKILL.md parser (YAML frontmatter + markdown body)
-│       ├── registry.rs           # Skill/agent registry client (skills.sh + aitmpl.com APIs)
+│       ├── registry.rs           # Skill/agent registry client (aitmpl.com API, git import)
 │       ├── commands/             # Tauri command handlers (IPC bridge to frontend)
 │       │   ├── mod.rs
 │       │   ├── chat.rs           # send_message, stop_streaming, regenerate
@@ -1438,25 +1439,23 @@ In Chuck, the SKILL.md markdown body becomes the skill's `instructions` field in
 
 ### Skill & Agent Registries
 
-Chuck can browse, search, and install skills/agents from two public registries plus arbitrary git URLs:
+Chuck can browse, search, and install skills/agents from the aitmpl.com public registry plus arbitrary git URLs:
 
 | Source | What It Provides | API |
 |---|---|---|
-| **[skills.sh](https://skills.sh)** | Open agent skills ecosystem (Vercel Labs). Thousands of SKILL.md-based skills from GitHub repos. | `GET https://skills.sh/api/search?q={query}&limit={limit}` |
-| **[aitmpl.com](https://www.aitmpl.com)** | AI Templates marketplace. 1000+ agents, skills, commands, and MCP integrations. | Web API (agents + skills catalogs) |
-| **Git URL** | Any git repository containing SKILL.md files. Supports GitHub shorthand (`owner/repo`), full URLs, direct paths to specific skills, and GitLab. | GitHub Contents API / raw.githubusercontent.com |
+| **[aitmpl.com](https://www.aitmpl.com)** | AI Templates marketplace. 1000+ agents, skills, commands, and MCP integrations. Backed by a catalog of SKILL.md / agent.md files hosted on GitHub. | Web API (agents + skills catalogs) |
+| **Git URL** | Any git repository containing SKILL.md or *.agent.md files. Supports GitHub shorthand (`owner/repo`), full URLs, and direct paths to specific files. | GitHub Tree + Contents API (authenticated via Copilot token) |
 
 **Installation flow:**
-1. User searches or browses a registry → sees results with source badges
-2. Clicks "Install" → app fetches the SKILL.md content from GitHub
-3. YAML frontmatter is parsed → skill preview shown (name, description, instructions)
-4. User confirms → skill saved to SQLite (`skills` table with `source_type` indicating origin)
-5. User can assign the skill to agents → instructions injected into system prompt when active
+1. User searches or browses the aitmpl.com catalog → sees results sorted by download count
+2. Clicks to expand → sees full description and content
+3. Clicks "Install" → skill/agent saved to SQLite with content and metadata
+4. User can assign the skill to agents → instructions injected into system prompt when active
 
 **Git URL import flow:**
-1. User pastes a git URL (e.g., `vercel-labs/agent-skills` or `https://github.com/owner/repo`)
-2. App fetches the repo contents via GitHub API
-3. Discovers SKILL.md files in standard locations (`skills/`, root, `.agents/skills/`, etc.)
+1. User pastes a git URL (e.g., `github/awesome-copilot` or `https://github.com/owner/repo`)
+2. App fetches the repo tree via GitHub API (authenticated, progress bar shown)
+3. Discovers SKILL.md and *.agent.md files in all directories
 4. Shows list of discovered skills → user selects which to import
 5. Selected skills saved to SQLite
 
@@ -1678,7 +1677,7 @@ INSERT INTO config (key, value) VALUES ('schema_version', '1');
 ### Phase 4: Core Chat UI ✅
 11. ✅ **sidebar** — `Sidebar.svelte` (444 lines): conversation list grouped by date, new chat, favourites with star icon, context menu (rename, favourite toggle, delete), inline rename editing, real data binding via conversation store. *(Search button exists but handler not yet wired.)*
 12. ✅ **chat-view** — `ChatView.svelte`: message list with streaming, welcome screen with random greetings, draft loading/saving, auto-title generation, persisted default model selection, edit/regenerate handlers, Cmd+F search overlay integration, global keyboard shortcut handler.
-13. ✅ **input-area** — `InputArea.svelte` (526 lines): multi-line textarea with auto-height, custom popover model dropdown (replaces native `<select>`) with fade animation, shift+click to set default model (persisted to SQLite via settings), default model marked with copper star (★), send/stop buttons, Enter-to-send, loading spinner while models are fetched. *(File drop zone, attachment pills, and agent selector not yet implemented.)*
+13. ✅ **input-area** — `InputArea.svelte` (1041 lines): multi-line textarea with auto-height, custom popover model dropdown (replaces native `<select>`) with fade animation, shift+click to set default model (persisted to SQLite via settings), default model marked with copper star (★), agent dropdown selector, send/stop buttons, Enter-to-send, loading spinner while models are fetched. *(File drop zone and attachment pills not yet implemented.)*
 14. ✅ **streaming-display** — Token-by-token rendering via Tauri events (`streaming-token`, `streaming-complete`, `streaming-error`), blinking cursor animation, stop button. Event-driven architecture with proper cleanup on unmount. Messages saved on stream complete.
 15. ✅ **message-actions** — Hover action buttons on messages: ✏️ edit user messages (discards subsequent messages, loads content back to input), ⟳ regenerate last assistant response (deletes + re-sends), 📋 copy message content (with 2s check animation). Actions appear on hover with smooth opacity transition. User actions positioned left of bubble; assistant actions below content.
 16. ✅ **in-conversation-search** — `SearchOverlay.svelte`: Cmd+F / Ctrl+F opens floating search bar. Real-time text highlighting via DOM TreeWalker, match count display, ↑/↓ arrow navigation with active match scrollIntoView, Enter/Shift+Enter to navigate, Escape to dismiss. Highlights use `.search-highlight` / `.search-highlight-active` classes with copper accent.
@@ -1701,11 +1700,11 @@ INSERT INTO config (key, value) VALUES ('schema_version', '1');
 25. ✅ **skillmd-parser** — `src-tauri/src/skillmd.rs`: parse SKILL.md files (YAML frontmatter + markdown body). Extract `name`, `description`, `license`, `metadata`. Return `ParsedSkillMd` struct. Unit tests.
 26. ✅ **agent-skill-queries** — Implement full CRUD queries in `queries.rs` for agents (list, get, create, update, delete, get/set skills, get/set MCP connections) and skills (list, get, create, update, delete, toggle).
 27. ✅ **agent-skill-commands** — Tauri commands in `agents.rs` and `skills.rs`: full CRUD operations, register in `lib.rs`.
-28. ✅ **registry-client** — `src-tauri/src/registry.rs`: unified registry API client for skills.sh (`/api/search`) + aitmpl.com. Tauri commands: `search_registry`, `install_from_registry`. Rate limiting + response validation.
-29. ✅ **git-import** — Git URL skill/agent import: accept `owner/repo`, GitHub/GitLab URLs, direct SKILL.md paths. Discover SKILL.md files via GitHub API. Tauri commands: `fetch_git_skills`, `import_git_skill`.
+28. ✅ **registry-client** — `src-tauri/src/registry.rs`: pluggable `RegistryProvider` trait backed by aitmpl.com catalog. Tauri commands: `search_registry`, `install_from_registry`. Sorted by download count. Content passthrough for expand/install.
+29. ✅ **git-import** — Git URL skill/agent import: accept `owner/repo`, GitHub URLs, direct file paths. Discover SKILL.md and *.agent.md files via GitHub tree API (authenticated). Progress bar via `git-import-progress` events. Tauri commands: `fetch_git_skills`, `fetch_git_agents`, `import_git_skill`, `import_agent_from_git`.
 30. ✅ **chat-agent-integration** — Modify `send_message()` to accept `agent_id`. Fetch agent + enabled skills from DB, build system prompt with skill instructions, inject as system message.
 31. ✅ **skills-agents-frontend** — Frontend command wrappers + Svelte stores (`agents.svelte.ts`, `skills.svelte.ts`). Agent/skill CRUD, registry search, git import wrappers.
-32. ✅ **skills-panel** — `SkillsPanel.svelte`: skill list grouped by source, toggle on/off, unified registry browser (skills.sh + aitmpl.com with source badges), git URL import field, filter/search. Warm Ink styling.
+32. ✅ **skills-panel** — `SkillsPanel.svelte`: skill list grouped by source, toggle on/off, aitmpl.com registry browser with expand/install, git URL import with progress bar, create custom skill form. Warm Ink styling.
 33. ✅ **agents-panel** — `AgentsPanel.svelte`: agent list with CRUD, skill/MCP assignment, registry browser for agent templates, git URL import. Warm Ink styling.
 34. ✅ **agent-selector** — Agent picker in `InputArea.svelte` next to model selector. Conversations tied to agents. Mid-conversation change warning.
 35. ✅ **sidebar-skills-agents** — Add Skills (⚡) and Agents (🤖) nav buttons to Sidebar bottom section.
@@ -1803,9 +1802,9 @@ cargo update && pnpm update
 | Web search API costs/limits | Rate limiting or billing | Cache results, respect rate limits, show clear errors |
 | Large conversation DB | Slow queries, high disk usage | Indexed columns, lazy loading, pagination, cleanup UI, 500MB warning |
 | Schema migration on update | Data loss or app crash after update | Forward-only migrations, backup DB before migration, test migrations in CI |
-| Skill registry API changes | skills.sh or aitmpl.com API may change or go offline | Cache last-known results, graceful fallback (show error, allow manual git import), abstract registry client behind trait |
+| Skill registry API changes | aitmpl.com API may change or go offline | Cache last-known results, graceful fallback (show error, allow manual git import), abstract registry client behind trait |
 | Untrusted SKILL.md content | Imported skills could contain misleading instructions | SKILL.md content is text only (no code execution); instructions are injected as system prompt context; user reviews before installing; source badge shows origin |
-| Git URL fetch failures | Private repos, rate limits, non-standard git hosts | GitHub API with auth token fallback, raw.githubusercontent.com fallback, clear error messages, support for common hosts only (GitHub, GitLab) |
+| Git URL fetch failures | Private repos, rate limits, non-standard hosts | GitHub API with auth token, tree-based file discovery, clear error messages, GitHub-only for now |
 
 ---
 
