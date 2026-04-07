@@ -26,6 +26,8 @@
     /** Files injected externally (e.g. dropped on ChatView). InputArea absorbs them. */
     externalFiles?: ChatFileData[];
     onExternalFilesConsumed?: () => void;
+    /** Background extraction status per filename, managed by ChatView. */
+    extractionStatuses?: Record<string, "extracting" | "done" | "error">;
   }
 
   let {
@@ -47,6 +49,7 @@
     onAgentChange,
     externalFiles = [],
     onExternalFilesConsumed,
+    extractionStatuses = {},
   }: Props = $props();
 
   let inputText = $state("");
@@ -68,7 +71,8 @@
   let fileDropActive = $state(false);
   let fileError = $state("");
 
-  // Absorb files injected externally (e.g. dropped on the ChatView area)
+  // Absorb files injected externally (e.g. dropped on the ChatView area).
+  // Replaces loading placeholders with real data when content arrives.
   $effect(() => {
     if (externalFiles && externalFiles.length > 0) {
       let updated = [...attachedFiles];
@@ -76,7 +80,8 @@
         const idx = updated.findIndex((a) => a.name === f.name);
         if (idx >= 0) {
           // Replace loading placeholder with real file data
-          if (updated[idx].loading && !f.loading) {
+          const existing = updated[idx];
+          if (existing.loading && !f.loading) {
             updated[idx] = f;
           }
         } else {
@@ -356,14 +361,29 @@
     {#if attachedFiles.length > 0}
       <div class="file-pills">
         {#each attachedFiles as file (file.name)}
-          <div class="file-pill" class:loading={file.loading}>
-            {#if file.loading}
+          {@const exStatus = extractionStatuses[file.name]}
+          <div
+            class="file-pill"
+            class:loading={file.loading}
+            class:extracting={exStatus === "extracting"}
+            class:extracted={exStatus === "done"}
+            class:extract-error={exStatus === "error"}
+          >
+            {#if file.loading || exStatus === "extracting"}
               <span class="file-pill-spinner"></span>
+            {:else if exStatus === "done"}
+              <span class="file-pill-icon">✓</span>
+            {:else if exStatus === "error"}
+              <span class="file-pill-icon">⚠</span>
             {:else}
               <span class="file-pill-icon">📎</span>
             {/if}
             <span class="file-pill-name">{file.name}</span>
-            {#if file.size > 0}
+            {#if file.loading}
+              <span class="file-pill-status">reading…</span>
+            {:else if exStatus === "extracting"}
+              <span class="file-pill-status">extracting…</span>
+            {:else if file.size > 0}
               <span class="file-pill-size">{formatBytes(file.size)}</span>
             {/if}
             <button
@@ -1285,8 +1305,18 @@
     max-width: 200px;
   }
 
-  .file-pill.loading {
+  .file-pill.loading,
+  .file-pill.extracting {
     opacity: 0.7;
+  }
+
+  .file-pill.extracted {
+    border-color: var(--color-accent-copper);
+  }
+
+  .file-pill.extract-error {
+    border-color: var(--color-error, #dc2626);
+    opacity: 0.8;
   }
 
   .file-pill-spinner {
@@ -1310,7 +1340,8 @@
     white-space: nowrap;
   }
 
-  .file-pill-size {
+  .file-pill-size,
+  .file-pill-status {
     color: var(--color-text-tertiary);
     flex-shrink: 0;
   }

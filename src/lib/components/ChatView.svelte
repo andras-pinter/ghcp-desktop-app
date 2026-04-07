@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { SvelteMap } from "svelte/reactivity";
   import InputArea from "./InputArea.svelte";
   import MessageBubble from "./MessageBubble.svelte";
   import SearchOverlay from "./SearchOverlay.svelte";
@@ -67,6 +68,11 @@
   let pendingDropFiles: ChatFileData[] = $state([]);
   let unlistenDragDrop: UnlistenFn | undefined;
 
+  // Background extraction: cache promises keyed by filename, reactive status for pill UI.
+  // Separate from pendingDropFiles so clearing pills doesn't lose extraction results.
+  const extractionCache = new SvelteMap<string, Promise<string | null>>();
+  let extractionStatuses = $state<Record<string, "extracting" | "done" | "error">>({});
+
   async function setupDragDrop() {
     const webview = getCurrentWebview();
     unlistenDragDrop = await webview.onDragDropEvent(async (event) => {
@@ -89,19 +95,37 @@
         }));
         pendingDropFiles = placeholders;
 
-        // Read actual content in background, then replace placeholders
+        // Read actual content, then start extraction immediately in background
         try {
           const files = await readDroppedFiles(paths);
           if (files.length > 0) {
             pendingDropFiles = files;
+            startExtractions(files);
           }
         } catch (e) {
           console.error("Failed to read dropped files:", e);
-          // Clear loading placeholders on error
           pendingDropFiles = [];
         }
       }
     });
+  }
+
+  /** Start text extraction for each file in parallel, caching promises. */
+  function startExtractions(files: ChatFileData[]) {
+    for (const file of files) {
+      extractionStatuses = { ...extractionStatuses, [file.name]: "extracting" };
+      const promise = extractFileText(file.contentBase64, file.contentType, file.name)
+        .then((text) => {
+          extractionStatuses = { ...extractionStatuses, [file.name]: "done" };
+          return text;
+        })
+        .catch((err) => {
+          console.error(`Extraction error for ${file.name}:`, err);
+          extractionStatuses = { ...extractionStatuses, [file.name]: "error" };
+          return null;
+        });
+      extractionCache.set(file.name, promise);
+    }
   }
 
   function clearPendingDropFiles() {
@@ -229,15 +253,22 @@
     const hasFiles = files && files.length > 0;
 
     // Add user message immediately so the UI switches to chat view.
-    // If we have files to extract, show file names as placeholders.
-    const filePlaceholder = hasFiles
-      ? "\n\n" + files.map((f) => `📎 ${f.name} — extracting…`).join("\n")
+    const fileLabelsImmediate = hasFiles
+      ? "\n\n" +
+        files
+          .map((f) => {
+            const status = extractionStatuses[f.name];
+            if (status === "done") return `📎 ${f.name}`;
+            if (status === "error") return `📎 ${f.name} (not extractable)`;
+            return `📎 ${f.name} — extracting…`;
+          })
+          .join("\n")
       : "";
     const userMessage: Message = {
       id: crypto.randomUUID(),
       conversationId: convId,
       role: "user",
-      content: content + filePlaceholder,
+      content: content + fileLabelsImmediate,
       createdAt: new Date().toISOString(),
       sortOrder: store.messages.length,
     };
@@ -262,45 +293,51 @@
       chatContainer?.scrollTo({ top: chatContainer.scrollHeight, behavior: "smooth" });
     });
 
-    // Extract file contents now (chat view is already showing)
+    // Collect extracted text from the background extraction cache.
+    // If user sent before extraction finished, await the cached promise (not a new call).
     let extractedParts: string[] = [];
     if (hasFiles) {
-      extractingFiles = true;
+      const stillExtracting = files.some(
+        (f) => extractionStatuses[f.name] === "extracting" || !extractionStatuses[f.name],
+      );
+      if (stillExtracting) extractingFiles = true;
+
       for (const f of files) {
-        try {
-          console.log(`Extracting text from: ${f.name} (${f.contentType}, ${f.size} bytes)`);
-          const extracted = await extractFileText(f.contentBase64, f.contentType, f.name);
-          console.log(
-            `Extraction result for ${f.name}: ${extracted ? `${extracted.length} chars` : "null (unsupported)"}`,
-          );
-          if (extracted) {
-            const truncated =
-              extracted.length > 50_000
-                ? extracted.slice(0, 50_000) + `\n...[truncated, ${extracted.length} chars total]`
-                : extracted;
-            extractedParts.push(
-              `\n\n---\n📎 ${f.name} (${f.contentType})\n\n\`\`\`\n${truncated}\n\`\`\``,
-            );
-          } else {
-            extractedParts.push(
-              `\n\n---\n📎 ${f.name} (${f.contentType}, unsupported format — content not shown)`,
-            );
+        let extracted: string | null = null;
+        const cached = extractionCache.get(f.name);
+        if (cached) {
+          try {
+            extracted = await cached;
+          } catch {
+            extracted = null;
           }
-        } catch (err) {
-          console.error(`Extraction error for ${f.name}:`, err);
-          extractedParts.push(`\n\n---\n📎 ${f.name} (${f.contentType}, extraction failed)`);
+        }
+
+        const status = extractionStatuses[f.name];
+        if (status === "error" || extracted === null || extracted === undefined) {
+          extractedParts.push(
+            `\n\n---\n📎 ${f.name} (${f.contentType}, unsupported format — content not shown)`,
+          );
+        } else {
+          const truncated =
+            extracted.length > 50_000
+              ? extracted.slice(0, 50_000) + `\n...[truncated, ${extracted.length} chars total]`
+              : extracted;
+          extractedParts.push(
+            `\n\n---\n📎 ${f.name} (${f.contentType})\n\n\`\`\`\n${truncated}\n\`\`\``,
+          );
         }
       }
-      extractingFiles = false;
 
-      // Replace "extracting…" placeholders with clean file labels
+      if (stillExtracting) extractingFiles = false;
+
+      // Update visible message with final file labels
       const fileLabels =
         "\n\n" +
         files
           .map((f) => {
-            const note = extractedParts.find((p) => p.includes(f.name));
-            const failed =
-              note && (note.includes("unsupported format") || note.includes("extraction failed"));
+            const part = extractedParts.find((p) => p.includes(f.name));
+            const failed = part && (part.includes("unsupported") || part.includes("failed"));
             return failed ? `📎 ${f.name} (not extractable)` : `📎 ${f.name}`;
           })
           .join("\n");
@@ -506,6 +543,7 @@
           onAgentChange={selectAgent}
           externalFiles={pendingDropFiles}
           onExternalFilesConsumed={clearPendingDropFiles}
+          {extractionStatuses}
         />
       </div>
     </div>
@@ -565,6 +603,7 @@
         onAgentChange={selectAgent}
         externalFiles={pendingDropFiles}
         onExternalFilesConsumed={clearPendingDropFiles}
+        {extractionStatuses}
       />
     </div>
   {/if}
