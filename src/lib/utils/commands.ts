@@ -329,7 +329,7 @@ export async function setAgentMcpConnections(
   return invoke("set_agent_mcp_connections", { agentId, mcpServerIds });
 }
 
-/** Install an agent from a registry (skills.sh or aitmpl.com). */
+/** Install an agent from a registry (aitmpl.com). */
 export async function installAgentFromRegistry(
   itemId: string,
   source: string,
@@ -412,7 +412,7 @@ export async function toggleSkill(id: string, enabled: boolean): Promise<void> {
 
 // ── Registry ────────────────────────────────────────────────────
 
-/** Search both skill registries (skills.sh + aitmpl.com). */
+/** Search skill registries (aitmpl.com). */
 export async function searchRegistry(query: string, limit?: number): Promise<RegistrySearchResult> {
   return invoke<RegistrySearchResult>("search_registry", {
     query,

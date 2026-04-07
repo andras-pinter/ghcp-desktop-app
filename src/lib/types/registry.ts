@@ -1,6 +1,6 @@
-/** Registry search result types for skills.sh + aitmpl.com + git import. */
+/** Registry search result types for aitmpl.com + git import. */
 
-export type RegistrySource = "skills_sh" | "aitmpl";
+export type RegistrySource = "aitmpl" | "custom";
 
 export type RegistryItemKind = "skill" | "agent";
 

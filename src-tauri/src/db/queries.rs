@@ -1221,12 +1221,12 @@ mod tests {
             "sk1",
             "Code Review",
             Some("Reviews code quality"),
-            "registry_skills_sh",
+            "registry_aitmpl",
             None,
             None,
             Some("You are a code reviewer."),
-            Some("https://skills.sh/code-review"),
-            "registry_skills_sh",
+            Some("https://www.aitmpl.com/component/skill/code-review"),
+            "registry_aitmpl",
         )
         .unwrap();
         assert_eq!(skill.name, "Code Review");
@@ -1238,7 +1238,7 @@ mod tests {
 
         // Get
         let found = get_skill(&conn, "sk1").unwrap().unwrap();
-        assert_eq!(found.source_type, "registry_skills_sh");
+        assert_eq!(found.source_type, "registry_aitmpl");
 
         // Update
         update_skill(

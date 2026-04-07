@@ -88,7 +88,7 @@ pub fn toggle_skill(app: AppHandle, id: String, enabled: bool) -> Result<(), Str
 
 // ── Registry ────────────────────────────────────────────────────
 
-/// Search skill/agent registries (skills.sh + aitmpl.com).
+/// Search skill/agent registries (aitmpl.com).
 #[tauri::command]
 pub async fn search_registry(
     app: AppHandle,
@@ -115,7 +115,6 @@ pub async fn install_from_registry(
     let client = &state.http_client;
 
     let registry_source = match source.as_str() {
-        "skills_sh" => crate::registry::RegistrySource::SkillsSh,
         "aitmpl" => crate::registry::RegistrySource::Aitmpl,
         _ => return Err(format!("Unknown registry source: {source}")),
     };
@@ -150,19 +149,10 @@ pub async fn install_from_registry(
 
     // Save to database
     let db_id = format!("reg-{}-{}", source, skill_id);
-    let source_type = match registry_source {
-        crate::registry::RegistrySource::SkillsSh => "registry_skills_sh",
-        crate::registry::RegistrySource::Aitmpl => "registry_aitmpl",
-    };
+    let source_type = "registry_aitmpl";
     // Use the URL from the registry item if available, otherwise construct one
-    let source_url = item_url.unwrap_or_else(|| match registry_source {
-        crate::registry::RegistrySource::SkillsSh => {
-            format!("https://skills.sh/{skill_id}")
-        }
-        crate::registry::RegistrySource::Aitmpl => {
-            format!("https://www.aitmpl.com/component/skill/{skill_id}")
-        }
-    });
+    let source_url =
+        item_url.unwrap_or_else(|| format!("https://www.aitmpl.com/component/skill/{skill_id}"));
 
     {
         let db = state.db.lock().map_err(|e| e.to_string())?;

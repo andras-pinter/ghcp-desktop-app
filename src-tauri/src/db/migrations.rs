@@ -246,7 +246,7 @@ mod tests {
         // Verify new skill columns exist
         conn.execute(
             "INSERT INTO skills (id, name, source, instructions, source_url, source_type, updated_at, created_at)
-             VALUES ('test', 'Test Skill', 'registry_skills_sh', 'some instructions', 'https://example.com', 'registry_skills_sh', datetime('now'), datetime('now'))",
+             VALUES ('test', 'Test Skill', 'registry_aitmpl', 'some instructions', 'https://example.com', 'registry_aitmpl', datetime('now'), datetime('now'))",
             [],
         )
         .unwrap();

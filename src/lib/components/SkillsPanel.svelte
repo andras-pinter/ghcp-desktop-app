@@ -78,9 +78,7 @@
     return result;
   });
 
-  let registrySkills = $derived(
-    store.skills.filter((s) => s.source === "registry_skills_sh" || s.source === "registry_aitmpl"),
-  );
+  let registrySkills = $derived(store.skills.filter((s) => s.source === "registry_aitmpl"));
 
   let gitSkills = $derived(store.skills.filter((s) => s.source === "git"));
 
@@ -241,10 +239,8 @@
         return "MCP";
       case "extension":
         return "Extension";
-      case "registry_skills_sh":
-        return "skills.sh";
       case "registry_aitmpl":
-        return "aitmpl.com";
+        return "Registry";
       case "git":
         return "Git";
       default:
@@ -252,8 +248,8 @@
     }
   }
 
-  function registrySourceLabel(source: string): string {
-    return source === "skills_sh" ? "skills.sh" : "aitmpl.com";
+  function registrySourceLabel(): string {
+    return "Registry";
   }
 
   function isAlreadyInstalled(item: RegistryItem): boolean {
@@ -653,7 +649,7 @@
         >
           <span class="collapse-arrow" class:expanded={registryExpanded}>▶</span>
           <h3 class="section-heading inline">Browse Registries</h3>
-          <span class="section-hint">skills.sh · aitmpl.com</span>
+          <span class="section-hint">aitmpl.com</span>
         </button>
 
         {#if registryExpanded}
@@ -703,7 +699,7 @@
                           : "Expand"}>▶</button
                       >
                       <strong class="registry-item-name">{item.name}</strong>
-                      <span class="source-badge registry">{registrySourceLabel(item.source)}</span>
+                      <span class="source-badge registry">{registrySourceLabel()}</span>
                       {#if item.installs !== null}
                         <span class="install-count">{item.installs} installs</span>
                       {/if}

@@ -1,10 +1,4 @@
-export type SkillSource =
-  | "extension"
-  | "mcp"
-  | "builtin"
-  | "registry_skills_sh"
-  | "registry_aitmpl"
-  | "git";
+export type SkillSource = "extension" | "mcp" | "builtin" | "registry_aitmpl" | "git";
 
 export type SkillSourceType = SkillSource;
 

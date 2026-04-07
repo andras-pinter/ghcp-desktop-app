@@ -1,6 +1,10 @@
 //! Registry client for browsing and installing skills/agents from
-//! skills.sh and aitmpl.com, plus importing from git URLs.
+//! aitmpl.com, plus importing from git URLs.
+//!
+//! Uses a pluggable `RegistryProvider` trait so new catalog sources
+//! can be added by implementing a single trait.
 
+use async_trait::async_trait;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
@@ -22,7 +26,7 @@ pub struct RegistryItem {
     pub installs: Option<u64>,
     /// Whether this is a skill or agent template.
     pub kind: RegistryItemKind,
-    /// GitHub owner/repo for content fetching (skills.sh `source` field).
+    /// GitHub owner/repo for content fetching.
     pub source_repo: Option<String>,
     /// Full SKILL.md content (available for aitmpl items from components.json).
     /// Skips the need to re-fetch during install.
@@ -34,8 +38,9 @@ pub struct RegistryItem {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum RegistrySource {
-    SkillsSh,
     Aitmpl,
+    /// For future custom catalog URLs.
+    Custom,
 }
 
 /// Whether the item is a skill or agent template.
@@ -54,86 +59,20 @@ pub struct RegistrySearchResult {
     pub total: Option<u64>,
 }
 
-// ── skills.sh API ──────────────────────────────────────────────
+// ── RegistryProvider trait ──────────────────────────────────────
 
-/// Raw response from skills.sh /api/search.
-#[derive(Debug, Deserialize)]
-struct SkillsShSearchResponse {
-    skills: Vec<SkillsShItem>,
-}
+/// A pluggable registry source for browsing and installing skills/agents.
+#[async_trait]
+pub trait RegistryProvider: Send + Sync {
+    /// Human-readable name of this registry (e.g., "aitmpl.com").
+    fn name(&self) -> &str;
 
-#[derive(Debug, Deserialize)]
-struct SkillsShItem {
-    id: String,
-    name: String,
-    #[serde(default)]
-    installs: Option<u64>,
-    #[serde(default)]
-    source: Option<String>,
-}
+    /// Search for items matching a query.
+    async fn search(&self, query: &str, limit: u32) -> Result<Vec<RegistryItem>, String>;
 
-/// Convert kebab-case name to readable title (e.g., "vercel-react-best-practices" -> "Vercel React Best Practices")
-fn humanize_name(name: &str) -> String {
-    name.split('-')
-        .map(|w| {
-            let mut chars = w.chars();
-            match chars.next() {
-                Some(c) => format!("{}{}", c.to_uppercase(), chars.as_str()),
-                None => String::new(),
-            }
-        })
-        .collect::<Vec<_>>()
-        .join(" ")
-}
-
-/// Search skills.sh for skills matching a query.
-pub async fn search_skills_sh(
-    client: &Client,
-    query: &str,
-    limit: u32,
-) -> Result<Vec<RegistryItem>, String> {
-    let url = format!(
-        "https://skills.sh/api/search?q={}&limit={}",
-        urlencoding::encode(query),
-        limit
-    );
-
-    let resp = client
-        .get(&url)
-        .header("Accept", "application/json")
-        .send()
-        .await
-        .map_err(|e| format!("skills.sh request failed: {e}"))?;
-
-    if !resp.status().is_success() {
-        return Err(format!("skills.sh returned {}", resp.status()));
-    }
-
-    let body: SkillsShSearchResponse = resp
-        .json()
-        .await
-        .map_err(|e| format!("skills.sh response parse failed: {e}"))?;
-
-    Ok(body
-        .skills
-        .into_iter()
-        .map(|s| {
-            // source_repo is the GitHub owner/repo (e.g. "anthropics/skills")
-            let source_repo = s.source.clone();
-            let description = Some(humanize_name(&s.name));
-            RegistryItem {
-                url: Some(format!("https://skills.sh/{}", s.id)),
-                id: s.id.clone(),
-                name: s.name,
-                description,
-                source: RegistrySource::SkillsSh,
-                installs: s.installs,
-                kind: RegistryItemKind::Skill,
-                source_repo,
-                content: None,
-            }
-        })
-        .collect())
+    /// Fetch the full content for an item by ID.
+    /// Returns the raw SKILL.md / AGENT.md content.
+    async fn fetch_content(&self, item_id: &str) -> Result<String, String>;
 }
 
 // ── aitmpl.com (via GitHub-hosted components.json) ─────────────
@@ -366,27 +305,54 @@ fn extract_body_description(content: &str) -> Option<String> {
     })
 }
 
+// ── AitmplProvider ──────────────────────────────────────────────
+
+/// Registry provider backed by the aitmpl.com components.json catalog.
+pub struct AitmplProvider {
+    client: Client,
+}
+
+impl AitmplProvider {
+    pub fn new(client: Client) -> Self {
+        Self { client }
+    }
+}
+
+#[async_trait]
+impl RegistryProvider for AitmplProvider {
+    fn name(&self) -> &str {
+        "aitmpl.com"
+    }
+
+    async fn search(&self, query: &str, limit: u32) -> Result<Vec<RegistryItem>, String> {
+        search_aitmpl(&self.client, query, limit).await
+    }
+
+    async fn fetch_content(&self, item_id: &str) -> Result<String, String> {
+        fetch_aitmpl_content(&self.client, item_id).await
+    }
+}
+
 // ── Unified search ─────────────────────────────────────────────
 
-/// Search both registries and return unified results.
+/// Search all registered providers and return unified results.
+///
+/// Currently uses `AitmplProvider` only. To add another source, create a
+/// struct that implements `RegistryProvider` and include it in `providers`.
 pub async fn search_registries(
     client: &Client,
     query: &str,
     limit: u32,
 ) -> Result<RegistrySearchResult, String> {
-    let (skills_sh, aitmpl) = tokio::join!(
-        search_skills_sh(client, query, limit),
-        search_aitmpl(client, query, limit),
-    );
+    let aitmpl = AitmplProvider::new(client.clone());
+    let providers: Vec<&dyn RegistryProvider> = vec![&aitmpl];
 
     let mut items = Vec::new();
-    match skills_sh {
-        Ok(results) => items.extend(results),
-        Err(e) => log::warn!("skills.sh search failed: {e}"),
-    }
-    match aitmpl {
-        Ok(results) => items.extend(results),
-        Err(e) => log::warn!("aitmpl.com search failed: {e}"),
+    for provider in providers {
+        match provider.search(query, limit).await {
+            Ok(results) => items.extend(results),
+            Err(e) => log::warn!("{} search failed: {e}", provider.name()),
+        }
     }
 
     // Sort by download count (highest first, items without counts last)
@@ -468,211 +434,59 @@ pub fn parse_content_lenient(content: &str, fallback_id: &str) -> (String, Strin
 /// Fetch the content for a registry item by ID.
 ///
 /// If `inline_content` is provided (aitmpl items carry content from components.json),
-/// it is returned directly without any network request.
-///
-/// For skills.sh: tries multiple GitHub raw URL patterns, then falls back to
-/// the GitHub tree API to discover the actual SKILL.md location.
-/// For aitmpl.com: re-fetches from components.json (fallback if inline_content is None).
+/// it is returned directly without any network request. Otherwise, re-fetches
+/// from the components.json catalog.
 pub async fn fetch_skill_content(
     client: &Client,
     skill_id: &str,
-    source: &RegistrySource,
-    source_repo: Option<&str>,
+    _source: &RegistrySource,
+    _source_repo: Option<&str>,
     inline_content: Option<&str>,
 ) -> Result<String, String> {
-    // Fast path: use inline content if available (aitmpl items)
+    // Fast path: use inline content if available (aitmpl items always carry it)
     if let Some(content) = inline_content {
         if !content.is_empty() {
             return Ok(content.to_string());
         }
     }
 
-    match source {
-        RegistrySource::SkillsSh => {
-            // The source_repo field contains the GitHub owner/repo path
-            // e.g. "github/awesome-copilot". Content is at:
-            //   raw.githubusercontent.com/{source_repo}/main/skills/{skill_name}/SKILL.md
-            // The skill_id is e.g. "github/awesome-copilot/python-mcp-server-generator"
-            // so the skill name is the last segment after stripping the source prefix.
-            if let Some(repo) = source_repo {
-                let skill_name = skill_id
-                    .strip_prefix(repo)
-                    .and_then(|s| s.strip_prefix('/'))
-                    .unwrap_or(skill_id);
-
-                // Try multiple URL patterns — repos vary in structure
-                let patterns = [
-                    format!(
-                        "https://raw.githubusercontent.com/{repo}/main/skills/{skill_name}/SKILL.md"
-                    ),
-                    format!("https://raw.githubusercontent.com/{repo}/main/{skill_name}/SKILL.md"),
-                    format!(
-                        "https://raw.githubusercontent.com/{repo}/main/skills/{skill_name}/SKILL.MD"
-                    ),
-                    format!("https://raw.githubusercontent.com/{repo}/main/{skill_name}/SKILL.MD"),
-                ];
-
-                for url in &patterns {
-                    match client.get(url).send().await {
-                        Ok(resp) if resp.status().is_success() => {
-                            return resp
-                                .text()
-                                .await
-                                .map_err(|e| format!("Failed to read content: {e}"));
-                        }
-                        _ => continue,
-                    }
-                }
-
-                // Last resort: use GitHub tree API to find SKILL.md files in the repo
-                log::info!(
-                    "Standard URL patterns failed for {skill_id}, trying GitHub tree API for {repo}"
-                );
-                if let Ok(content) = fetch_via_tree_api(client, repo, skill_name).await {
-                    return Ok(content);
-                }
-            }
-
-            // Fallback: try the nicepkg default repo
-            let skill_name = skill_id.rsplit('/').next().unwrap_or(skill_id);
-            let fallback_url = format!(
-                "https://raw.githubusercontent.com/nicepkg/nice-copilot-skills/main/skills/{skill_name}/SKILL.md",
-            );
-            let resp = client
-                .get(&fallback_url)
-                .send()
-                .await
-                .map_err(|e| format!("Failed to fetch from GitHub: {e}"))?;
-
-            if resp.status().is_success() {
-                resp.text()
-                    .await
-                    .map_err(|e| format!("Failed to read content: {e}"))
-            } else {
-                Err(format!("Skill content not found (HTTP {})", resp.status()))
-            }
-        }
-        RegistrySource::Aitmpl => {
-            // Fetch components.json and find the item
-            let resp = client
-                .get(AITMPL_COMPONENTS_URL)
-                .send()
-                .await
-                .map_err(|e| format!("Failed to fetch components.json: {e}"))?;
-
-            if !resp.status().is_success() {
-                return Err(format!("components.json returned {}", resp.status()));
-            }
-
-            let data: AitmplComponentsJson = resp
-                .json()
-                .await
-                .map_err(|e| format!("Failed to parse components.json: {e}"))?;
-
-            // Match by path-based ID or name
-            for item in data.agents.iter().chain(data.skills.iter()) {
-                let item_id_from_path = item
-                    .path
-                    .as_ref()
-                    .map(|p| p.replace(".md", "").replace('/', "-"))
-                    .unwrap_or_else(|| item.name.clone());
-
-                if item_id_from_path == skill_id || item.name == skill_id {
-                    if let Some(content) = &item.content {
-                        return Ok(content.clone());
-                    }
-                }
-            }
-
-            Err(format!("Item '{skill_id}' not found in aitmpl.com catalog"))
-        }
-    }
+    // Fallback: re-fetch from components.json
+    fetch_aitmpl_content(client, skill_id).await
 }
 
-/// Use the GitHub tree API to find SKILL.md files in a repo and return the
-/// content of the best match for the given skill name.
-async fn fetch_via_tree_api(
-    client: &Client,
-    repo: &str,
-    skill_name: &str,
-) -> Result<String, String> {
-    let tree_url = format!("https://api.github.com/repos/{repo}/git/trees/main?recursive=1");
+/// Fetch the content for an aitmpl.com item by re-fetching components.json.
+async fn fetch_aitmpl_content(client: &Client, item_id: &str) -> Result<String, String> {
     let resp = client
-        .get(&tree_url)
-        .header("Accept", "application/vnd.github+json")
-        .header("User-Agent", "Chuck-Desktop/0.1")
+        .get(AITMPL_COMPONENTS_URL)
         .send()
         .await
-        .map_err(|e| format!("GitHub tree API failed: {e}"))?;
+        .map_err(|e| format!("Failed to fetch components.json: {e}"))?;
 
     if !resp.status().is_success() {
-        return Err(format!("GitHub tree API returned {}", resp.status()));
+        return Err(format!("components.json returned {}", resp.status()));
     }
 
-    #[derive(Deserialize)]
-    struct TreeItem {
-        path: String,
-    }
-    #[derive(Deserialize)]
-    struct TreeResponse {
-        tree: Vec<TreeItem>,
-    }
-
-    let tree: TreeResponse = resp
+    let data: AitmplComponentsJson = resp
         .json()
         .await
-        .map_err(|e| format!("Failed to parse tree: {e}"))?;
+        .map_err(|e| format!("Failed to parse components.json: {e}"))?;
 
-    // Find SKILL.md files (case-insensitive)
-    let skill_files: Vec<&str> = tree
-        .tree
-        .iter()
-        .map(|t| t.path.as_str())
-        .filter(|p| {
-            let lower = p.to_lowercase();
-            lower.ends_with("/skill.md") || lower == "skill.md"
-        })
-        .collect();
+    // Match by path-based ID or name
+    for item in data.agents.iter().chain(data.skills.iter()) {
+        let item_id_from_path = item
+            .path
+            .as_ref()
+            .map(|p| p.replace(".md", "").replace('/', "-"))
+            .unwrap_or_else(|| item.name.clone());
 
-    if skill_files.is_empty() {
-        return Err("No SKILL.md files found in repo".to_string());
-    }
-
-    // Try each SKILL.md — the one whose name matches wins
-    let name_lower = skill_name.to_lowercase();
-    for path in &skill_files {
-        // Check if the parent directory name is a substring of skill_name
-        let parent = path.rsplit('/').nth(1).unwrap_or("");
-        if name_lower.contains(&parent.to_lowercase())
-            || parent.to_lowercase().contains(&name_lower)
-        {
-            let raw_url = format!("https://raw.githubusercontent.com/{repo}/main/{path}");
-            if let Ok(resp) = client.get(&raw_url).send().await {
-                if resp.status().is_success() {
-                    if let Ok(text) = resp.text().await {
-                        return Ok(text);
-                    }
-                }
+        if item_id_from_path == item_id || item.name == item_id {
+            if let Some(content) = &item.content {
+                return Ok(content.clone());
             }
         }
     }
 
-    // No name match — return the first SKILL.md found (best effort)
-    let first = skill_files[0];
-    let raw_url = format!("https://raw.githubusercontent.com/{repo}/main/{first}");
-    let resp = client
-        .get(&raw_url)
-        .send()
-        .await
-        .map_err(|e| format!("Failed to fetch {first}: {e}"))?;
-
-    if resp.status().is_success() {
-        resp.text()
-            .await
-            .map_err(|e| format!("Failed to read content: {e}"))
-    } else {
-        Err(format!("Could not fetch SKILL.md from {repo}"))
-    }
+    Err(format!("Item '{item_id}' not found in aitmpl.com catalog"))
 }
 
 // ── Git URL Import ─────────────────────────────────────────────

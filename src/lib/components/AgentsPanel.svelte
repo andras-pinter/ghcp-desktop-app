@@ -195,8 +195,8 @@
     }
   }
 
-  function registrySourceLabel(source: string): string {
-    return source === "skills_sh" ? "skills.sh" : "aitmpl.com";
+  function registrySourceLabel(): string {
+    return "Registry";
   }
 
   // ── Handlers ────────────────────────────────────────────────
@@ -496,7 +496,7 @@
               <input
                 class="search-input"
                 type="search"
-                placeholder="Search agents on skills.sh & aitmpl.com…"
+                placeholder="Search agents on aitmpl.com…"
                 value={registrySearchInput}
                 oninput={(e) => handleRegistrySearch(e.currentTarget.value)}
               />
@@ -527,14 +527,14 @@
                           : "Expand"}>▶</button
                       >
                       <strong class="registry-name">{item.name}</strong>
-                      <span class="source-badge">{registrySourceLabel(item.source)}</span>
+                      <span class="source-badge">{registrySourceLabel()}</span>
                       {#if item.url}
                         <a
                           href={item.url}
                           target="_blank"
                           rel="noopener noreferrer"
                           class="source-link"
-                          aria-label="View on {registrySourceLabel(item.source)}"
+                          aria-label="View on {registrySourceLabel()}"
                         >
                           ↗
                         </a>
