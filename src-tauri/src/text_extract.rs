@@ -65,18 +65,89 @@ fn extract_utf8(bytes: &[u8]) -> String {
     }
 }
 
-/// Extract text from a PDF using `pdf-extract`.
+/// Extract text from a PDF.
+///
+/// First tries `pdf-extract` (proper text layout). If that yields nothing,
+/// falls back to raw `lopdf` content-stream parsing which can recover text
+/// from PDFs with exotic font encodings that `pdf-extract` can't decode.
 fn extract_pdf(bytes: &[u8]) -> String {
-    match pdf_extract::extract_text_from_mem(bytes) {
-        Ok(text) => {
-            let trimmed = text.trim().to_string();
-            if trimmed.is_empty() {
-                "(PDF contained no extractable text — may be scanned/image-based)".to_string()
-            } else {
-                trimmed
+    // Primary: pdf-extract (good for well-formed PDFs)
+    if let Ok(text) = pdf_extract::extract_text_from_mem(bytes) {
+        let trimmed = text.trim().to_string();
+        if !trimmed.is_empty() {
+            return trimmed;
+        }
+    }
+
+    // Fallback: lopdf raw content-stream extraction
+    if let Some(text) = extract_pdf_raw(bytes) {
+        let trimmed = text.trim().to_string();
+        if !trimmed.is_empty() {
+            return trimmed;
+        }
+    }
+
+    "(PDF contained no extractable text — may be scanned/image-based)".to_string()
+}
+
+/// Low-level PDF text extraction via `lopdf`.
+///
+/// Iterates page content streams and collects text from PDF text operators
+/// (`Tj`, `TJ`, `'`, `"`). This doesn't handle font encoding properly but
+/// can recover readable ASCII/Latin text that `pdf-extract` misses.
+fn extract_pdf_raw(bytes: &[u8]) -> Option<String> {
+    use lopdf::{Document, Object};
+
+    let doc = Document::load_mem(bytes).ok()?;
+    let mut all_text = String::new();
+
+    for page_id in doc.page_iter() {
+        let content = match doc.get_page_content(page_id) {
+            Ok(c) => c,
+            Err(_) => continue,
+        };
+        let ops = match lopdf::content::Content::decode(&content) {
+            Ok(c) => c.operations,
+            Err(_) => continue,
+        };
+
+        for op in &ops {
+            match op.operator.as_str() {
+                // Tj — show a text string
+                "Tj" | "'" | "\"" => {
+                    for operand in &op.operands {
+                        if let Ok(bytes) = operand.as_str() {
+                            let decoded = String::from_utf8_lossy(bytes);
+                            all_text.push_str(&decoded);
+                        }
+                    }
+                }
+                // TJ — show text with individual glyph positioning
+                "TJ" => {
+                    for operand in &op.operands {
+                        if let Object::Array(arr) = operand {
+                            for item in arr {
+                                if let Ok(bytes) = item.as_str() {
+                                    let decoded = String::from_utf8_lossy(bytes);
+                                    all_text.push_str(&decoded);
+                                }
+                            }
+                        }
+                    }
+                }
+                _ => {}
             }
         }
-        Err(e) => format!("(Failed to extract PDF text: {e})"),
+
+        if !all_text.is_empty() {
+            all_text.push('\n');
+        }
+    }
+
+    if all_text.trim().is_empty() {
+        None
+    } else {
+        Some(all_text)
     }
 }
 

@@ -561,20 +561,23 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: var(--spacing-md);
-    padding: var(--spacing-3xl) var(--spacing-4xl);
+    justify-content: center;
+    gap: var(--spacing-lg);
+    margin: var(--spacing-xl);
+    flex: 1;
+    align-self: stretch;
     border: 2px dashed var(--color-accent-copper);
     border-radius: var(--radius-xl);
     background: color-mix(in srgb, var(--color-accent-copper) 6%, transparent);
   }
 
   .drop-icon {
-    font-size: 2.5rem;
+    font-size: 3.5rem;
   }
 
   .drop-text {
     font-family: var(--font-body);
-    font-size: var(--font-size-lg);
+    font-size: var(--font-size-xl);
     font-weight: 500;
     color: var(--color-accent-copper);
     letter-spacing: var(--letter-spacing-tight);
