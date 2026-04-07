@@ -1044,6 +1044,7 @@
   .source-badge {
     color: var(--color-text-tertiary);
     background: var(--color-bg-tertiary);
+    font-weight: var(--font-weight-medium);
   }
 
   .meta-tag {
@@ -1075,9 +1076,14 @@
     opacity: 0.5;
     cursor: not-allowed;
   }
+  .action-btn.danger {
+    color: var(--color-error);
+    border-color: color-mix(in srgb, var(--color-error) 30%, transparent);
+  }
   .action-btn.danger:hover:not(:disabled) {
     color: var(--color-error);
     border-color: var(--color-error);
+    background: color-mix(in srgb, var(--color-error) 8%, transparent);
   }
   .action-btn.primary {
     background: var(--color-text-primary);

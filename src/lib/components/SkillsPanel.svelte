@@ -272,7 +272,7 @@
       onclick={skillView === "create" ? cancelCreateForm : onBack}
       aria-label="Go back">← Back</button
     >
-    <h2 class="panel-title">{skillView === "create" ? "Create Skill" : "Skills"}</h2>
+    <h1 class="panel-title">{skillView === "create" ? "Create Skill" : "Skills"}</h1>
     {#if skillView === "list"}
       <button class="header-add-btn" onclick={openCreateForm}>+ New Skill</button>
     {/if}
@@ -280,7 +280,10 @@
 
   <div class="panel-content">
     {#if !store.loaded}
-      <div class="panel-loading">Loading skills…</div>
+      <div class="panel-loading">
+        <span class="loading-spinner"></span>
+        Loading skills…
+      </div>
     {:else if skillView === "list"}
       <!-- ── Installed Skills ────────────────────────────────── -->
       <section class="panel-section">
@@ -640,7 +643,7 @@
       </section>
 
       <!-- ── Registry Browser ────────────────────────────────── -->
-      <section class="panel-section">
+      <section class="catalog-section">
         <button
           class="collapsible-heading"
           onclick={() => (registryExpanded = !registryExpanded)}
@@ -652,8 +655,8 @@
         </button>
 
         {#if registryExpanded}
-          <div class="collapsible-body">
-            <div class="registry-search">
+          <div class="section-content">
+            <div class="search-row">
               <input
                 type="text"
                 value={searchQuery}
@@ -662,7 +665,7 @@
                 class="search-input"
               />
               {#if store.registrySearching}
-                <span class="search-spinner" role="status" aria-label="Searching"></span>
+                <span class="search-spinner" role="status" aria-label="Searching">⟳</span>
               {/if}
             </div>
 
@@ -676,16 +679,15 @@
                   {store.registryTotal} result{store.registryTotal !== 1 ? "s" : ""} found
                 </p>
               {/if}
-              <div class="registry-list">
+              <div class="registry-results" role="list">
                 {#each store.registryResults as item (item.id + item.source + item.kind)}
-                  <div
-                    class="registry-item"
-                    role="button"
-                    tabindex="0"
+                  <article
+                    class="registry-card"
+                    role="listitem"
                     ondblclick={() => toggleExpandRegistry(item)}
                     title="Double-click to expand"
                   >
-                    <div class="registry-item-info">
+                    <div class="registry-info">
                       <button
                         class="skill-expand-btn"
                         class:expanded={expandedRegistryKey === registryKey(item)}
@@ -697,41 +699,41 @@
                           ? "Collapse"
                           : "Expand"}>▶</button
                       >
-                      <strong class="registry-item-name">{item.name}</strong>
-                      <span class="source-badge registry">{registrySourceLabel()}</span>
-                      {#if item.installs !== null}
-                        <span class="install-count">{item.installs} installs</span>
-                      {/if}
-                    </div>
-                    {#if expandedRegistryKey !== registryKey(item) && item.description}
-                      <p class="registry-item-desc">{item.description}</p>
-                    {/if}
-                    {#if expandedRegistryKey === registryKey(item)}
-                      <div class="registry-item-expanded markdown-prose">
-                        {@html renderMarkdown(
-                          stripFrontmatter(item.content ?? item.description ?? ""),
-                        )}
-                      </div>
-                    {/if}
-                    <div class="registry-item-actions">
+                      <strong class="registry-name">{item.name}</strong>
+                      <span class="badge source-badge registry">{registrySourceLabel()}</span>
                       {#if item.url}
                         <a
                           href={item.url}
                           target="_blank"
                           rel="noopener noreferrer"
                           class="source-link"
-                          aria-label="View source"
+                          aria-label="View on {registrySourceLabel()}"
                         >
                           ↗
                         </a>
                       {/if}
+                      {#if item.installs !== null}
+                        <span class="install-count">{item.installs} installs</span>
+                      {/if}
+                    </div>
+                    {#if expandedRegistryKey !== registryKey(item) && item.description}
+                      <p class="registry-desc">{item.description}</p>
+                    {/if}
+                    {#if expandedRegistryKey === registryKey(item)}
+                      <div class="registry-expanded markdown-prose">
+                        {@html renderMarkdown(
+                          stripFrontmatter(item.content ?? item.description ?? ""),
+                        )}
+                      </div>
+                    {/if}
+                    <div class="registry-actions">
                       {#if isAlreadyInstalled(item)}
-                        <span class="installed-badge">Installed ✓</span>
+                        <span class="installed-badge">✓ Installed</span>
                       {:else if installedId === item.id}
-                        <span class="installed-badge">Installed ✓</span>
+                        <span class="installed-badge">✓ Installed</span>
                       {:else}
                         <button
-                          class="install-btn"
+                          class="action-btn primary"
                           onclick={() => handleInstall(item)}
                           disabled={installingId === item.id}
                         >
@@ -739,7 +741,7 @@
                         </button>
                       {/if}
                     </div>
-                  </div>
+                  </article>
                 {/each}
               </div>
             {:else if searchQuery.trim() && !store.registrySearching}
@@ -754,7 +756,7 @@
       </section>
 
       <!-- ── Git Import ──────────────────────────────────────── -->
-      <section class="panel-section">
+      <section class="catalog-section">
         <button
           class="collapsible-heading"
           onclick={() => {
@@ -768,9 +770,9 @@
         </button>
 
         {#if gitExpanded}
-          <div class="collapsible-body">
+          <div class="section-content">
             <p class="section-desc">Import SKILL.md files from a GitHub repository.</p>
-            <div class="git-input-row">
+            <div class="git-row">
               <input
                 type="text"
                 bind:value={gitUrl}
@@ -781,16 +783,16 @@
                 }}
               />
               <button
-                class="fetch-btn"
+                class="action-btn primary"
                 onclick={handleGitFetch}
                 disabled={!gitUrl.trim() || store.gitImporting}
               >
-                {store.gitImporting ? "Fetching…" : "Fetch"}
+                {store.gitImporting ? "Scanning…" : "Scan"}
               </button>
             </div>
 
             {#if gitError}
-              <div class="git-error">⚠ {gitError}</div>
+              <div class="git-error" role="alert">⚠ {gitError}</div>
             {/if}
 
             {#if store.gitImporting}
@@ -798,29 +800,31 @@
                 <span class="loading-spinner"></span> Discovering SKILL.md files…
               </div>
             {:else if store.gitDiscoveredFiles.length > 0}
-              <div class="git-files-list">
+              <div class="git-results" role="list">
                 <p class="result-count">
                   {store.gitDiscoveredFiles.length} skill file{store.gitDiscoveredFiles.length !== 1
                     ? "s"
                     : ""} found
                 </p>
                 {#each store.gitDiscoveredFiles as file (file.path)}
-                  <div class="git-file-item">
+                  <article class="git-file-card" role="listitem">
                     <div class="git-file-info">
                       <span class="git-file-path">{file.path}</span>
                     </div>
-                    {#if importedPath === file.path}
-                      <span class="installed-badge">Imported ✓</span>
-                    {:else}
-                      <button
-                        class="install-btn"
-                        onclick={() => handleGitImport(file)}
-                        disabled={importingPath === file.path}
-                      >
-                        {importingPath === file.path ? "Importing…" : "Import"}
-                      </button>
-                    {/if}
-                  </div>
+                    <div class="git-file-actions">
+                      {#if importedPath === file.path}
+                        <span class="installed-badge">✓ Imported</span>
+                      {:else}
+                        <button
+                          class="action-btn primary"
+                          onclick={() => handleGitImport(file)}
+                          disabled={importingPath === file.path}
+                        >
+                          {importingPath === file.path ? "Importing…" : "Import"}
+                        </button>
+                      {/if}
+                    </div>
+                  </article>
                 {/each}
               </div>
             {:else if gitUrl.trim() && !store.gitImporting && !gitError}
@@ -913,7 +917,7 @@
         <p class="confirm-detail">This cannot be undone.</p>
         <div class="confirm-actions">
           <button class="action-btn" onclick={cancelDelete} disabled={deleting}>Cancel</button>
-          <button class="action-btn danger" disabled={deleting} onclick={confirmDeleteSkill}>
+          <button class="action-btn danger-fill" disabled={deleting} onclick={confirmDeleteSkill}>
             {deleting ? "Deleting…" : "Delete"}
           </button>
         </div>
@@ -930,6 +934,7 @@
     flex-direction: column;
     height: 100%;
     overflow: hidden;
+    animation: fadeIn 180ms ease;
   }
 
   .panel-header {
@@ -974,14 +979,13 @@
     background: var(--color-bg-primary);
     color: var(--color-text-secondary);
     cursor: pointer;
-    transition: all var(--transition-fast, 0.15s);
+    transition: all var(--transition-fast);
     white-space: nowrap;
   }
-
   .header-add-btn:hover {
-    background: var(--color-bg-hover, var(--color-bg-secondary));
-    color: var(--color-accent-copper, var(--color-accent));
-    border-color: var(--color-accent-copper, var(--color-accent));
+    background: var(--color-bg-hover);
+    color: var(--color-accent-copper);
+    border-color: var(--color-accent-copper);
   }
 
   .panel-content {
@@ -994,6 +998,12 @@
     text-align: center;
     color: var(--color-text-secondary);
     padding: var(--spacing-2xl);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-sm);
+    font-size: var(--font-size-sm);
+    font-style: italic;
   }
 
   /* ── Sections ── */
@@ -1012,13 +1022,18 @@
   }
 
   .section-heading.inline {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    color: inherit;
     margin: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
   }
 
   .section-desc {
     font-size: var(--font-size-xs);
     color: var(--color-text-secondary);
-    margin: 0 0 var(--spacing-sm) 0;
+    margin: 0 0 var(--spacing-sm);
     line-height: var(--leading-relaxed, 1.6);
   }
 
@@ -1026,6 +1041,7 @@
     color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
     font-style: italic;
+    padding: var(--spacing-md) 0;
   }
 
   .section-hint-text {
@@ -1072,7 +1088,10 @@
     border-radius: var(--radius-md);
     padding: var(--spacing-md);
     margin-bottom: var(--spacing-xs);
+    animation: fadeInUp 200ms ease both;
     transition: border-color var(--transition-fast);
+    cursor: default;
+    user-select: text;
   }
   .skill-card:hover {
     border-color: var(--color-border-focus);
@@ -1119,7 +1138,14 @@
     flex-shrink: 0;
   }
 
-  /* ── Source Badges ── */
+  /* ── Badges ── */
+
+  .badge {
+    font-size: var(--font-size-2xs);
+    padding: 1px var(--spacing-xs);
+    border-radius: var(--radius-sm);
+    white-space: nowrap;
+  }
 
   .source-badge {
     font-size: var(--font-size-2xs);
@@ -1235,7 +1261,7 @@
     color: var(--color-text-secondary);
     cursor: pointer;
     transition: all var(--transition-fast);
-    font-family: var(--font-sans);
+    font-family: var(--font-body);
     white-space: nowrap;
   }
   .action-btn:hover:not(:disabled) {
@@ -1254,305 +1280,66 @@
     background: color-mix(in srgb, var(--color-error) 8%, transparent);
     border-color: var(--color-error);
   }
+  .action-btn.primary {
+    background: var(--color-text-primary);
+    color: var(--color-bg-primary);
+    border-color: var(--color-text-primary);
+    font-weight: var(--font-weight-medium);
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+  }
+  .action-btn.primary:hover:not(:disabled) {
+    opacity: 0.9;
+    color: var(--color-bg-primary);
+  }
+  .action-btn.danger-fill {
+    background: var(--color-error);
+    color: #fff;
+    border-color: var(--color-error);
+    font-weight: var(--font-weight-medium);
+  }
+  .action-btn.danger-fill:hover:not(:disabled) {
+    opacity: 0.9;
+    color: #fff;
+  }
 
   /* ── Collapsible Sections ── */
+
+  .catalog-section {
+    margin-top: var(--spacing-lg);
+  }
 
   .collapsible-heading {
     display: flex;
     align-items: center;
-    gap: var(--spacing-sm);
-    width: 100%;
+    gap: var(--spacing-xs);
     background: none;
     border: none;
     cursor: pointer;
-    padding: var(--spacing-sm) 0;
+    padding: var(--spacing-xs) 0;
+    width: 100%;
     text-align: left;
-    font-family: var(--font-sans);
-    transition: opacity var(--transition-fast);
+    color: var(--color-text-primary);
   }
   .collapsible-heading:hover {
-    opacity: 0.8;
+    color: var(--color-accent-copper);
   }
 
   .collapse-arrow {
-    font-size: var(--font-size-2xs);
+    font-size: 10px;
+    transition: transform 0.2s ease;
     color: var(--color-text-tertiary);
-    transition: transform var(--transition-normal);
-    display: inline-block;
   }
   .collapse-arrow.expanded {
     transform: rotate(90deg);
   }
 
-  .collapsible-body {
-    padding-top: var(--spacing-sm);
-    animation: slideDown 200ms ease;
+  .section-content {
+    padding: var(--spacing-sm) 0;
   }
 
-  @keyframes slideDown {
-    from {
-      opacity: 0;
-      transform: translateY(-4px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  /* ── Search / Registry ── */
-
-  .registry-search {
-    margin-bottom: var(--spacing-sm);
-    position: relative;
-  }
-
-  .search-input {
-    width: 100%;
-    padding: var(--spacing-sm);
-    padding-right: var(--spacing-2xl);
-    border: 1px solid var(--color-border-primary);
-    border-radius: var(--radius-sm);
-    background: var(--color-bg-primary);
-    color: var(--color-text-primary);
-    font-size: var(--font-size-sm);
-    font-family: var(--font-sans);
-    box-sizing: border-box;
-  }
-  .search-input:focus {
-    outline: none;
-    border-color: var(--color-accent-copper);
-    box-shadow: var(--shadow-input-focus);
-  }
-  .search-input::placeholder {
-    color: var(--color-text-tertiary);
-  }
-
-  .search-spinner {
-    position: absolute;
-    right: var(--spacing-sm);
-    top: 50%;
-    width: 14px;
-    height: 14px;
-    margin-top: -7px;
-    border: 2px solid var(--color-border-primary);
-    border-top-color: var(--color-accent-copper);
-    border-radius: 50%;
-    animation: spin 0.6s linear infinite;
-  }
-
-  @keyframes spin {
-    to {
-      transform: rotate(360deg);
-    }
-  }
-
-  .registry-loading {
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-sm);
-    font-style: italic;
-    padding: var(--spacing-md) 0;
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-sm);
-  }
-
-  .loading-spinner {
-    display: inline-block;
-    width: 14px;
-    height: 14px;
-    border: 2px solid var(--color-border-primary);
-    border-top-color: var(--color-accent-copper);
-    border-radius: 50%;
-    animation: spin 0.6s linear infinite;
-    flex-shrink: 0;
-  }
-
-  .result-count {
-    font-size: var(--font-size-xs);
-    color: var(--color-text-tertiary);
-    margin: 0 0 var(--spacing-sm) 0;
-  }
-
-  .registry-list {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-xs);
-  }
-
-  .registry-item {
-    padding: var(--spacing-sm) var(--spacing-md);
-    background: var(--color-bg-secondary);
-    border: 1px solid var(--color-border-secondary);
-    border-radius: var(--radius-md);
-    transition: border-color var(--transition-fast);
-  }
-  .registry-item:hover {
-    border-color: var(--color-accent-copper);
-  }
-
-  .registry-item-info {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-sm);
-    flex-wrap: wrap;
-  }
-
-  .registry-item-name {
-    font-size: var(--font-size-sm);
-    color: var(--color-text-primary);
-  }
-
-  .install-count {
-    font-size: var(--font-size-2xs);
-    color: var(--color-text-tertiary);
-    margin-left: auto;
-  }
-
-  .registry-item-desc {
-    font-size: var(--font-size-xs);
-    color: var(--color-text-secondary);
-    margin: var(--spacing-xs) 0 0 0;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
-
-  .registry-item-expanded {
-    font-size: var(--font-size-xs);
-    color: var(--color-text-secondary);
-    margin: var(--spacing-sm) 0 0 0;
-    padding: var(--spacing-sm);
-    background: var(--color-bg-primary);
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--color-border-primary);
-    line-height: var(--line-height-relaxed);
-    max-height: 300px;
-    overflow-y: auto;
-    animation: fadeIn 150ms ease both;
-  }
-
-  .registry-item-actions {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: var(--spacing-sm);
-    margin-top: var(--spacing-sm);
-  }
-
-  .install-btn {
-    font-size: var(--font-size-xs);
-    font-weight: var(--font-weight-semibold);
-    padding: var(--spacing-xs) var(--spacing-md);
-    background: var(--color-text-primary);
-    color: var(--color-bg-primary);
-    border: none;
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    font-family: var(--font-sans);
-    transition: opacity var(--transition-fast);
-    white-space: nowrap;
-  }
-  .install-btn:hover:not(:disabled) {
-    opacity: 0.85;
-  }
-  .install-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  .installed-badge {
-    font-size: var(--font-size-xs);
-    color: var(--color-success);
-    font-weight: var(--font-weight-medium);
-    white-space: nowrap;
-  }
-
-  /* ── Git Import ── */
-
-  .git-input-row {
-    display: flex;
-    gap: var(--spacing-sm);
-    margin-bottom: var(--spacing-sm);
-  }
-
-  .git-input-row .search-input {
-    flex: 1;
-    padding-right: var(--spacing-sm);
-  }
-
-  .fetch-btn {
-    font-size: var(--font-size-xs);
-    font-weight: var(--font-weight-semibold);
-    padding: var(--spacing-xs) var(--spacing-md);
-    background: var(--color-text-primary);
-    color: var(--color-bg-primary);
-    border: none;
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    font-family: var(--font-sans);
-    transition: opacity var(--transition-fast);
-    white-space: nowrap;
-    flex-shrink: 0;
-  }
-  .fetch-btn:hover:not(:disabled) {
-    opacity: 0.85;
-  }
-  .fetch-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  .git-error {
-    font-size: var(--font-size-xs);
-    color: var(--color-error);
-    margin-bottom: var(--spacing-sm);
-    padding: var(--spacing-xs) var(--spacing-sm);
-    background: color-mix(in srgb, var(--color-error) 8%, transparent);
-    border-radius: var(--radius-sm);
-  }
-
-  .git-files-list {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-xs);
-  }
-
-  .git-file-item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--spacing-sm);
-    padding: var(--spacing-sm) var(--spacing-md);
-    background: var(--color-bg-secondary);
-    border: 1px solid var(--color-border-secondary);
-    border-radius: var(--radius-md);
-    transition: border-color var(--transition-fast);
-  }
-  .git-file-item:hover {
-    border-color: var(--color-accent-copper);
-  }
-
-  .git-file-info {
-    flex: 1;
-    min-width: 0;
-  }
-
-  .git-file-path {
-    font-size: var(--font-size-xs);
-    font-family: var(--font-mono);
-    color: var(--color-text-primary);
-    word-break: break-all;
-  }
-
-  /* ── Expand/Collapse ── */
-
-  .skill-card {
-    cursor: default;
-    user-select: text;
-  }
+  /* ── Expand / Collapse (cards) ── */
 
   .skill-expand-btn {
     all: unset;
@@ -1571,34 +1358,32 @@
     align-items: center;
     justify-content: center;
   }
-
   .skill-expand-btn:hover {
     color: var(--color-text-secondary);
     background: var(--color-bg-tertiary, rgba(0, 0, 0, 0.05));
   }
-
   .skill-expand-btn.expanded {
     transform: rotate(90deg);
     color: var(--color-accent-copper);
   }
 
   .skill-details {
-    border-top: 1px solid var(--color-border-primary);
-    padding: var(--spacing-sm) var(--spacing-xs);
-    margin-top: var(--spacing-xs);
+    margin-top: var(--spacing-sm);
+    padding: var(--spacing-sm);
+    background: var(--color-bg-primary);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--color-border-primary);
+    animation: fadeIn 150ms ease both;
   }
 
   .skill-instructions {
     font-size: var(--font-size-xs);
     color: var(--color-text-secondary);
-    background: var(--color-bg-tertiary, var(--color-bg-secondary));
-    border-radius: var(--radius-sm);
-    padding: var(--spacing-sm);
-    margin: 0 0 var(--spacing-xs);
     word-break: break-word;
     max-height: 200px;
     overflow-y: auto;
-    line-height: var(--leading-relaxed, 1.6);
+    line-height: var(--line-height-relaxed);
+    margin: 0;
   }
 
   .skill-detail-row {
@@ -1607,16 +1392,192 @@
     gap: var(--spacing-xs);
     font-size: var(--font-size-xs);
     color: var(--color-text-tertiary);
+    margin-top: var(--spacing-xs);
   }
 
   .skill-detail-link {
-    color: var(--color-accent);
+    color: var(--color-accent-copper);
     text-decoration: none;
     word-break: break-all;
   }
-
   .skill-detail-link:hover {
     text-decoration: underline;
+  }
+
+  /* ── Search / Registry ── */
+
+  .search-row {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-sm);
+  }
+
+  .search-input {
+    flex: 1;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    font-size: var(--font-size-sm);
+    font-family: var(--font-body);
+    border: 1px solid var(--color-border-primary);
+    border-radius: var(--radius-sm);
+    background: var(--color-bg-primary);
+    color: var(--color-text-primary);
+    transition:
+      border-color 0.15s,
+      box-shadow 0.15s;
+  }
+  .search-input:focus {
+    outline: none;
+    border-color: var(--color-accent-copper);
+    box-shadow: var(--shadow-input-focus);
+  }
+  .search-input::placeholder {
+    color: var(--color-text-tertiary);
+  }
+
+  .search-spinner {
+    animation: spin 0.8s linear infinite;
+    color: var(--color-text-tertiary);
+  }
+
+  .registry-loading {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    font-style: italic;
+    padding: var(--spacing-md) 0;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+  }
+
+  .loading-spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--color-border-primary);
+    border-top-color: var(--color-accent-copper);
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    flex-shrink: 0;
+  }
+
+  .result-count {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-tertiary);
+    margin: 0 0 var(--spacing-sm) 0;
+  }
+
+  .registry-results,
+  .git-results {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+  }
+
+  .registry-card,
+  .git-file-card {
+    padding: var(--spacing-sm);
+    border: 1px solid var(--color-border-primary);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-primary);
+    transition: border-color var(--transition-fast);
+  }
+  .registry-card:hover,
+  .git-file-card:hover {
+    border-color: var(--color-accent-copper);
+  }
+
+  .registry-info {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-xxs, 4px);
+  }
+
+  .registry-name {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-primary);
+  }
+
+  .install-count {
+    font-size: var(--font-size-2xs);
+    color: var(--color-text-tertiary);
+    margin-left: auto;
+  }
+
+  .registry-desc {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+    margin: 0 0 var(--spacing-xs);
+    line-height: var(--leading-relaxed, 1.6);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .registry-expanded {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+    margin: var(--spacing-sm) 0 0 0;
+    padding: var(--spacing-sm);
+    background: var(--color-bg-primary);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--color-border-primary);
+    line-height: var(--line-height-relaxed);
+    max-height: 300px;
+    overflow-y: auto;
+    animation: fadeIn 150ms ease both;
+  }
+
+  .registry-actions,
+  .git-file-actions {
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .installed-badge {
+    font-size: var(--font-size-xs);
+    color: var(--color-success);
+    font-weight: var(--font-weight-medium);
+    white-space: nowrap;
+  }
+
+  /* ── Git Import ── */
+
+  .git-row {
+    display: flex;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-sm);
+  }
+
+  .git-error {
+    font-size: var(--font-size-sm);
+    color: var(--color-error);
+    background: color-mix(in srgb, var(--color-error) 8%, transparent);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--radius-sm);
+    margin-bottom: var(--spacing-sm);
+  }
+
+  .git-file-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .git-file-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .git-file-path {
+    font-size: var(--font-size-xs);
+    font-family: var(--font-mono);
+    color: var(--color-text-primary);
+    word-break: break-all;
   }
 
   /* ── Create Custom Skill ── */
@@ -1627,54 +1588,57 @@
     gap: var(--spacing-md);
     width: 100%;
     max-width: 640px;
+    margin: 0 auto;
+    animation: fadeInUp 200ms ease;
   }
 
   .create-field {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-xxs, 4px);
+    gap: var(--spacing-xs);
+    margin-bottom: var(--spacing-md);
   }
 
   .create-label {
-    font-size: var(--font-size-sm);
-    font-weight: var(--font-weight-medium);
-    color: var(--color-text-primary);
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
     display: flex;
     align-items: center;
     gap: var(--spacing-xs);
   }
 
   .create-hint {
-    font-size: var(--font-size-xs);
     font-weight: var(--font-weight-normal);
     color: var(--color-text-tertiary);
+    text-transform: none;
+    letter-spacing: 0;
+    font-size: var(--font-size-xxs, 0.65rem);
   }
 
   .create-input {
     width: 100%;
     box-sizing: border-box;
-    padding: var(--spacing-xs) var(--spacing-sm);
+    padding: var(--spacing-sm);
     font-size: var(--font-size-sm);
     font-family: var(--font-body);
     border: 1px solid var(--color-border-primary);
     border-radius: var(--radius-sm);
     background: var(--color-bg-primary);
     color: var(--color-text-primary);
-    transition:
-      border-color 0.15s,
-      box-shadow 0.15s;
   }
-
   .create-input:focus {
     outline: none;
-    border-color: var(--color-accent);
-    box-shadow: var(--shadow-input-focus, 0 0 0 2px rgba(180, 83, 9, 0.15));
+    border-color: var(--color-accent-copper);
+    box-shadow: var(--shadow-input-focus);
   }
 
   .create-textarea {
     width: 100%;
     box-sizing: border-box;
-    padding: var(--spacing-xs) var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
     font-size: var(--font-size-sm);
     font-family: var(--font-body);
     border: 1px solid var(--color-border-primary);
@@ -1682,37 +1646,55 @@
     background: var(--color-bg-primary);
     color: var(--color-text-primary);
     resize: vertical;
-    line-height: var(--leading-relaxed, 1.6);
-    transition:
-      border-color 0.15s,
-      box-shadow 0.15s;
+    line-height: 1.6;
   }
-
   .create-textarea:focus {
     outline: none;
-    border-color: var(--color-accent);
-    box-shadow: var(--shadow-input-focus, 0 0 0 2px rgba(180, 83, 9, 0.15));
+    border-color: var(--color-accent-copper);
+    box-shadow: var(--shadow-input-focus);
   }
 
   .create-textarea.mono {
     font-family: var(--font-mono);
     font-size: var(--font-size-xs);
     tab-size: 2;
+    min-height: 180px;
+  }
+
+  .create-error {
+    font-size: var(--font-size-xs);
+    color: var(--color-error);
+    padding: var(--spacing-sm);
+    background: color-mix(in srgb, var(--color-error) 8%, transparent);
+    border-radius: var(--radius-sm);
+    margin-bottom: var(--spacing-md);
   }
 
   .create-actions {
     display: flex;
     justify-content: flex-end;
     gap: var(--spacing-sm);
+    padding-top: var(--spacing-md);
+    border-top: 1px solid var(--color-border-primary);
+    margin-top: var(--spacing-md);
   }
 
-  .create-error {
-    font-size: var(--font-size-sm);
-    color: var(--color-error, #dc2626);
-    background: color-mix(in srgb, var(--color-error, #dc2626) 8%, transparent);
-    padding: var(--spacing-xs) var(--spacing-sm);
-    border-radius: var(--radius-sm);
-    border: 1px solid color-mix(in srgb, var(--color-error, #dc2626) 20%, transparent);
+  @media (max-width: 400px) {
+    .create-skill-form {
+      gap: var(--spacing-sm);
+    }
+    .create-actions {
+      flex-direction: column;
+    }
+    .create-actions .action-btn {
+      width: 100%;
+      text-align: center;
+      justify-content: center;
+    }
+    .search-row,
+    .git-row {
+      flex-direction: column;
+    }
   }
 
   /* ── Delete Confirmation ── */
@@ -1756,5 +1738,13 @@
     display: flex;
     justify-content: flex-end;
     gap: var(--spacing-sm);
+  }
+
+  /* ── Keyframes ── */
+
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
   }
 </style>
