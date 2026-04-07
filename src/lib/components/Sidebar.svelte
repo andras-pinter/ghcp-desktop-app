@@ -158,6 +158,43 @@
     <div class="sidebar-footer">
       <button
         class="nav-btn"
+        aria-label="Agents"
+        title="Agents"
+        onclick={() => onNavigate?.("agents")}
+      >
+        <svg
+          width="15"
+          height="15"
+          viewBox="0 0 16 16"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+        >
+          <circle cx="8" cy="5" r="3" />
+          <path d="M2.5 14c0-3 2.5-5 5.5-5s5.5 2 5.5 5" />
+        </svg>
+        <span class="nav-label">Agents</span>
+      </button>
+      <button
+        class="nav-btn"
+        aria-label="Skills"
+        title="Skills"
+        onclick={() => onNavigate?.("skills")}
+      >
+        <svg
+          width="15"
+          height="15"
+          viewBox="0 0 16 16"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+        >
+          <path d="M8 1l1.5 3.5L13 5l-2.5 2.5.5 3.5L8 9.5 4.5 11l.5-3.5L2.5 5l3.5-.5z" />
+        </svg>
+        <span class="nav-label">Skills</span>
+      </button>
+      <button
+        class="nav-btn"
         aria-label="MCP Servers"
         title="MCP Servers"
         onclick={() => onNavigate?.("mcp-settings")}

@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Model } from "$lib/types/message";
+  import type { Agent } from "$lib/types/agent";
   import type { UrlPreview } from "$lib/types/web-research";
   import { fetchUrl } from "$lib/utils/commands";
 
@@ -15,6 +16,10 @@
     onSetDefault?: (modelId: string) => void;
     initialValue?: string;
     onInput?: (text: string) => void;
+    agents?: Agent[];
+    agentsLoaded?: boolean;
+    selectedAgentId?: string | null;
+    onAgentChange?: (agentId: string | null) => void;
   }
 
   let {
@@ -29,6 +34,10 @@
     onSetDefault,
     initialValue = "",
     onInput: onInputCallback,
+    agents = [],
+    agentsLoaded = false,
+    selectedAgentId = null,
+    onAgentChange,
   }: Props = $props();
 
   let inputText = $state("");
@@ -36,6 +45,8 @@
   let initialized = false;
   let dropdownOpen = $state(false);
   let dropdownEl: HTMLDivElement | undefined = $state();
+  let agentDropdownOpen = $state(false);
+  let agentDropdownEl: HTMLDivElement | undefined = $state();
 
   // URL input state
   let urlInputVisible = $state(false);
@@ -62,6 +73,9 @@
   function handleWindowClick(event: MouseEvent) {
     if (dropdownOpen && dropdownEl && !dropdownEl.contains(event.target as Node)) {
       dropdownOpen = false;
+    }
+    if (agentDropdownOpen && agentDropdownEl && !agentDropdownEl.contains(event.target as Node)) {
+      agentDropdownOpen = false;
     }
   }
 
@@ -326,6 +340,67 @@
             <path d="M2 12h20" />
           </svg>
         </button>
+
+        {#if agentsLoaded && agents.length > 0}
+          <div class="agent-picker" bind:this={agentDropdownEl}>
+            <button
+              class="agent-trigger"
+              onclick={() => (agentDropdownOpen = !agentDropdownOpen)}
+              aria-label="Select agent"
+              aria-expanded={agentDropdownOpen}
+              aria-haspopup="listbox"
+              title="Select agent persona"
+            >
+              <span class="agent-trigger-avatar"
+                >{agents.find((a) => a.id === selectedAgentId)?.avatar ?? "🤖"}</span
+              >
+              <span class="agent-trigger-name"
+                >{agents.find((a) => a.id === selectedAgentId)?.name ?? "Default"}</span
+              >
+              <svg
+                class="agent-trigger-chevron"
+                class:open={agentDropdownOpen}
+                width="10"
+                height="10"
+                viewBox="0 0 16 16"
+                fill="currentColor"
+                aria-hidden="true"
+              >
+                <path d="M4.5 6l3.5 4 3.5-4H4.5z" />
+              </svg>
+            </button>
+
+            {#if agentDropdownOpen}
+              <div
+                class="agent-dropdown"
+                role="listbox"
+                tabindex="-1"
+                aria-label="Available agents"
+              >
+                {#each agents as agent (agent.id)}
+                  <button
+                    class="agent-option"
+                    class:selected={agent.id === selectedAgentId ||
+                      (selectedAgentId === null && agent.isDefault)}
+                    role="option"
+                    aria-selected={agent.id === selectedAgentId ||
+                      (selectedAgentId === null && agent.isDefault)}
+                    onclick={() => {
+                      onAgentChange?.(agent.isDefault ? null : agent.id);
+                      agentDropdownOpen = false;
+                    }}
+                  >
+                    <span class="agent-option-avatar">{agent.avatar ?? "🤖"}</span>
+                    <span class="agent-option-name">{agent.name}</span>
+                    {#if agent.isDefault}
+                      <span class="agent-option-badge">default</span>
+                    {/if}
+                  </button>
+                {/each}
+              </div>
+            {/if}
+          </div>
+        {/if}
 
         {#if modelsLoaded && availableModels.length > 1}
           <div class="model-picker" bind:this={dropdownEl}>
@@ -841,5 +916,126 @@
   .url-pill-remove:hover {
     background: var(--color-bg-hover);
     color: var(--color-text-primary);
+  }
+
+  /* ── Agent Picker ── */
+
+  .agent-picker {
+    position: relative;
+  }
+
+  .agent-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--radius-full);
+    color: var(--color-text-tertiary);
+    font-family: var(--font-sans);
+    font-size: var(--font-size-xs);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    letter-spacing: var(--letter-spacing-normal);
+    white-space: nowrap;
+  }
+
+  .agent-trigger:hover {
+    background: var(--color-bg-hover);
+    border-color: var(--color-border-primary);
+    color: var(--color-text-secondary);
+  }
+
+  .agent-trigger-avatar {
+    font-size: 12px;
+    line-height: 1;
+  }
+
+  .agent-trigger-name {
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .agent-trigger-chevron {
+    flex-shrink: 0;
+    opacity: 0.5;
+    transition: transform var(--transition-fast);
+  }
+
+  .agent-trigger-chevron.open {
+    transform: rotate(180deg);
+  }
+
+  .agent-dropdown {
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 0;
+    min-width: 180px;
+    max-width: 240px;
+    max-height: 280px;
+    overflow-y: auto;
+    background: var(--color-bg-primary);
+    border: 1px solid var(--color-border-primary);
+    border-radius: var(--radius-md);
+    box-shadow:
+      0 8px 24px rgba(0, 0, 0, 0.12),
+      0 2px 8px rgba(0, 0, 0, 0.06);
+    z-index: 100;
+    padding: var(--spacing-xs);
+    animation: dropdownFadeIn 120ms ease;
+  }
+
+  .agent-option {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    padding: 6px 8px;
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-sm);
+    color: var(--color-text-secondary);
+    font-family: var(--font-sans);
+    font-size: var(--font-size-xs);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    text-align: left;
+    letter-spacing: var(--letter-spacing-normal);
+    white-space: nowrap;
+    overflow: hidden;
+  }
+
+  .agent-option:hover {
+    background: var(--color-bg-hover);
+    color: var(--color-text-primary);
+  }
+
+  .agent-option.selected {
+    background: var(--color-bg-hover);
+    color: var(--color-text-primary);
+    font-weight: 560;
+  }
+
+  .agent-option-avatar {
+    font-size: 12px;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+
+  .agent-option-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .agent-option-badge {
+    font-size: 9px;
+    padding: 1px 5px;
+    border-radius: var(--radius-full);
+    background: var(--color-bg-hover);
+    color: var(--color-text-tertiary);
+    flex-shrink: 0;
   }
 </style>
