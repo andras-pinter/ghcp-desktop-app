@@ -263,9 +263,9 @@
     });
 
     // Extract file contents now (chat view is already showing)
+    let extractedParts: string[] = [];
     if (hasFiles) {
       extractingFiles = true;
-      const extractedParts: string[] = [];
       for (const f of files) {
         try {
           console.log(`Extracting text from: ${f.name} (${f.contentType}, ${f.size} bytes)`);
@@ -293,15 +293,30 @@
       }
       extractingFiles = false;
 
-      // Replace placeholder content with extracted text
-      const finalContent = content + extractedParts.join("");
-      await updateMessageContentStore(userMessage.id, finalContent);
+      // Replace "extracting…" placeholders with clean file labels
+      const fileLabels =
+        "\n\n" +
+        files
+          .map((f) => {
+            const note = extractedParts.find((p) => p.includes(f.name));
+            const failed =
+              note && (note.includes("unsupported format") || note.includes("extraction failed"));
+            return failed ? `📎 ${f.name} (not extractable)` : `📎 ${f.name}`;
+          })
+          .join("\n");
+      await updateMessageContentStore(userMessage.id, content + fileLabels);
     }
 
-    // Build API message array — include all user + non-empty assistant messages
+    // Build API message array — include all user + non-empty assistant messages.
+    // For the current user message, append extracted file content for the API only.
     const apiMessages: ChatMessage[] = store.messages
       .filter((m) => m.role === "user" || (m.role === "assistant" && m.content))
-      .map((m) => ({ role: m.role, content: m.content }));
+      .map((m) => {
+        if (m.id === userMessage.id && hasFiles) {
+          return { role: m.role, content: content + extractedParts.join("") };
+        }
+        return { role: m.role, content: m.content };
+      });
 
     try {
       await sendMessage(
