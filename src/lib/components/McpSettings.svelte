@@ -168,19 +168,19 @@
     view = { kind: "list" };
   }
 
-  async function handleConnect(serverId: string) {
+  async function handleConnect(serverId: string, isRetry = false) {
     try {
       await connectServer(serverId);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      if (msg.startsWith("BINARY_NOT_APPROVED:")) {
+      if (msg.startsWith("BINARY_NOT_APPROVED:") && !isRetry) {
         const binaryPath = msg.replace("BINARY_NOT_APPROVED:", "");
         const confirmed = window.confirm(
           `Allow MCP server to run "${binaryPath}"?\n\nThis binary will be executed on your system. Only approve binaries you trust.`,
         );
         if (confirmed) {
           await approveMcpBinary(binaryPath);
-          await handleConnect(serverId);
+          await handleConnect(serverId, true);
         }
       }
     }
