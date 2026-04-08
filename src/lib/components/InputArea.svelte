@@ -5,6 +5,8 @@
   import type { ChatFileData } from "$lib/types/project";
   import { fetchUrl, pickFileForChat } from "$lib/utils/commands";
   import { formatBytes } from "$lib/utils/format";
+  import { getSettings } from "$lib/stores/settings.svelte";
+  import { getNetwork } from "$lib/stores/network.svelte";
 
   interface Props {
     onSend: (text: string, urls?: UrlPreview[], files?: ChatFileData[]) => void;
@@ -51,6 +53,9 @@
     onExternalFilesConsumed,
     extractionStatuses = {},
   }: Props = $props();
+
+  const settings = getSettings();
+  const network = getNetwork();
 
   let inputText = $state("");
   let textareaEl: HTMLTextAreaElement | undefined = $state();
@@ -140,9 +145,19 @@
   }
 
   function handleKeydown(event: KeyboardEvent) {
-    if (event.key === "Enter" && !event.shiftKey) {
-      event.preventDefault();
-      handleSend();
+    const mod = event.metaKey || event.ctrlKey;
+    if (settings.sendShortcut === "cmd-enter") {
+      // Cmd/Ctrl+Enter sends; Enter inserts newline
+      if (event.key === "Enter" && mod) {
+        event.preventDefault();
+        handleSend();
+      }
+    } else {
+      // Enter sends (default); Shift+Enter inserts newline
+      if (event.key === "Enter" && !event.shiftKey) {
+        event.preventDefault();
+        handleSend();
+      }
     }
   }
 
@@ -161,9 +176,65 @@
     dropdownOpen = false;
   }
 
+  let focusedModelIndex = $state(-1);
+
   function handleDropdownKeydown(event: KeyboardEvent) {
     if (event.key === "Escape") {
       dropdownOpen = false;
+      return;
+    }
+    const opts = availableModels;
+    if (!opts.length) return;
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      focusedModelIndex = Math.min(focusedModelIndex + 1, opts.length - 1);
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      focusedModelIndex = Math.max(focusedModelIndex - 1, 0);
+    } else if (event.key === "Home") {
+      event.preventDefault();
+      focusedModelIndex = 0;
+    } else if (event.key === "End") {
+      event.preventDefault();
+      focusedModelIndex = opts.length - 1;
+    } else if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      if (focusedModelIndex >= 0 && focusedModelIndex < opts.length) {
+        onModelChange?.(opts[focusedModelIndex].id);
+        dropdownOpen = false;
+      }
+    }
+  }
+
+  let focusedAgentIndex = $state(-1);
+
+  function handleAgentDropdownKeydown(event: KeyboardEvent) {
+    if (event.key === "Escape") {
+      agentDropdownOpen = false;
+      return;
+    }
+    if (!agents.length) return;
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      focusedAgentIndex = Math.min(focusedAgentIndex + 1, agents.length - 1);
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      focusedAgentIndex = Math.max(focusedAgentIndex - 1, 0);
+    } else if (event.key === "Home") {
+      event.preventDefault();
+      focusedAgentIndex = 0;
+    } else if (event.key === "End") {
+      event.preventDefault();
+      focusedAgentIndex = agents.length - 1;
+    } else if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      if (focusedAgentIndex >= 0 && focusedAgentIndex < agents.length) {
+        const agent = agents[focusedAgentIndex];
+        onAgentChange?.(agent.isDefault ? null : agent.id);
+        agentDropdownOpen = false;
+      }
     }
   }
 
@@ -463,16 +534,31 @@
       </div>
     {/if}
 
-    <textarea
-      bind:this={textareaEl}
-      bind:value={inputText}
-      onkeydown={handleKeydown}
-      oninput={handleInput}
-      onpaste={handlePaste}
-      placeholder="Message Copilot..."
-      rows="1"
-      aria-label="Message input"
-    ></textarea>
+    {#if !network.isOnline}
+      <div class="offline-indicator" role="status">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+          <path
+            d="M1 1l14 14M3.5 7.5a6 6 0 0 1 4-2.8M6 10.3a3.5 3.5 0 0 1 4 0M8 13a.5.5 0 1 1 0-1 .5.5 0 0 1 0 1z"
+            stroke="currentColor"
+            stroke-width="1.3"
+            fill="none"
+            stroke-linecap="round"
+          />
+        </svg>
+        You're offline — sending is disabled
+      </div>
+    {:else}
+      <textarea
+        bind:this={textareaEl}
+        bind:value={inputText}
+        onkeydown={handleKeydown}
+        oninput={handleInput}
+        onpaste={handlePaste}
+        placeholder="Message Copilot..."
+        rows="1"
+        aria-label="Message input"
+      ></textarea>
+    {/if}
     <div class="input-actions">
       <div class="actions-left">
         <button
@@ -522,7 +608,10 @@
           <div class="agent-picker" bind:this={agentDropdownEl}>
             <button
               class="agent-trigger"
-              onclick={() => (agentDropdownOpen = !agentDropdownOpen)}
+              onclick={() => {
+                agentDropdownOpen = !agentDropdownOpen;
+                focusedAgentIndex = -1;
+              }}
               aria-label="Select agent"
               aria-expanded={agentDropdownOpen}
               aria-haspopup="listbox"
@@ -553,12 +642,18 @@
                 role="listbox"
                 tabindex="-1"
                 aria-label="Available agents"
+                aria-activedescendant={focusedAgentIndex >= 0
+                  ? `agent-opt-${agents[focusedAgentIndex]?.id}`
+                  : undefined}
+                onkeydown={handleAgentDropdownKeydown}
               >
-                {#each agents as agent (agent.id)}
+                {#each agents as agent, i (agent.id)}
                   <button
+                    id="agent-opt-{agent.id}"
                     class="agent-option"
                     class:selected={agent.id === selectedAgentId ||
                       (selectedAgentId === null && agent.isDefault)}
+                    class:focused={i === focusedAgentIndex}
                     role="option"
                     aria-selected={agent.id === selectedAgentId ||
                       (selectedAgentId === null && agent.isDefault)}
@@ -583,7 +678,10 @@
           <div class="model-picker" bind:this={dropdownEl}>
             <button
               class="model-trigger"
-              onclick={() => (dropdownOpen = !dropdownOpen)}
+              onclick={() => {
+                dropdownOpen = !dropdownOpen;
+                focusedModelIndex = -1;
+              }}
               aria-label="Select model"
               aria-expanded={dropdownOpen}
               aria-haspopup="listbox"
@@ -625,16 +723,21 @@
                 role="listbox"
                 tabindex="-1"
                 aria-label="Available models"
+                aria-activedescendant={focusedModelIndex >= 0
+                  ? `model-opt-${availableModels[focusedModelIndex]?.id}`
+                  : undefined}
                 onkeydown={handleDropdownKeydown}
               >
-                <div class="model-dropdown-hint">
+                <div class="model-dropdown-hint" aria-hidden="true">
                   <span>⇧ click to set default</span>
                 </div>
-                {#each availableModels as m (m.id)}
+                {#each availableModels as m, i (m.id)}
                   <button
+                    id="model-opt-{m.id}"
                     class="model-option"
                     class:selected={m.id === model}
                     class:is-default={m.id === defaultModelId}
+                    class:focused={i === focusedModelIndex}
                     role="option"
                     aria-selected={m.id === model}
                     onclick={(e) => handleModelClick(m.id, e)}
@@ -680,10 +783,10 @@
       {:else}
         <button
           class="send-btn"
-          class:active={!!inputText.trim()}
+          class:active={!!inputText.trim() && network.isOnline}
           onclick={handleSend}
-          disabled={!inputText.trim()}
-          aria-label="Send message"
+          disabled={!inputText.trim() || !network.isOnline}
+          aria-label={network.isOnline ? "Send message" : "Offline — sending disabled"}
         >
           <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
             <path d="M8 2.5l-4.5 4.5h3V13h3V7h3L8 2.5z" />
@@ -886,6 +989,11 @@
     background: var(--color-bg-hover);
     color: var(--color-text-primary);
     font-weight: 560;
+  }
+
+  .model-option.focused {
+    outline: 2px solid var(--color-accent);
+    outline-offset: -2px;
   }
 
   .model-option-name {
@@ -1199,6 +1307,11 @@
     font-weight: 560;
   }
 
+  .agent-option.focused {
+    outline: 2px solid var(--color-accent);
+    outline-offset: -2px;
+  }
+
   .agent-option-avatar {
     font-size: 12px;
     line-height: 1;
@@ -1366,5 +1479,17 @@
   .pill-remove:hover {
     background: var(--color-bg-hover);
     color: var(--color-error);
+  }
+
+  /* ── Offline indicator ─────────────────────────── */
+
+  .offline-indicator {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md) var(--spacing-lg);
+    color: var(--color-text-tertiary);
+    font-size: var(--font-size-sm);
+    user-select: none;
   }
 </style>

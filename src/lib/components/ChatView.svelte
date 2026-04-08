@@ -37,6 +37,7 @@
   } from "$lib/stores/conversations.svelte";
   import { getModelStore, setDefaultModel } from "$lib/stores/models.svelte";
   import { getAgentStore, selectAgent } from "$lib/stores/agents.svelte";
+  import { getNetwork } from "$lib/stores/network.svelte";
 
   const greetings = [
     "Your co-pilot is ready. Where to?",
@@ -52,6 +53,7 @@
   const store = getConversationStore();
   const modelStore = getModelStore();
   const agentStore = getAgentStore();
+  const network = getNetwork();
   let chatContainer: HTMLElement | undefined = $state();
   let streaming = $state(false);
   let selectedModel = $state("gpt-4o");
@@ -547,6 +549,17 @@
     </div>
   {/if}
 
+  {#if !network.isOnline}
+    <div class="offline-banner" role="alert">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+        <path
+          d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm0 10.5a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5zM8.75 8a.75.75 0 0 1-1.5 0V5a.75.75 0 0 1 1.5 0v3z"
+        />
+      </svg>
+      <span>You're offline. Conversations are read-only.</span>
+    </div>
+  {/if}
+
   {#if store.messages.length === 0}
     <div class="welcome-container">
       <div class="welcome">
@@ -611,6 +624,9 @@
           </div>
         {/each}
       </div>
+    </div>
+    <div class="visually-hidden" aria-live="polite" aria-atomic="true">
+      {#if streaming}Copilot is responding…{/if}
     </div>
     <div class="chat-input-container">
       <InputArea
@@ -685,6 +701,21 @@
     font-weight: 500;
     color: var(--color-accent-copper);
     letter-spacing: var(--letter-spacing-tight);
+  }
+
+  /* ── Offline banner ── */
+
+  .offline-banner {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-lg);
+    background: var(--color-bg-secondary);
+    border-bottom: 1px solid var(--color-border-secondary);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    flex-shrink: 0;
+    animation: fadeIn 200ms ease both;
   }
 
   /* ── Welcome ── */

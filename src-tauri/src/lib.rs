@@ -8,6 +8,9 @@ mod state;
 pub mod text_extract;
 
 use state::AppState;
+use tauri::menu::{MenuBuilder, MenuItemBuilder};
+use tauri::tray::TrayIconBuilder;
+use tauri::Emitter;
 use tauri::Manager;
 
 /// Run the Tauri application.
@@ -66,6 +69,65 @@ pub fn run(force_logout: bool) {
                 });
             }
 
+            // ── System tray ──────────────────────────────────────
+            let new_chat = MenuItemBuilder::with_id("new_chat", "New Chat").build(app)?;
+            let show = MenuItemBuilder::with_id("show", "Show Chuck").build(app)?;
+            let quit = MenuItemBuilder::with_id("quit", "Quit").build(app)?;
+
+            let tray_menu = MenuBuilder::new(app)
+                .item(&new_chat)
+                .separator()
+                .item(&show)
+                .separator()
+                .item(&quit)
+                .build()?;
+
+            let _tray = TrayIconBuilder::new()
+                .menu(&tray_menu)
+                .on_menu_event(|app, event| match event.id().as_ref() {
+                    "new_chat" => {
+                        if let Some(win) = app.get_webview_window("main") {
+                            let _ = win.show();
+                            let _ = win.set_focus();
+                            let _ = win.emit("tray-new-chat", ());
+                        }
+                    }
+                    "show" => {
+                        if let Some(win) = app.get_webview_window("main") {
+                            let _ = win.show();
+                            let _ = win.set_focus();
+                        }
+                    }
+                    "quit" => {
+                        app.exit(0);
+                    }
+                    _ => {}
+                })
+                .on_tray_icon_event(|tray, event| {
+                    if let tauri::tray::TrayIconEvent::Click { .. } = event {
+                        if let Some(win) = tray.app_handle().get_webview_window("main") {
+                            if win.is_visible().unwrap_or(false) {
+                                let _ = win.hide();
+                            } else {
+                                let _ = win.show();
+                                let _ = win.set_focus();
+                            }
+                        }
+                    }
+                })
+                .build(app)?;
+
+            // Intercept window close → hide to tray instead of quitting
+            if let Some(win) = app.get_webview_window("main") {
+                let win_clone = win.clone();
+                win.on_window_event(move |event| {
+                    if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                        api.prevent_close();
+                        let _ = win_clone.hide();
+                    }
+                });
+            }
+
             log::info!("Chuck initialized");
             Ok(())
         })
@@ -91,6 +153,12 @@ pub fn run(force_logout: bool) {
             commands::settings::get_setting,
             commands::settings::update_setting,
             commands::settings::get_db_size,
+            commands::settings::delete_old_conversations,
+            commands::settings::export_conversation_json,
+            commands::settings::export_conversation_markdown,
+            commands::settings::export_all_conversations_json,
+            commands::settings::export_all_conversations_markdown,
+            commands::settings::save_export_file,
             commands::settings::save_draft,
             commands::settings::get_draft,
             commands::settings::delete_draft,

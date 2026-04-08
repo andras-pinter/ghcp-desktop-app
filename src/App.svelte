@@ -2,28 +2,97 @@
   import Sidebar from "$lib/components/Sidebar.svelte";
   import ChatView from "$lib/components/ChatView.svelte";
   import AuthScreen from "$lib/components/AuthScreen.svelte";
+  import SettingsPanel from "$lib/components/SettingsPanel.svelte";
   import McpSettings from "$lib/components/McpSettings.svelte";
   import SkillsPanel from "$lib/components/SkillsPanel.svelte";
   import AgentsPanel from "$lib/components/AgentsPanel.svelte";
   import ProjectView from "$lib/components/ProjectView.svelte";
   import { initAuth, getAuth } from "$lib/stores/auth.svelte";
-  import { initModels } from "$lib/stores/models.svelte";
-  import { initConversations } from "$lib/stores/conversations.svelte";
+  import { initModels, getModelStore } from "$lib/stores/models.svelte";
+  import { initConversations, newConversation } from "$lib/stores/conversations.svelte";
   import { initMcp } from "$lib/stores/mcp.svelte";
   import { initAgents } from "$lib/stores/agents.svelte";
   import { initSkills } from "$lib/stores/skills.svelte";
   import { initProjects } from "$lib/stores/projects.svelte";
+  import { initSettings, getSettings } from "$lib/stores/settings.svelte";
+  import { initNetwork } from "$lib/stores/network.svelte";
+  import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+  import { getCurrentWindow } from "@tauri-apps/api/window";
+  import { register, unregister } from "@tauri-apps/plugin-global-shortcut";
   import { onMount } from "svelte";
 
-  type AppView = "chat" | "mcp-settings" | "skills" | "agents" | "projects";
+  type AppView = "chat" | "settings" | "mcp-settings" | "skills" | "agents" | "projects";
 
   let sidebarCollapsed = $state(false);
   let dataLoaded = $state(false);
   let currentView = $state<AppView>("chat");
   const auth = getAuth();
+  const modelStore = getModelStore();
+  const settingsRef = getSettings();
+  let unlistenTray: UnlistenFn | undefined;
+  let registeredHotkey: string | undefined;
+
+  /** Get the best default model for a new conversation. */
+  function defaultModel(): string {
+    if (modelStore.defaultModelId) return modelStore.defaultModelId;
+    if (modelStore.models.length > 0) return modelStore.models[0].id;
+    return "gpt-4o";
+  }
+
+  /** Toggle window visibility for global hotkey. */
+  async function toggleWindowVisibility(): Promise<void> {
+    const win = getCurrentWindow();
+    const visible = await win.isVisible();
+    if (visible) {
+      const focused = await win.isFocused();
+      if (focused) {
+        await win.hide();
+      } else {
+        await win.setFocus();
+      }
+    } else {
+      await win.show();
+      await win.setFocus();
+    }
+  }
+
+  /** Register global hotkey. Unregisters previous one if different. */
+  async function registerGlobalHotkey(shortcut: string): Promise<void> {
+    try {
+      if (registeredHotkey && registeredHotkey !== shortcut) {
+        await unregister(registeredHotkey);
+      }
+      if (registeredHotkey === shortcut) return;
+      await register(shortcut, (event) => {
+        if (event.state === "Pressed") {
+          toggleWindowVisibility();
+        }
+      });
+      registeredHotkey = shortcut;
+    } catch (e) {
+      console.warn("Failed to register global hotkey:", e);
+    }
+  }
 
   onMount(() => {
     initAuth();
+    initSettings().then(() => {
+      // Register global hotkey after settings are loaded
+      if (settingsRef.globalHotkey) {
+        registerGlobalHotkey(settingsRef.globalHotkey);
+      }
+    });
+    initNetwork();
+
+    // Listen for tray "New Chat" menu item
+    let trayCleanup: Promise<UnlistenFn> | undefined;
+    trayCleanup = listen("tray-new-chat", () => {
+      if (auth.authenticated) {
+        newConversation(defaultModel());
+        currentView = "chat";
+      }
+    });
+    trayCleanup.then((fn) => (unlistenTray = fn));
 
     // Prevent Tauri webview from navigating when files are dragged/dropped
     // outside the designated drop zone. Only preventDefault — do NOT
@@ -34,6 +103,10 @@
     return () => {
       document.removeEventListener("dragover", preventDragNav);
       document.removeEventListener("drop", preventDragNav);
+      unlistenTray?.();
+      if (registeredHotkey) {
+        unregister(registeredHotkey);
+      }
     };
   });
 
@@ -54,6 +127,14 @@
     }
   });
 
+  // Re-register global hotkey when setting changes
+  $effect(() => {
+    const hotkey = settingsRef.globalHotkey;
+    if (hotkey && settingsRef.loaded && hotkey !== registeredHotkey) {
+      registerGlobalHotkey(hotkey);
+    }
+  });
+
   function toggleSidebar() {
     sidebarCollapsed = !sidebarCollapsed;
   }
@@ -67,9 +148,32 @@
   }
 
   function handleKeydown(event: KeyboardEvent) {
-    if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key === "S") {
+    const mod = event.metaKey || event.ctrlKey;
+
+    // Cmd/Ctrl+Shift+S → toggle sidebar
+    if (mod && event.shiftKey && event.key === "S") {
       event.preventDefault();
       toggleSidebar();
+      return;
+    }
+
+    // Cmd/Ctrl+N → new chat
+    if (mod && event.key === "n" && !event.shiftKey) {
+      event.preventDefault();
+      if (auth.authenticated) {
+        newConversation(defaultModel());
+        currentView = "chat";
+      }
+      return;
+    }
+
+    // Cmd/Ctrl+, → open settings
+    if (mod && event.key === ",") {
+      event.preventDefault();
+      if (auth.authenticated) {
+        currentView = currentView === "settings" ? "chat" : "settings";
+      }
+      return;
     }
   }
 </script>
@@ -128,7 +232,9 @@
         <Sidebar collapsed={sidebarCollapsed} onNavigate={navigateTo} />
       </aside>
       <main class="main-container">
-        {#if currentView === "mcp-settings"}
+        {#if currentView === "settings"}
+          <SettingsPanel onBack={navigateBack} />
+        {:else if currentView === "mcp-settings"}
           <McpSettings onBack={navigateBack} />
         {:else if currentView === "skills"}
           <SkillsPanel onBack={navigateBack} />

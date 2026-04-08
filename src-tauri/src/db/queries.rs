@@ -343,6 +343,90 @@ pub fn get_db_size(db_path: &std::path::Path) -> Result<u64, std::io::Error> {
     Ok(metadata.len())
 }
 
+/// Delete conversations (and their cascaded messages/drafts) older than the given ISO 8601 date.
+/// Returns the number of conversations deleted.
+pub fn delete_old_conversations(
+    conn: &Connection,
+    before_date: &str,
+) -> Result<usize, rusqlite::Error> {
+    let count = conn.execute(
+        "DELETE FROM conversations WHERE updated_at < ?1",
+        params![before_date],
+    )?;
+    Ok(count)
+}
+
+/// A conversation with its messages, suitable for export.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ConversationExport {
+    #[serde(flatten)]
+    pub conversation: Conversation,
+    pub messages: Vec<Message>,
+}
+
+/// Get a single conversation with all its messages for export.
+pub fn get_conversation_for_export(
+    conn: &Connection,
+    id: &str,
+) -> Result<Option<ConversationExport>, rusqlite::Error> {
+    let conv = get_conversation(conn, id)?;
+    match conv {
+        Some(c) => {
+            let msgs = get_messages(conn, id)?;
+            Ok(Some(ConversationExport {
+                conversation: c,
+                messages: msgs,
+            }))
+        }
+        None => Ok(None),
+    }
+}
+
+/// Get all conversations with their messages for bulk export.
+pub fn get_all_conversations_for_export(
+    conn: &Connection,
+) -> Result<Vec<ConversationExport>, rusqlite::Error> {
+    let convos = list_conversations(conn)?;
+    let mut result = Vec::with_capacity(convos.len());
+    for c in convos {
+        let msgs = get_messages(conn, &c.id)?;
+        result.push(ConversationExport {
+            conversation: c,
+            messages: msgs,
+        });
+    }
+    Ok(result)
+}
+
+/// Format a single conversation as Markdown.
+pub fn conversation_to_markdown(export: &ConversationExport) -> String {
+    let mut md = String::new();
+    let title = export
+        .conversation
+        .title
+        .as_deref()
+        .unwrap_or("Untitled conversation");
+    md.push_str(&format!("# {}\n\n", title));
+    md.push_str(&format!(
+        "_Created: {} · Updated: {}_\n\n---\n\n",
+        export.conversation.created_at, export.conversation.updated_at
+    ));
+
+    for msg in &export.messages {
+        let role_label = match msg.role.as_str() {
+            "user" => "**You**",
+            "assistant" => "**Copilot**",
+            "system" => "**System**",
+            "tool" => "**Tool**",
+            _ => "**Unknown**",
+        };
+        md.push_str(&format!("{}\n\n{}\n\n---\n\n", role_label, msg.content));
+    }
+
+    md
+}
+
 // ── MCP Servers ─────────────────────────────────────────────────
 
 /// An MCP server configuration row (matches `mcp_servers` table).
