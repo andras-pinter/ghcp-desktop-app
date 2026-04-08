@@ -191,7 +191,6 @@
         try {
           await approveMcpBinary(binaryPath);
           // Approval succeeded — retry the test
-          testing = true;
           const count = isEditing
             ? await testConnection(initialEdit!.config.id)
             : await testConnectionConfig(buildConfig());
