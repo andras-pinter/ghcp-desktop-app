@@ -443,7 +443,6 @@
 
     let title: string;
     try {
-      // Ask the AI to generate a concise title
       title = await generateConversationTitle(
         firstUser.content,
         firstAssistant?.content ?? "",
