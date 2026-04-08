@@ -58,7 +58,7 @@ impl std::str::FromStr for McpTransport {
 }
 
 /// Configuration for an MCP server (mirrors SQLite `mcp_servers` table).
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct McpServerConfig {
     pub id: String,
@@ -82,6 +82,25 @@ pub struct McpServerConfig {
     /// Whether this server is enabled.
     #[serde(default = "default_true")]
     pub enabled: bool,
+}
+
+impl std::fmt::Debug for McpServerConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("McpServerConfig")
+            .field("id", &self.id)
+            .field("name", &self.name)
+            .field("transport", &self.transport)
+            .field("url", &self.url)
+            .field("binary_path", &self.binary_path)
+            .field("args", &self.args)
+            .field(
+                "auth_header",
+                &self.auth_header.as_ref().map(|_| "••••••••"),
+            )
+            .field("from_catalog", &self.from_catalog)
+            .field("enabled", &self.enabled)
+            .finish()
+    }
 }
 
 fn default_true() -> bool {

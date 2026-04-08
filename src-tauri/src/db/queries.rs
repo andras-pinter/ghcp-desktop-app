@@ -446,6 +446,27 @@ pub struct McpServerRow {
     pub updated_at: String,
 }
 
+/// Map a rusqlite Row to an McpServerRow.
+///
+/// Expects columns in the standard SELECT order:
+/// `id, name, transport, url, binary_path, args, auth_header,
+///  from_catalog, enabled, created_at, updated_at`
+fn map_mcp_row(row: &rusqlite::Row) -> rusqlite::Result<McpServerRow> {
+    Ok(McpServerRow {
+        id: row.get(0)?,
+        name: row.get(1)?,
+        transport: row.get(2)?,
+        url: row.get(3)?,
+        binary_path: row.get(4)?,
+        args: row.get(5)?,
+        auth_header: row.get(6)?,
+        from_catalog: row.get::<_, i64>(7)? != 0,
+        enabled: row.get::<_, i64>(8)? != 0,
+        created_at: row.get(9)?,
+        updated_at: row.get(10)?,
+    })
+}
+
 /// List all MCP servers.
 pub fn get_mcp_servers(conn: &Connection) -> Result<Vec<McpServerRow>, rusqlite::Error> {
     let mut stmt = conn.prepare(
@@ -455,21 +476,7 @@ pub fn get_mcp_servers(conn: &Connection) -> Result<Vec<McpServerRow>, rusqlite:
          ORDER BY name ASC",
     )?;
     let rows = stmt
-        .query_map([], |row| {
-            Ok(McpServerRow {
-                id: row.get(0)?,
-                name: row.get(1)?,
-                transport: row.get(2)?,
-                url: row.get(3)?,
-                binary_path: row.get(4)?,
-                args: row.get(5)?,
-                auth_header: row.get(6)?,
-                from_catalog: row.get::<_, i64>(7)? != 0,
-                enabled: row.get::<_, i64>(8)? != 0,
-                created_at: row.get(9)?,
-                updated_at: row.get(10)?,
-            })
-        })?
+        .query_map([], map_mcp_row)?
         .collect::<Result<Vec<_>, _>>()?;
     Ok(rows)
 }
@@ -484,21 +491,7 @@ pub fn get_mcp_server(
                 from_catalog, enabled, created_at, updated_at
          FROM mcp_servers WHERE id = ?1",
     )?;
-    let mut rows = stmt.query_map(params![id], |row| {
-        Ok(McpServerRow {
-            id: row.get(0)?,
-            name: row.get(1)?,
-            transport: row.get(2)?,
-            url: row.get(3)?,
-            binary_path: row.get(4)?,
-            args: row.get(5)?,
-            auth_header: row.get(6)?,
-            from_catalog: row.get::<_, i64>(7)? != 0,
-            enabled: row.get::<_, i64>(8)? != 0,
-            created_at: row.get(9)?,
-            updated_at: row.get(10)?,
-        })
-    })?;
+    let mut rows = stmt.query_map(params![id], map_mcp_row)?;
     rows.next().transpose()
 }
 
@@ -511,21 +504,7 @@ pub fn get_enabled_mcp_servers(conn: &Connection) -> Result<Vec<McpServerRow>, r
          ORDER BY name ASC",
     )?;
     let rows = stmt
-        .query_map([], |row| {
-            Ok(McpServerRow {
-                id: row.get(0)?,
-                name: row.get(1)?,
-                transport: row.get(2)?,
-                url: row.get(3)?,
-                binary_path: row.get(4)?,
-                args: row.get(5)?,
-                auth_header: row.get(6)?,
-                from_catalog: row.get::<_, i64>(7)? != 0,
-                enabled: row.get::<_, i64>(8)? != 0,
-                created_at: row.get(9)?,
-                updated_at: row.get(10)?,
-            })
-        })?
+        .query_map([], map_mcp_row)?
         .collect::<Result<Vec<_>, _>>()?;
     Ok(rows)
 }
@@ -1170,6 +1149,38 @@ pub fn get_project_text_files(
     rows.collect()
 }
 
+// ── Approved MCP Binaries ────────────────────────────────────────
+
+/// Check whether a binary path has been approved for stdio MCP execution.
+pub fn is_binary_approved(conn: &Connection, binary_path: &str) -> Result<bool, rusqlite::Error> {
+    let count: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM approved_mcp_binaries WHERE binary_path = ?1",
+        [binary_path],
+        |row| row.get(0),
+    )?;
+    Ok(count > 0)
+}
+
+/// Approve a binary path for stdio MCP execution.
+pub fn approve_binary(conn: &Connection, binary_path: &str) -> Result<(), rusqlite::Error> {
+    conn.execute(
+        "INSERT OR REPLACE INTO approved_mcp_binaries (binary_path, approved_at)
+         VALUES (?1, datetime('now'))",
+        [binary_path],
+    )?;
+    Ok(())
+}
+
+/// Revoke approval for a binary path.
+#[allow(dead_code)]
+pub fn revoke_binary(conn: &Connection, binary_path: &str) -> Result<(), rusqlite::Error> {
+    conn.execute(
+        "DELETE FROM approved_mcp_binaries WHERE binary_path = ?1",
+        [binary_path],
+    )?;
+    Ok(())
+}
+
 // ── Tests ───────────────────────────────────────────────────────
 
 #[cfg(test)]
@@ -1291,9 +1302,9 @@ mod tests {
     fn test_settings() {
         let conn = setup_db();
 
-        // Schema version was seeded (v2 after all migrations)
+        // Schema version was seeded (v3 after all migrations)
         let ver = get_setting(&conn, "schema_version").unwrap();
-        assert_eq!(ver, Some("2".to_string()));
+        assert_eq!(ver, Some("3".to_string()));
 
         // Set new value
         set_setting(&conn, "theme", "dark").unwrap();

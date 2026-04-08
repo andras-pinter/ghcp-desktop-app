@@ -12,6 +12,7 @@
     loadRegistryMore,
     searchRegistry,
   } from "$lib/stores/mcp.svelte";
+  import { approveMcpBinary } from "$lib/utils/commands";
   import type { McpConnectionInfo, McpServerConfig, RegistryServer } from "$lib/types/mcp";
   import McpServerForm from "./McpServerForm.svelte";
   import { onMount, onDestroy } from "svelte";
@@ -167,11 +168,20 @@
     view = { kind: "list" };
   }
 
-  async function handleConnect(serverId: string) {
+  async function handleConnect(serverId: string, isRetry = false) {
     try {
       await connectServer(serverId);
-    } catch {
-      // Error is in the store
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.startsWith("BINARY_NOT_APPROVED:") && !isRetry) {
+        const binaryPath = msg.slice("BINARY_NOT_APPROVED:".length);
+        try {
+          await approveMcpBinary(binaryPath);
+          await handleConnect(serverId, true);
+        } catch {
+          // User denied or approval failed — do nothing
+        }
+      }
     }
   }
 
@@ -187,18 +197,40 @@
     testingServer = info.config.id;
     testResult = null;
     try {
-      const count = await testConnection(info.config);
+      const count = await testConnection(info.config.id);
       testResult = {
         serverId: info.config.id,
         success: true,
         message: `Connected — ${count} tool${count !== 1 ? "s" : ""} discovered`,
       };
     } catch (e) {
-      testResult = {
-        serverId: info.config.id,
-        success: false,
-        message: e instanceof Error ? e.message : String(e),
-      };
+      const msg = e instanceof Error ? e.message : String(e);
+      // Handle binary approval the same way as connect
+      if (msg.startsWith("BINARY_NOT_APPROVED:")) {
+        const binaryPath = msg.slice("BINARY_NOT_APPROVED:".length);
+        try {
+          await approveMcpBinary(binaryPath);
+          // Retry the test after approval
+          const count = await testConnection(info.config.id);
+          testResult = {
+            serverId: info.config.id,
+            success: true,
+            message: `Connected — ${count} tool${count !== 1 ? "s" : ""} discovered`,
+          };
+        } catch (retryErr) {
+          testResult = {
+            serverId: info.config.id,
+            success: false,
+            message: retryErr instanceof Error ? retryErr.message : String(retryErr),
+          };
+        }
+      } else {
+        testResult = {
+          serverId: info.config.id,
+          success: false,
+          message: msg,
+        };
+      }
     } finally {
       testingServer = null;
     }

@@ -210,9 +210,9 @@ export async function exportAllConversationsMarkdown(): Promise<string> {
   return invoke<string>("export_all_conversations_markdown");
 }
 
-/** Write text content to a file path (for export). */
-export async function saveExportFile(path: string, content: string): Promise<void> {
-  return invoke("save_export_file", { path, content });
+/** Save exported content to a user-chosen file via native save dialog (server-side). */
+export async function saveExportFile(content: string, defaultName: string): Promise<void> {
+  return invoke("save_export_file", { content, defaultName });
 }
 
 // ── Drafts ──────────────────────────────────────────────────────
@@ -278,9 +278,15 @@ export async function disconnectMcpServer(serverId: string): Promise<void> {
   return invoke("disconnect_mcp_server", { serverId });
 }
 
-/** Test an MCP server connection. Returns the number of tools discovered. */
-export async function testMcpConnection(config: McpServerConfig): Promise<number> {
-  return invoke<number>("test_mcp_connection", { config });
+/** Test an MCP server connection. Returns the number of tools discovered.
+ *  Uses server_id to load real config from DB+keychain (avoids redacted auth). */
+export async function testMcpConnection(serverId: string): Promise<number> {
+  return invoke<number>("test_mcp_connection", { serverId });
+}
+
+/** Test an MCP server using a raw config (for unsaved servers in the add form). */
+export async function testMcpConnectionConfig(config: McpServerConfig): Promise<number> {
+  return invoke<number>("test_mcp_connection_config", { config });
 }
 
 /** Get discovered tools from a connected MCP server. */
@@ -309,6 +315,16 @@ export async function fetchMcpRegistry(query?: string, cursor?: string): Promise
     query: query ?? null,
     cursor: cursor ?? null,
   });
+}
+
+/** Approve an MCP stdio binary for execution. */
+export async function approveMcpBinary(binaryPath: string): Promise<void> {
+  return invoke("approve_mcp_binary", { binaryPath });
+}
+
+/** Check if an MCP stdio binary is approved. */
+export async function isMcpBinaryApproved(binaryPath: string): Promise<boolean> {
+  return invoke<boolean>("is_mcp_binary_approved", { binaryPath });
 }
 
 // ── Agents ──────────────────────────────────────────────────────
@@ -595,7 +611,8 @@ export async function extractFileText(
   return invoke<string | null>("extract_file_text", { contentBase64, contentType, name });
 }
 
-/** Read files from OS-level drag-and-drop paths via Tauri backend. */
+/** Read files from OS-level drag-and-drop paths via Tauri backend.
+ *  Paths are validated server-side against the OS drag-drop event (no separate registration needed). */
 export async function readDroppedFiles(
   paths: string[],
 ): Promise<import("$lib/types/project").ChatFileData[]> {

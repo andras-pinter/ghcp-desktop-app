@@ -118,6 +118,7 @@
         // Set extraction status BEFORE updating pendingDropFiles so there's no
         // window where loading=false but extraction hasn't started (race condition).
         try {
+          // Paths are validated server-side against the OS drag-drop handler
           const files = await readDroppedFiles(paths);
           if (files.length > 0) {
             startExtractions(files);

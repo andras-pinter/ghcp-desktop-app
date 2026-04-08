@@ -86,10 +86,30 @@ pub fn export_all_conversations_markdown(app: AppHandle) -> Result<String, Strin
     Ok(result)
 }
 
-/// Write text content to a user-chosen file path (for conversation export).
+/// Save exported content to a user-chosen file via the native save dialog.
+///
+/// The file path is determined entirely server-side by `tauri-plugin-dialog`,
+/// so the frontend never controls the destination.
 #[tauri::command]
-pub fn save_export_file(path: String, content: String) -> Result<(), String> {
-    std::fs::write(&path, &content).map_err(|e| format!("Failed to write file: {}", e))
+pub async fn save_export_file(
+    app: AppHandle,
+    content: String,
+    default_name: String,
+) -> Result<(), String> {
+    use tauri_plugin_dialog::DialogExt;
+
+    let path = app
+        .dialog()
+        .file()
+        .set_file_name(&default_name)
+        .blocking_save_file()
+        .ok_or_else(|| "Export cancelled".to_string())?;
+
+    let path_buf = path
+        .into_path()
+        .map_err(|e| format!("Invalid file path: {e}"))?;
+
+    std::fs::write(&path_buf, &content).map_err(|e| format!("Failed to write file: {e}"))
 }
 
 // ── Drafts ──────────────────────────────────────────────────────

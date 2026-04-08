@@ -10,6 +10,9 @@ pub fn run(conn: &Connection, current_version: i32) -> Result<(), Box<dyn std::e
     if current_version < 2 {
         migrate_v2(conn)?;
     }
+    if current_version < 3 {
+        migrate_v3(conn)?;
+    }
     Ok(())
 }
 
@@ -183,6 +186,58 @@ fn migrate_v2(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+/// Version 3: Approved MCP binaries table + migrate auth headers to keychain.
+fn migrate_v3(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
+    // Proactively move existing plaintext auth headers to OS keychain.
+    // Only clear each row's auth_header after confirmed keychain storage.
+    {
+        let mut stmt =
+            conn.prepare("SELECT id, auth_header FROM mcp_servers WHERE auth_header IS NOT NULL")?;
+        let rows = stmt.query_map([], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        })?;
+        for row in rows {
+            let (server_id, auth_header) = match row {
+                Ok(pair) => pair,
+                Err(e) => {
+                    log::warn!("Skipping unreadable mcp_servers row during migration: {e}");
+                    continue;
+                }
+            };
+            let key = format!("mcp_auth_{server_id}");
+            match copilot_api::keychain::store(&key, &auth_header) {
+                Ok(()) => {
+                    // Keychain write succeeded — safe to clear this row's plaintext auth
+                    conn.execute(
+                        "UPDATE mcp_servers SET auth_header = NULL WHERE id = ?1",
+                        [&server_id],
+                    )?;
+                }
+                Err(e) => {
+                    // Keychain write failed — keep plaintext auth as fallback for this server
+                    log::warn!("Failed to migrate MCP auth for {server_id} to keychain: {e}. Keeping plaintext auth as fallback.");
+                }
+            }
+        }
+    }
+
+    conn.execute_batch(
+        "
+        -- Approved MCP stdio binaries (user must approve before first launch)
+        CREATE TABLE IF NOT EXISTS approved_mcp_binaries (
+            binary_path TEXT PRIMARY KEY,
+            approved_at TEXT NOT NULL
+        );
+
+        -- Bump schema version
+        UPDATE config SET value = '3' WHERE key = 'schema_version';
+        ",
+    )?;
+
+    log::info!("Database migrated to schema version 3");
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -228,12 +283,12 @@ mod tests {
     }
 
     #[test]
-    fn test_migration_v2() {
+    fn test_full_migration() {
         let conn = Connection::open_in_memory().unwrap();
         conn.execute_batch("PRAGMA foreign_keys=ON;").unwrap();
         run(&conn, 0).unwrap();
 
-        // Verify schema version is now 2
+        // Verify schema version is now 3
         let version: String = conn
             .query_row(
                 "SELECT value FROM config WHERE key='schema_version'",
@@ -241,7 +296,7 @@ mod tests {
                 |row| row.get(0),
             )
             .unwrap();
-        assert_eq!(version, "2");
+        assert_eq!(version, "3");
 
         // Verify new skill columns exist
         conn.execute(
@@ -288,11 +343,11 @@ mod tests {
         // Simulate existing v1 database
         run(&conn, 0).unwrap();
 
-        // Now simulate upgrading from v1 to v2 only
+        // Now simulate upgrading from v1 to latest
         let conn2 = Connection::open_in_memory().unwrap();
         conn2.execute_batch("PRAGMA foreign_keys=ON;").unwrap();
         migrate_v1(&conn2).unwrap();
-        // Run from v1 should only apply v2
+        // Run from v1 should apply v2 and v3
         run(&conn2, 1).unwrap();
 
         let version: String = conn2
@@ -302,6 +357,6 @@ mod tests {
                 |row| row.get(0),
             )
             .unwrap();
-        assert_eq!(version, "2");
+        assert_eq!(version, "3");
     }
 }

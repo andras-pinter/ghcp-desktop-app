@@ -10,7 +10,6 @@
     saveExportFile,
   } from "$lib/utils/commands";
   import { formatBytes } from "$lib/utils/format";
-  import { save } from "@tauri-apps/plugin-dialog";
   import { onMount } from "svelte";
 
   interface Props {
@@ -86,24 +85,17 @@
     exporting = true;
     try {
       const ext = format === "json" ? "json" : "md";
-      const path = await save({
-        defaultPath: `chuck-conversations.${ext}`,
-        filters: [
-          {
-            name: format === "json" ? "JSON" : "Markdown",
-            extensions: [ext],
-          },
-        ],
-      });
-      if (!path) return;
+      const defaultName = `chuck-conversations.${ext}`;
 
       const content =
         format === "json"
           ? await exportAllConversationsJson()
           : await exportAllConversationsMarkdown();
 
-      await saveExportFile(path, content);
+      await saveExportFile(content, defaultName);
     } catch (e) {
+      // User cancelled the dialog — not an error
+      if (String(e) === "Export cancelled") return;
       console.error("Export failed:", e);
     } finally {
       exporting = false;

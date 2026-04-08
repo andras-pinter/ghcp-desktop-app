@@ -1,6 +1,12 @@
 <script lang="ts">
   import type { McpServerConfig, McpConnectionInfo, RegistryServer } from "$lib/types/mcp";
-  import { addServer, editServer, testConnection } from "$lib/stores/mcp.svelte";
+  import {
+    addServer,
+    editServer,
+    testConnection,
+    testConnectionConfig,
+  } from "$lib/stores/mcp.svelte";
+  import { approveMcpBinary } from "$lib/utils/commands";
   import { untrack } from "svelte";
 
   interface Props {
@@ -169,16 +175,38 @@
     testing = true;
     testResult = null;
     try {
-      const count = await testConnection(buildConfig());
+      // Use server_id for existing servers (loads real auth from keychain),
+      // or raw config for unsaved servers (auth is the real value from form).
+      const count = isEditing
+        ? await testConnection(initialEdit!.config.id)
+        : await testConnectionConfig(buildConfig());
       testResult = {
         success: true,
         message: `Connected successfully — ${count} tool${count !== 1 ? "s" : ""} discovered`,
       };
     } catch (e) {
-      testResult = {
-        success: false,
-        message: e instanceof Error ? e.message : String(e),
-      };
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.startsWith("BINARY_NOT_APPROVED:")) {
+        const binaryPath = msg.slice("BINARY_NOT_APPROVED:".length);
+        try {
+          await approveMcpBinary(binaryPath);
+          // Approval succeeded — retry the test
+          const count = isEditing
+            ? await testConnection(initialEdit!.config.id)
+            : await testConnectionConfig(buildConfig());
+          testResult = {
+            success: true,
+            message: `Connected successfully — ${count} tool${count !== 1 ? "s" : ""} discovered`,
+          };
+        } catch (approveErr) {
+          testResult = {
+            success: false,
+            message: approveErr instanceof Error ? approveErr.message : String(approveErr),
+          };
+        }
+      } else {
+        testResult = { success: false, message: msg };
+      }
     } finally {
       testing = false;
     }

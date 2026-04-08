@@ -133,6 +133,48 @@ For any non-trivial task, the review cycle SHOULD be split across multiple agent
 Each agent independently reviews and reports issues. ALL reported issues must be fixed
 before the task is considered complete. Then the full review cycle runs again.
 
+### 4. Pre-Merge / Finalization Review
+
+When the user requests finalization, merge preparation, or uses phrases like *"let's prepare for merge"*, *"let's finalize"*, *"give it a final review"*, or *"prepare for merging"*, the agent **MUST** trigger a **full extensive review cycle** — regardless of whether the agent believes the code is already clean.
+
+**This is NOT the same as the per-task review in section 1.** The pre-merge review is a comprehensive, branch-wide audit:
+
+1. **Run the full check suite** (all Rust + frontend checks from the Review Checklist above)
+2. **Dispatch parallel review agents** (at minimum: Security Agent + Code Review Agent)
+3. **Fix ALL reported issues** — no deferral, no "cosmetic only" exceptions
+4. **Re-run the full check suite + re-dispatch review agents**
+5. **Repeat steps 2–4 until BOTH review agents report zero issues**
+
+```
+User says "prepare for merge / finalize"
+              │
+              ▼
+┌─────────────────────────────────┐
+│  Run full check suite           │
+│  (cargo + pnpm, all checks)    │
+└────────────┬────────────────────┘
+             ▼
+┌─────────────────────────────────┐
+│  Dispatch review agents:        │
+│  • Security Agent               │
+│  • Code Review Agent            │
+│  (+ Docs Agent if applicable)   │
+└────────────┬────────────────────┘
+             ▼
+        ┌─────────┐     YES     ┌──────────────────┐
+        │ Issues? │────────────▶│  FIX all issues   │──┐
+        └────┬────┘             │  Commit fixes     │  │
+             │ NO               │  Re-run checks    │  │
+             ▼                  └──────────────────┘  │
+┌─────────────────────────┐          ┌────────────────┘
+│  ✅ Branch ready for     │          │
+│  merge (0 issues across  │          ▼
+│  ALL review agents)      │    (loop back to dispatch)
+└──────────────────────────┘
+```
+
+**The loop terminates ONLY when all dispatched review agents independently report zero findings.** One clean pass is not enough if a fix introduced a new issue — the full cycle must re-run.
+
 ---
 
 ## Project Overview
@@ -777,7 +819,7 @@ Manage MCP server connections. Accessed from Settings > MCP tab.
 │  │                                                                 │ │
 │  │  Svelte Stores:                                                 │ │
 │  │  conversations │ auth │ agents │ skills │ projects │ mcp │       │ │
-│  │  settings │ theme │ network                                     │ │
+│  │  models │ settings │ network                                    │ │
 │  └─────────────────────────┬───────────────────────────────────────┘ │
 │                            │ Tauri IPC (invoke / listen)             │
 │  ┌─────────────────────────┴───────────────────────────────────────┐ │
@@ -800,7 +842,7 @@ Manage MCP server connections. Accessed from Settings > MCP tab.
 │  └────────────┼────────────────┼──────────────────┼───────────────┘ │
 │  Tauri Plugins: updater │ global-shortcut │ dialog │ notification   │
 │                clipboard-manager │ shell │ store                    │
-│  Tauri Core Features: tray-icon │ protocol-asset                   │
+│  Tauri Core Features: tray-icon │ devtools                         │
 └───────────────┼────────────────┼──────────────────┼──────────────────┘
                 │                │                  │
          ┌──────┴──────┐  ┌─────┴──────────┐  ┌───┴────────────────┐
@@ -820,15 +862,15 @@ and **events** (`listen()`/`emit()`). This is the only bridge between the two la
 | Module | Commands | Status |
 |---|---|---|
 | `mod.rs` | `get_app_info` — return app name + version; `log_frontend` — surface frontend log messages to Rust console | ✅ |
-| `chat.rs` | `send_message` — send chat message, starts streaming via events; `stop_streaming` — cancel in-flight SSE stream | ✅ |
+| `chat.rs` | `send_message` — send chat message, starts streaming via events; `stop_streaming` — cancel in-flight SSE stream; `generate_title` — auto-generate conversation title from first exchange | ✅ |
 | `auth.rs` | `authenticate` — initiate OAuth device flow; `poll_auth_token` — poll for token after user authorizes; `logout` — clear token from keychain; `get_auth_state` — check current auth status | ✅ |
 | `conversations.rs` | `get_conversations` — list from SQLite; `get_conversation` — single by ID; `create_conversation` — new conversation; `update_conversation` — rename/update metadata; `delete_conversation` — remove conversation + messages; `get_messages` — messages for a conversation; `create_message` — insert message; `update_message_content` — update after streaming/edit; `delete_messages_after` — discard messages after sort order (for editing) | ✅ |
 | `models.rs` | `get_models` — fetch available Copilot models (deduplicates API response) | ✅ |
-| `settings.rs` | `get_setting` — read config key; `update_setting` — write config key-value; `get_db_size` — return database file size; `save_draft` — persist input draft; `get_draft` — retrieve draft for conversation; `delete_draft` — clear draft | ✅ |
+| `settings.rs` | `get_setting` — read config key; `update_setting` — write config key-value; `get_db_size` — return database file size; `save_export_file` — export conversations via server-side save dialog (Rust controls path selection); `delete_old_conversations` — remove conversations older than cutoff date; `export_conversation_json` — export single conversation as JSON; `export_conversation_markdown` — export single conversation as Markdown; `export_all_conversations_json` — bulk export all as JSON; `export_all_conversations_markdown` — bulk export all as Markdown; `save_draft` — persist input draft; `get_draft` — retrieve draft for conversation; `delete_draft` — clear draft | ✅ |
 | `agents.rs` | `get_agents` — list agent personas; `get_agent` — single by ID; `create_agent` — new agent; `update_agent` — edit agent; `delete_agent` — remove agent (blocks default); `set_agent_skills` — assign skills; `set_agent_mcp_connections` — assign MCP servers; `install_agent_from_registry` — install from aitmpl.com; `import_agent_from_git` — import from git; `fetch_git_agents` — discover agent files from git repo | ✅ |
 | `skills.rs` | `get_skills` — list all skills; `create_skill` — add new skill; `update_skill` — edit skill; `delete_skill` — remove skill; `toggle_skill` — enable/disable; `search_registry` — search aitmpl.com registry; `install_from_registry` — fetch SKILL.md + save; `fetch_git_skills` — discover SKILL.md files from git URL; `import_git_skill` — save parsed skill from git | ✅ |
-| `projects.rs` | `get_projects` — list projects; `get_project` — single by ID; `create_project` — new project; `update_project` — edit instructions/name; `delete_project` — remove project; `get_project_files` — list files; `add_project_file` — attach file (BLOB); `get_project_file_content` — read file content; `remove_project_file` — detach file; `get_project_conversations` — list conversations in project; `pick_file_for_upload` — native file picker for project files; `pick_file_for_chat` — native file picker for chat attachments; `extract_file_text` — async text extraction (PDF, DOCX, XLSX, PPTX, RTF, 60+ text formats); `read_dropped_files` — read file paths from Tauri drag-drop events | ✅ |
-| `mcp.rs` | `get_mcp_servers` — list configured servers; `add_mcp_server` — register new server; `update_mcp_server` — update server config; `remove_mcp_server` — delete server; `connect_mcp_server` — connect to server; `disconnect_mcp_server` — disconnect; `test_mcp_connection` — verify server responds; `get_mcp_tools` — list discovered tools; `invoke_mcp_tool` — call an MCP tool; `fetch_mcp_registry` — browse official MCP Registry | ✅ |
+| `projects.rs` | `get_projects` — list projects; `get_project` — single by ID; `create_project` — new project; `update_project` — edit instructions/name; `delete_project` — remove project; `get_project_files` — list files; `add_project_file` — attach file (BLOB); `get_project_file_content` — read file content; `remove_project_file` — detach file; `get_project_conversations` — list conversations in project; `pick_file_for_upload` — native file picker for project files; `pick_file_for_chat` — native file picker for chat attachments; `extract_file_text` — async text extraction (PDF, DOCX, XLSX, PPTX, RTF, 60+ text formats); `read_dropped_files` — read file paths from Tauri drag-drop events (validated against OS-registered allowed paths) | ✅ |
+| `mcp.rs` | `get_mcp_servers` — list configured servers; `add_mcp_server` — register new server; `update_mcp_server` — update server config; `remove_mcp_server` — delete server; `connect_mcp_server` — connect to server (auth_header redacted in response; stdio binaries require prior approval); `disconnect_mcp_server` — disconnect; `test_mcp_connection` — verify server responds; `test_mcp_connection_config` — test unsaved server config from add/edit form; `get_mcp_tools` — list discovered tools; `invoke_mcp_tool` — call an MCP tool; `fetch_mcp_registry` — browse official MCP Registry; `approve_mcp_binary` — approve a stdio binary for execution (persisted to SQLite); `is_mcp_binary_approved` — check if a binary is approved | ✅ |
 | `web_research.rs` | `web_search` — trigger web search via API; `fetch_url` — fetch + extract URL content | ✅ |
 
 **Events** (backend → frontend, push):
@@ -837,7 +879,8 @@ and **events** (`listen()`/`emit()`). This is the only bridge between the two la
 - `streaming-error` — error during streaming
 - `auth-state-changed` — login/logout
 - `git-import-progress` — progress updates during git skill/agent import (total, fetched, phase)
-- `network-status` — online/offline
+- `context-summarized` — older messages were condensed into a summary to manage context window
+- `tray-new-chat` — user clicked "New Chat" in system tray menu
 - `update-available` — new version found *(⬚ Phase 11)*
 
 ---
@@ -847,15 +890,18 @@ and **events** (`listen()`/`emit()`). This is the only bridge between the two la
 ```
 copilot-desktop/
 ├── Cargo.toml                    # Rust workspace manifest
+├── Cargo.lock                    # Rust dependency lock file (committed)
 ├── package.json                  # Frontend dependencies (pnpm)
-├── pnpm-lock.yaml
+├── pnpm-lock.yaml                # pnpm lock file (committed)
+├── pnpm-workspace.yaml           # pnpm workspace configuration
+├── index.html                    # HTML shell — Vite entry point (CSP meta tags here)
 ├── svelte.config.js              # Svelte 5 configuration
 ├── vite.config.ts                # Vite bundler configuration
+├── vitest.config.ts              # Vitest test runner configuration
 ├── tsconfig.json                 # TypeScript configuration
 ├── eslint.config.js              # ESLint flat config
 ├── .prettierrc                   # Prettier formatting config
 ├── src/                          # ── Svelte Frontend ──
-│   ├── app.html                  # HTML shell (CSP meta tags here)
 │   ├── app.css                   # Global styles, CSS custom properties (theme)
 │   ├── App.svelte                # Root component (sidebar + main panel layout)
 │   ├── lib/
@@ -884,8 +930,7 @@ copilot-desktop/
 │   │   │   ├── agents.svelte.ts         # Agent personas state
 │   │   │   ├── skills.svelte.ts         # Skills/extensions state
 │   │   │   ├── projects.svelte.ts       # Projects state
-│   │   │   ├── settings.svelte.ts       # User preferences
-│   │   │   ├── theme.svelte.ts          # Light/dark theme state
+│   │   │   ├── settings.svelte.ts       # User preferences + theme management (applies data-theme)
 │   │   │   └── network.svelte.ts        # Online/offline state
 │   │   ├── types/                # TypeScript type definitions (mirrors Rust types)
 │   │   │   ├── auth.ts
@@ -904,7 +949,6 @@ copilot-desktop/
 │   │       ├── syntax.ts               # Syntax highlighting (Shiki)
 │   │       ├── commands.ts              # Typed wrappers around tauri invoke()
 │   │       ├── events.ts               # Typed wrappers around tauri listen()
-│   │       ├── shortcuts.ts            # Keyboard shortcut registration
 │   │       └── format.ts              # Date formatting, text truncation, etc.
 │   └── tests/                    # Frontend tests (Vitest)
 │       ├── setup.ts
@@ -919,7 +963,7 @@ copilot-desktop/
 │   └── src/
 │       ├── main.rs               # Entry point (Tauri bootstrap)
 │       ├── lib.rs                # Tauri app setup, plugin registration, state init
-│       ├── state.rs              # Tauri managed state (AppState, DB pool, etc.)
+│       ├── state.rs              # Tauri managed state (AppState, DB pool, allowed file paths, etc.)
 │       ├── skillmd.rs            # SKILL.md parser (YAML frontmatter + markdown body)
 │       ├── registry.rs           # Skill/agent registry client (aitmpl.com API, git import)
 │       ├── text_extract.rs       # Text extraction from files (PDF, DOCX, XLSX, PPTX, RTF, 60+ text formats)
@@ -963,9 +1007,6 @@ copilot-desktop/
 │       │   ├── fetcher.rs        # URL fetcher + HTML-to-text extraction
 │       │   └── types.rs          # Search results, extracted content types
 │       └── Cargo.toml
-├── static/                       # Static assets served by Vite
-├── assets/
-│   └── fonts/                    # Bundled fonts (Inter for UI, JetBrains Mono for code)
 ├── AGENTS.md
 └── README.md
 ```
@@ -1118,19 +1159,24 @@ test(web-research): add URL validation tests for private IP blocking
 
 - **Never log or display OAuth tokens or API keys** in any output (Rust logs or browser console)
 - Tokens and API keys must be stored only in the OS keychain — never in plain text files, SQLite, or localStorage
+- **MCP auth headers** are stored in the OS keychain (key pattern: `mcp_auth_{server_id}`), never in SQLite. Migration v3 proactively migrates any pre-existing plaintext auth headers to keychain.
+- **Token types must not derive `Serialize`** — `OAuthTokenResponse` and `CopilotTokenResponse` are `Deserialize`-only to prevent accidental serialization back to the frontend
+- **Sensitive fields must not appear in Debug output** — types containing secrets (e.g., `McpServerConfig`) use custom `Debug` impls that redact sensitive fields
 - Validate all API responses — don't trust server data shapes blindly
 - **No filesystem access** — the app cannot read, write, or browse files on its own. Files only enter via explicit user drag-and-drop or Tauri dialog file picker. File contents are read into memory once; the app never stores or re-accesses file paths.
+- **Drag-and-drop path validation** — dropped file paths are registered in `AppState.allowed_file_paths` from the OS drag event, then validated when `read_dropped_files` is called. Paths are consumed (one-time use) to prevent replay.
 - **No shell/subprocess execution** — the app must never spawn processes or run commands, **except** for MCP stdio transport (see MCP Security below)
 - **No network requests** except to: GitHub Copilot API, GitHub OAuth, user-configured MCP servers, web search API, user-provided URLs, and GitHub Releases API (for auto-update). All non-GitHub network destinations must be explicitly user-configured or user-initiated.
 - **URL fetching:** block private IPs (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16), localhost (127.0.0.0/8), link-local (169.254.0.0/16), and cloud metadata (169.254.169.254). Only fetch public HTTPS URLs.
 - **Tauri capabilities** must be configured with the minimal set of permissions needed. Audit `capabilities/default.json` in every review cycle.
-- **Content Security Policy (CSP)** must be configured in `tauri.conf.json` to prevent XSS. No `unsafe-inline` or `unsafe-eval`.
+- **Content Security Policy (CSP)** must be configured in `tauri.conf.json` to prevent XSS. `style-src 'unsafe-inline'` is required for Svelte scoped styles and Shiki runtime injection — this is an accepted trade-off. No `unsafe-eval`.
+- **IPC boundary hardening** — all Tauri commands that return data to the frontend must redact sensitive fields (auth headers, tokens). File save operations must use server-side dialogs (Rust controls path selection via `tauri-plugin-dialog`).
 - **Markdown sanitization** — all rendered markdown must be sanitized with DOMPurify before insertion into the DOM. Never use `{@html}` with unsanitized content.
 - **MCP response sanitization** — all MCP tool responses must be sanitized before rendering. Strip scripts from text content, enforce max payload size (e.g., 1MB), validate JSON structure.
 - **MCP server connections** are user-managed — the app never auto-discovers or connects to MCP servers without explicit user configuration
 - **macOS App Sandbox required** — enforce filesystem and network restrictions at the OS level via entitlements
 - Treat any code path that touches the filesystem (outside app data dir) or spawns a non-MCP process as a **security violation**
-- **Conversation export exception:** exporting conversations (JSON/Markdown) writes to a user-chosen location via the Tauri save-file dialog. The app never picks a destination on its own — the user explicitly selects the output path through the system file picker.
+- **Conversation export exception:** exporting conversations (JSON/Markdown) writes to a user-chosen location via the Tauri server-side save dialog. The Rust backend controls the dialog and writes the file — the frontend never receives or handles the file path.
 - This is the **only** permitted filesystem write outside the app data directory.
 
 ### MCP Security
@@ -1138,10 +1184,10 @@ test(web-research): add URL validation tests for private IP blocking
 MCP supports two transports: **HTTP** and **stdio**. Stdio transport spawns a local process to run
 an MCP server binary. This is the **only** exception to the no-subprocess rule:
 
-- Stdio MCP servers may **only** be spawned if the user has explicitly configured them in settings
+- **Binary approval enforcement** — stdio MCP servers require explicit user approval before first launch. Approved binary paths are persisted in the `approved_mcp_binaries` SQLite table. The Rust backend checks `is_binary_approved()` before connecting; if not approved, returns a `BINARY_NOT_APPROVED:{path}` sentinel error. The frontend shows a confirmation dialog and calls `approve_mcp_binary` on user consent (single retry to prevent infinite loops).
 - The binary path must be user-provided — the app never searches the filesystem for binaries
 - Each stdio server launch must be logged and visible in the MCP settings UI
-- The app should show a clear confirmation dialog the first time a new stdio server binary is launched
+- **Auth header security** — MCP server auth headers are stored in the OS keychain (key pattern: `mcp_auth_{server_id}`), never in SQLite. The `connect_mcp_server` command redacts `auth_header` to `"[REDACTED]"` before returning data to the frontend via `redact_connection_info()`. `McpServerConfig` uses a custom `Debug` implementation that masks auth headers as `"••••••••"`.
 - HTTP transport is preferred and should be the default recommendation in the registry
 - Tauri's `shell` plugin scope must be configured to allow **only** user-configured MCP binaries — no wildcard execution
 - If App Sandbox restricts subprocess spawning, document this limitation and fall back to HTTP-only
@@ -1159,7 +1205,7 @@ an MCP server binary. This is the **only** exception to the no-subprocess rule:
 
 | Crate | Purpose |
 |---|---|
-| `tauri` v2 | Application framework (with features: `tray-icon`, `protocol-asset`) |
+| `tauri` v2 | Application framework (with features: `tray-icon`, `devtools`) |
 | `tauri-plugin-dialog` | Native file picker + save dialog |
 | `tauri-plugin-global-shortcut` | System-wide keyboard shortcuts |
 | `tauri-plugin-updater` | Auto-update from GitHub Releases |
@@ -1176,7 +1222,7 @@ an MCP server binary. This is the **only** exception to the no-subprocess rule:
 | `pdf-extract` / `lopdf` | Extract text from PDFs (pdf-extract primary, lopdf raw fallback) |
 | `thiserror` / `anyhow` | Error handling |
 | `log` / `env_logger` | Logging |
-| `scraper` / `dom_smoothie` | HTML parsing (`scraper`) + readable content extraction (`dom_smoothie`, Readability algorithm) for URL fetching |
+| `dom_smoothie` | Readable content extraction (Readability algorithm) for URL fetching |
 | `url` | URL parsing and validation |
 | `rmcp` | Official MCP Rust SDK (Model Context Protocol, spec version 2025-03-26+) |
 
@@ -1565,7 +1611,7 @@ CREATE TABLE agent_skills (
 -- Agent ↔ MCP server connections
 CREATE TABLE agent_mcp_connections (
     agent_id TEXT NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
-    mcp_server_id TEXT NOT NULL REFERENCES mcp_servers(id) ON DELETE CASCADE,
+    mcp_server_id TEXT NOT NULL,
     PRIMARY KEY (agent_id, mcp_server_id)
 );
 
@@ -1592,11 +1638,17 @@ CREATE TABLE mcp_servers (
     url TEXT,                      -- For HTTP transport
     binary_path TEXT,              -- For stdio transport
     args TEXT,                     -- JSON array of arguments for stdio
-    auth_header TEXT,              -- Optional auth for HTTP
+    auth_header TEXT,              -- DEPRECATED: migrated to OS keychain in v3; column kept for schema compat
     from_catalog INTEGER DEFAULT 0, -- 1 if added from MCP Registry
     enabled INTEGER DEFAULT 1,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
+);
+
+-- Approved MCP stdio binary paths (user must approve before first launch)
+CREATE TABLE approved_mcp_binaries (
+    binary_path TEXT PRIMARY KEY,
+    approved_at TEXT NOT NULL      -- ISO 8601
 );
 
 -- User preferences
@@ -1625,13 +1677,13 @@ CREATE INDEX idx_skills_source ON skills(source);
 
 -- ── Initial seed data ──
 
-INSERT INTO config (key, value) VALUES ('schema_version', '1');
+INSERT INTO config (key, value) VALUES ('schema_version', '3');
 ```
 
 ### Persistence Rules
 
 - **Conversations, messages, projects, agents, skills, MCP configs** → SQLite (managed by Rust backend)
-- **OAuth tokens, API keys** → OS keychain via `keyring` crate (never in SQLite or localStorage)
+- **OAuth tokens, API keys, MCP auth headers** → OS keychain via `keyring` crate (never in SQLite or localStorage)
 - **User preferences** (theme, font size, hotkey, send shortcut, auto-update) → SQLite `config` table (e.g., keys: `theme`, `font_size`, `global_hotkey`, `send_shortcut`, `auto_update_enabled`, `auto_update_frequency`)
 - **File contents** for project pinned files → SQLite `project_files.content` as BLOB
 - **Attached file contents** in chat → stored in `messages.attachments` as metadata only; full content is ephemeral (in-memory during conversation, not persisted)
@@ -1665,69 +1717,69 @@ INSERT INTO config (key, value) VALUES ('schema_version', '1');
 4. ✅ **ui-polish** — Chat message layout: user messages right-aligned bubbles, assistant messages left-aligned (no avatar). Custom macOS title bar with `titleBarStyle: Overlay`, centered "Chuck" title, sidebar toggle button. Sidebar icon rail: collapses from 260px to 52px with icon-only view (compose, search, settings), jank-free animation via fixed-width inner wrapper + overflow clipping. Labels fade with staggered opacity. Dark mode lightened to warm charcoal palette. Random Chuck Yeager-themed welcome greetings. Window drag region with `core:window:allow-start-dragging` + `acceptFirstMouse`.
 
 ### Phase 2: Copilot API Client ✅
-4. ✅ **oauth-device-flow** — GitHub OAuth device flow with token refresh in `copilot-api` crate
-5. ✅ **keychain-storage** — OS keychain token storage (per-platform, using `keyring` crate)
-6. ✅ **chat-completions-client** — `/v1/chat/completions` with SSE streaming + file context in `copilot-api` crate
-7. ✅ **model-discovery** — Query API for available models at startup, cache list, fallback to default
+5. ✅ **oauth-device-flow** — GitHub OAuth device flow with token refresh in `copilot-api` crate
+6. ✅ **keychain-storage** — OS keychain token storage (per-platform, using `keyring` crate)
+7. ✅ **chat-completions-client** — `/v1/chat/completions` with SSE streaming + file context in `copilot-api` crate
+8. ✅ **model-discovery** — Query API for available models at startup, cache list, fallback to default
 
 ### Phase 3: Persistence & Data Layer ✅
-8. ✅ **sqlite-setup** — SQLite database with full schema (11 tables), migrations support, 500+ line `queries.rs` with complete CRUD, Tauri app data directory. Unit tests for all query functions.
-9. ✅ **conversation-persistence** — CRUD for conversations + messages via Tauri commands. Reactive Svelte store with `initConversations()`, `switchConversation()`, `newConversation()`, `renameConversation()`, `toggleFavourite()`, `removeConversation()`. Auto-generate titles from first user message.
-10. ✅ **draft-auto-save** — 3-second debounced auto-save to `drafts` table. Restore on conversation switch and app launch. Clear on successful send. Backend commands + frontend store functions.
+9. ✅ **sqlite-setup** — SQLite database with full schema (11 tables), migrations support, 500+ line `queries.rs` with complete CRUD, Tauri app data directory. Unit tests for all query functions.
+10. ✅ **conversation-persistence** — CRUD for conversations + messages via Tauri commands. Reactive Svelte store with `initConversations()`, `switchConversation()`, `newConversation()`, `renameConversation()`, `toggleFavourite()`, `removeConversation()`. Auto-generate titles from first user message.
+11. ✅ **draft-auto-save** — 3-second debounced auto-save to `drafts` table. Restore on conversation switch and app launch. Clear on successful send. Backend commands + frontend store functions.
 
 ### Phase 4: Core Chat UI ✅
-11. ✅ **sidebar** — `Sidebar.svelte` (444 lines): conversation list grouped by date, new chat, favourites with star icon, context menu (rename, favourite toggle, delete), inline rename editing, real data binding via conversation store. *(Search button exists but handler not yet wired.)*
-12. ✅ **chat-view** — `ChatView.svelte`: message list with streaming, welcome screen with random greetings, draft loading/saving, auto-title generation, persisted default model selection, edit/regenerate handlers, Cmd+F search overlay integration, global keyboard shortcut handler.
-13. ✅ **input-area** — `InputArea.svelte` (1041 lines): multi-line textarea with auto-height, custom popover model dropdown (replaces native `<select>`) with fade animation, shift+click to set default model (persisted to SQLite via settings), default model marked with copper star (★), agent dropdown selector, send/stop buttons, Enter-to-send, loading spinner while models are fetched. *(File drop zone and attachment pills not yet implemented.)*
-14. ✅ **streaming-display** — Token-by-token rendering via Tauri events (`streaming-token`, `streaming-complete`, `streaming-error`), blinking cursor animation, stop button. Event-driven architecture with proper cleanup on unmount. Messages saved on stream complete.
-15. ✅ **message-actions** — Hover action buttons on messages: ✏️ edit user messages (discards subsequent messages, loads content back to input), ⟳ regenerate last assistant response (deletes + re-sends), 📋 copy message content (with 2s check animation). Actions appear on hover with smooth opacity transition. User actions positioned left of bubble; assistant actions below content.
-16. ✅ **in-conversation-search** — `SearchOverlay.svelte`: Cmd+F / Ctrl+F opens floating search bar. Real-time text highlighting via DOM TreeWalker, match count display, ↑/↓ arrow navigation with active match scrollIntoView, Enter/Shift+Enter to navigate, Escape to dismiss. Highlights use `.search-highlight` / `.search-highlight-active` classes with copper accent.
+12. ✅ **sidebar** — `Sidebar.svelte` (444 lines): conversation list grouped by date, new chat, favourites with star icon, context menu (rename, favourite toggle, delete), inline rename editing, real data binding via conversation store. *(Search button exists but handler not yet wired.)*
+13. ✅ **chat-view** — `ChatView.svelte`: message list with streaming, welcome screen with random greetings, draft loading/saving, auto-title generation, persisted default model selection, edit/regenerate handlers, Cmd+F search overlay integration, global keyboard shortcut handler.
+14. ✅ **input-area** — `InputArea.svelte` (1041 lines): multi-line textarea with auto-height, custom popover model dropdown (replaces native `<select>`) with fade animation, shift+click to set default model (persisted to SQLite via settings), default model marked with copper star (★), agent dropdown selector, send/stop buttons, Enter-to-send, loading spinner while models are fetched. *(File drop zone and attachment pills not yet implemented.)*
+15. ✅ **streaming-display** — Token-by-token rendering via Tauri events (`streaming-token`, `streaming-complete`, `streaming-error`), blinking cursor animation, stop button. Event-driven architecture with proper cleanup on unmount. Messages saved on stream complete.
+16. ✅ **message-actions** — Hover action buttons on messages: ✏️ edit user messages (discards subsequent messages, loads content back to input), ⟳ regenerate last assistant response (deletes + re-sends), 📋 copy message content (with 2s check animation). Actions appear on hover with smooth opacity transition. User actions positioned left of bubble; assistant actions below content.
+17. ✅ **in-conversation-search** — `SearchOverlay.svelte`: Cmd+F / Ctrl+F opens floating search bar. Real-time text highlighting via DOM TreeWalker, match count display, ↑/↓ arrow navigation with active match scrollIntoView, Enter/Shift+Enter to navigate, Escape to dismiss. Highlights use `.search-highlight` / `.search-highlight-active` classes with copper accent.
 
 ### Phase 5: Markdown & Code Rendering ✅
-17. ✅ **markdown-rendering** — `src/lib/utils/markdown.ts`: `marked` v15 with custom renderer (code block placeholders with `data-code`/`data-lang` attributes) piped through `DOMPurify` v3 with strict allowed tags/attributes config. `renderMarkdown()` exported. Inline code gets `.md-inline-code` class. Links open in new tab. Images blocked (rendered as links).
-18. ✅ **code-blocks** — `CodeBlock.svelte` + `src/lib/utils/syntax.ts`: Shiki v3 lazy-loaded singleton highlighter with dual themes (github-light/github-dark), 28 pre-loaded languages + dynamic loading fallback. Copy-to-clipboard button with check animation. Language label header. Warm Ink styled with proper dark mode support via CSS custom properties (`--shiki-light`/`--shiki-dark`). `ThinkingSection.svelte`: collapsible `<details>` for model reasoning tokens, dashed border, muted styling, animated dots during streaming.
+18. ✅ **markdown-rendering** — `src/lib/utils/markdown.ts`: `marked` v15 with custom renderer (code block placeholders with `data-code`/`data-lang` attributes) piped through `DOMPurify` v3 with strict allowed tags/attributes config. `renderMarkdown()` exported. Inline code gets `.md-inline-code` class. Links open in new tab. Images blocked (rendered as links).
+19. ✅ **code-blocks** — `CodeBlock.svelte` + `src/lib/utils/syntax.ts`: Shiki v3 lazy-loaded singleton highlighter with dual themes (github-light/github-dark), 28 pre-loaded languages + dynamic loading fallback. Copy-to-clipboard button with check animation. Language label header. Warm Ink styled with proper dark mode support via CSS custom properties (`--shiki-light`/`--shiki-dark`). `ThinkingSection.svelte`: collapsible `<details>` for model reasoning tokens, dashed border, muted styling, animated dots during streaming.
 
 ### Phase 6: Web Research ✅
-19. ✅ **web-search** — `web-research` crate: Bing Web Search API integration. Tauri command `web_search`. `WebResultCard.svelte` for displaying results as cited cards. API key stored in keychain.
-20. ✅ **url-fetcher** — Tauri command `fetch_url`. HTTPS only, public IPs only. Extract readable text via `dom_smoothie`. URL preview card in input area. Max 50KB extracted text.
+20. ✅ **web-search** — `web-research` crate: Bing Web Search API integration. Tauri command `web_search`. `WebResultCard.svelte` for displaying results as cited cards. API key stored in keychain.
+21. ✅ **url-fetcher** — Tauri command `fetch_url`. HTTPS only, public IPs only. Extract readable text via `dom_smoothie`. URL preview card in input area. Max 50KB extracted text.
 
 ### Phase 7: MCP Integration ✅
-21. ✅ **mcp-client** — `mcp-client` crate: MCP protocol client (spec 2025-03-26) via `rmcp` SDK v1.3. Connect, discover tools, invoke, handle responses. HTTP and stdio transports. SSRF protection with DNS rebinding defense, comprehensive IPv4/IPv6 private range blocking, binary path validation, 1MB payload size limits, image MIME validation, 30-second connection timeouts, server-side input validation (`validate_config`), auth header redaction in IPC responses.
-22. ✅ **mcp-registry** — Browse servers from official MCP Registry (`registry.modelcontextprotocol.io`). Server-side search via `?search=` API parameter, cursor-based pagination (20 per page with infinite scroll), first-party server prioritization heuristic. Multi-package registry types (npm/pypi/nuget). One-click add with auto-filled `npx -y`/`uvx`/`dotnet tool run` commands including `packageArguments`. Registry detail view with setup guides and connection options. Auto-connect on server add.
-23. ✅ **mcp-settings** — `McpSettings.svelte` + `McpServerForm.svelte`: manage MCP connections. Add custom servers (URL + auth or binary path), enable/disable, test connectivity, browse discovered tools. Server cards with live 🟢/🔴 status indicators. Confirmation dialog on removal. ARIA attributes throughout.
+22. ✅ **mcp-client** — `mcp-client` crate: MCP protocol client (spec 2025-03-26) via `rmcp` SDK v1.3. Connect, discover tools, invoke, handle responses. HTTP and stdio transports. SSRF protection with DNS rebinding defense, comprehensive IPv4/IPv6 private range blocking, binary path validation, 1MB payload size limits, image MIME validation, 30-second connection timeouts, server-side input validation (`validate_config`), auth header redaction in IPC responses.
+23. ✅ **mcp-registry** — Browse servers from official MCP Registry (`registry.modelcontextprotocol.io`). Server-side search via `?search=` API parameter, cursor-based pagination (20 per page with infinite scroll), first-party server prioritization heuristic. Multi-package registry types (npm/pypi/nuget). One-click add with auto-filled `npx -y`/`uvx`/`dotnet tool run` commands including `packageArguments`. Registry detail view with setup guides and connection options. Auto-connect on server add.
+24. ✅ **mcp-settings** — `McpSettings.svelte` + `McpServerForm.svelte`: manage MCP connections. Add custom servers (URL + auth or binary path), enable/disable, test connectivity, browse discovered tools. Server cards with live 🟢/🔴 status indicators. Confirmation dialog on removal. ARIA attributes throughout.
 
 ### Phase 8: Skills & Agents ✅
-24. ✅ **schema-migration-v2** — DB migration v2: add `instructions`, `source_url`, `source_type` columns to `skills` and `agents` tables. Update Rust structs and TypeScript types.
-25. ✅ **skillmd-parser** — `src-tauri/src/skillmd.rs`: parse SKILL.md files (YAML frontmatter + markdown body). Extract `name`, `description`, `license`, `metadata`. Return `ParsedSkillMd` struct. Unit tests.
-26. ✅ **agent-skill-queries** — Implement full CRUD queries in `queries.rs` for agents (list, get, create, update, delete, get/set skills, get/set MCP connections) and skills (list, get, create, update, delete, toggle).
-27. ✅ **agent-skill-commands** — Tauri commands in `agents.rs` and `skills.rs`: full CRUD operations, register in `lib.rs`.
-28. ✅ **registry-client** — `src-tauri/src/registry.rs`: pluggable `RegistryProvider` trait backed by aitmpl.com catalog. Tauri commands: `search_registry`, `install_from_registry`. Sorted by download count. Content passthrough for expand/install.
-29. ✅ **git-import** — Git URL skill/agent import: accept `owner/repo`, GitHub URLs, direct file paths. Discover SKILL.md and *.agent.md files via GitHub tree API (authenticated). Progress bar via `git-import-progress` events. Tauri commands: `fetch_git_skills`, `fetch_git_agents`, `import_git_skill`, `import_agent_from_git`.
-30. ✅ **chat-agent-integration** — Modify `send_message()` to accept `agent_id`. Fetch agent + enabled skills from DB, build system prompt with skill instructions, inject as system message.
-31. ✅ **skills-agents-frontend** — Frontend command wrappers + Svelte stores (`agents.svelte.ts`, `skills.svelte.ts`). Agent/skill CRUD, registry search, git import wrappers.
-32. ✅ **skills-panel** — `SkillsPanel.svelte`: skill list grouped by source, toggle on/off, aitmpl.com registry browser with expand/install, git URL import with progress bar, create custom skill form. Warm Ink styling.
-33. ✅ **agents-panel** — `AgentsPanel.svelte`: agent list with CRUD, skill/MCP assignment, registry browser for agent templates, git URL import. Warm Ink styling.
-34. ✅ **agent-selector** — Agent picker in `InputArea.svelte` next to model selector. Conversations tied to agents. Mid-conversation change warning.
-35. ✅ **sidebar-skills-agents** — Add Skills (⚡) and Agents (🤖) nav buttons to Sidebar bottom section.
+25. ✅ **schema-migration-v2** — DB migration v2: add `instructions`, `source_url`, `source_type` columns to `skills` and `agents` tables. Update Rust structs and TypeScript types.
+26. ✅ **skillmd-parser** — `src-tauri/src/skillmd.rs`: parse SKILL.md files (YAML frontmatter + markdown body). Extract `name`, `description`, `license`, `metadata`. Return `ParsedSkillMd` struct. Unit tests.
+27. ✅ **agent-skill-queries** — Implement full CRUD queries in `queries.rs` for agents (list, get, create, update, delete, get/set skills, get/set MCP connections) and skills (list, get, create, update, delete, toggle).
+28. ✅ **agent-skill-commands** — Tauri commands in `agents.rs` and `skills.rs`: full CRUD operations, register in `lib.rs`.
+29. ✅ **registry-client** — `src-tauri/src/registry.rs`: pluggable `RegistryProvider` trait backed by aitmpl.com catalog. Tauri commands: `search_registry`, `install_from_registry`. Sorted by download count. Content passthrough for expand/install.
+30. ✅ **git-import** — Git URL skill/agent import: accept `owner/repo`, GitHub URLs, direct file paths. Discover SKILL.md and *.agent.md files via GitHub tree API (authenticated). Progress bar via `git-import-progress` events. Tauri commands: `fetch_git_skills`, `fetch_git_agents`, `import_git_skill`, `import_agent_from_git`.
+31. ✅ **chat-agent-integration** — Modify `send_message()` to accept `agent_id`. Fetch agent + enabled skills from DB, build system prompt with skill instructions, inject as system message.
+32. ✅ **skills-agents-frontend** — Frontend command wrappers + Svelte stores (`agents.svelte.ts`, `skills.svelte.ts`). Agent/skill CRUD, registry search, git import wrappers.
+33. ✅ **skills-panel** — `SkillsPanel.svelte`: skill list grouped by source, toggle on/off, aitmpl.com registry browser with expand/install, git URL import with progress bar, create custom skill form. Warm Ink styling.
+34. ✅ **agents-panel** — `AgentsPanel.svelte`: agent list with CRUD, skill/MCP assignment, registry browser for agent templates, git URL import. Warm Ink styling.
+35. ✅ **agent-selector** — Agent picker in `InputArea.svelte` next to model selector. Conversations tied to agents. Mid-conversation change warning.
+36. ✅ **sidebar-skills-agents** — Add Skills (⚡) and Agents (🤖) nav buttons to Sidebar bottom section.
 
 ### Phase 9: Projects & File Context ✅
-36. ✅ **projects** — `ProjectView.svelte`: named project containers with custom instructions, pinned files (stored as BLOBs in SQLite), grouped conversations. Project selector in sidebar.
-37. ✅ **file-context** — User-initiated only: drag-and-drop (Tauri native `onDragDropEvent`) or `tauri-plugin-dialog` file picker. Instant placeholder pills on drop, async background text extraction via `text_extract.rs` (PDF via `pdf-extract`+`lopdf` fallback, DOCX/XLSX/PPTX via XML extraction, RTF, 60+ text extensions). Extraction cache (`SvelteMap<string, Promise>`) + reactive status record drives pill UI (reading→extracting→✓/⚠). Extracted content sent to API only (never visible in chat). 50MB file size limit with user warning. Never retain paths or re-read from disk.
-38. ✅ **context-window** — Implement conversation summarization for long chats. Older messages summarized into condensed recap. Visual indicator when summarization has occurred.
+37. ✅ **projects** — `ProjectView.svelte`: named project containers with custom instructions, pinned files (stored as BLOBs in SQLite), grouped conversations. Project selector in sidebar.
+38. ✅ **file-context** — User-initiated only: drag-and-drop (Tauri native `onDragDropEvent`) or `tauri-plugin-dialog` file picker. Instant placeholder pills on drop, async background text extraction via `text_extract.rs` (PDF via `pdf-extract`+`lopdf` fallback, DOCX/XLSX/PPTX via XML extraction, RTF, 60+ text extensions). Extraction cache (`SvelteMap<string, Promise>`) + reactive status record drives pill UI (reading→extracting→✓/⚠). Extracted content sent to API only (never visible in chat). 50MB file size limit with user warning. Never retain paths or re-read from disk.
+39. ✅ **context-window** — Implement conversation summarization for long chats. Older messages summarized into condensed recap. Visual indicator when summarization has occurred.
 
 ### Phase 10: Polish & Platform Features ✅
-39. ✅ **settings-panel** — `SettingsPanel.svelte`: account, theme, font size, default model, keyboard shortcuts, MCP management, conversation export (JSON + Markdown), database size display + cleanup, clear history
-40. ✅ **global-hotkey** — System-wide app summon via `tauri-plugin-global-shortcut` (Cmd+Shift+Space or configurable)
-41. ✅ **system-tray** — Tauri core `tray-icon` feature: minimize to tray instead of closing. Streaming continues when window is hidden. Right-click menu: New Chat, Show, Quit. Status indicator.
-42. ✅ **keyboard-shortcuts** — Cmd+N (new chat), Cmd+K (search conversations), Cmd+F (search in conversation), Cmd+, (settings), Cmd+Shift+S (toggle sidebar), Escape (cancel streaming). Send shortcut configuration (Enter vs Cmd+Enter / Ctrl+Enter) persisted via `send_shortcut` config key.
-43. ✅ **offline-mode** — Detect network status. Full read access when offline, sending disabled with clear indicator. Auto-reconnect with "Back online" toast.
-44. ✅ **accessibility** — Semantic HTML, ARIA roles/labels, keyboard navigation, focus management, visible focus indicators, screen reader testing
+40. ✅ **settings-panel** — `SettingsPanel.svelte`: account, theme, font size, default model, keyboard shortcuts, MCP management, conversation export (JSON + Markdown), database size display + cleanup, clear history
+41. ✅ **global-hotkey** — System-wide app summon via `tauri-plugin-global-shortcut` (Cmd+Shift+Space or configurable)
+42. ✅ **system-tray** — Tauri core `tray-icon` feature: minimize to tray instead of closing. Streaming continues when window is hidden. Right-click menu: New Chat, Show, Quit. Status indicator.
+43. ✅ **keyboard-shortcuts** — Cmd+N (new chat), Cmd+K (search conversations), Cmd+F (search in conversation), Cmd+, (settings), Cmd+Shift+S (toggle sidebar), Escape (cancel streaming). Send shortcut configuration (Enter vs Cmd+Enter / Ctrl+Enter) persisted via `send_shortcut` config key.
+44. ✅ **offline-mode** — Detect network status. Full read access when offline, sending disabled with clear indicator. Auto-reconnect with "Back online" toast.
+45. ✅ **accessibility** — Semantic HTML, ARIA roles/labels, keyboard navigation, focus management, visible focus indicators, screen reader testing
 
 ### Phase 11: Auto-Update
-45. ⬚ **auto-update** — Configure `tauri-plugin-updater` with GitHub Releases endpoint. `UpdateBanner.svelte` for notifications. Show changelog/release notes. Allow "skip this version" and "remind me later". Settings toggle to disable auto-update. Ed25519 signature verification.
+46. ⬚ **auto-update** — Configure `tauri-plugin-updater` with GitHub Releases endpoint. `UpdateBanner.svelte` for notifications. Show changelog/release notes. Allow "skip this version" and "remind me later". Settings toggle to disable auto-update. Ed25519 signature verification.
 
 ### Phase 12: Distribution
-46. ⬚ **app-packaging** — `cargo tauri build` for all platforms. `.dmg` (macOS with code signing + App Sandbox + notarization), `.AppImage`/`.deb` (Linux), `.msi`/`.nsis` (Windows). GitHub Actions CI/CD for automated builds. Publish releases to GitHub Releases for auto-update consumption.
+47. ⬚ **app-packaging** — `cargo tauri build` for all platforms. `.dmg` (macOS with code signing + App Sandbox + notarization), `.AppImage`/`.deb` (Linux), `.msi`/`.nsis` (Windows). GitHub Actions CI/CD for automated builds. Publish releases to GitHub Releases for auto-update consumption.
 
 ---
 

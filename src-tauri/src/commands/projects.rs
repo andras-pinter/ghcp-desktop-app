@@ -6,6 +6,9 @@ use serde::Deserialize;
 use tauri::{AppHandle, Manager};
 use tauri_plugin_dialog::DialogExt;
 
+/// Maximum allowed file size for project file attachments (50 MB).
+const MAX_FILE_SIZE: usize = 50 * 1024 * 1024;
+
 /// List all projects.
 #[tauri::command]
 pub fn get_projects(app: AppHandle) -> Result<Vec<queries::Project>, String> {
@@ -99,7 +102,6 @@ pub fn add_project_file(
         .map_err(|e| format!("Invalid base64 content: {e}"))?;
 
     // Enforce max file size (50MB)
-    const MAX_FILE_SIZE: usize = 50 * 1024 * 1024;
     if content.len() > MAX_FILE_SIZE {
         return Err(format!(
             "File too large ({} bytes). Maximum is {} bytes.",
@@ -167,7 +169,6 @@ pub async fn pick_file_for_upload(app: AppHandle) -> Result<Option<FileUpload>, 
 
     let content = std::fs::read(&path).map_err(|e| format!("Failed to read file: {e}"))?;
 
-    const MAX_FILE_SIZE: usize = 50 * 1024 * 1024;
     if content.len() > MAX_FILE_SIZE {
         return Err(format!(
             "File too large ({} bytes). Maximum is {} bytes.",
@@ -207,7 +208,6 @@ pub async fn pick_file_for_chat(app: AppHandle) -> Result<Option<ChatFileData>, 
 
     let content = std::fs::read(&path).map_err(|e| format!("Failed to read file: {e}"))?;
 
-    const MAX_FILE_SIZE: usize = 50 * 1024 * 1024;
     if content.len() > MAX_FILE_SIZE {
         return Err(format!(
             "File too large ({} bytes). Maximum is {} bytes.",
@@ -333,11 +333,29 @@ pub async fn extract_file_text(
 
 /// Read files from OS-level drag-and-drop paths (provided by Tauri's
 /// `onDragDropEvent`).  Returns base64-encoded content for each valid file.
+///
+/// Only reads paths that were previously registered by the server-side
+/// drag-drop handler in `lib.rs` (not exposed as an IPC command).
+/// Paths are consumed (removed from the allow-set) after reading.
 #[tauri::command]
-pub async fn read_dropped_files(paths: Vec<String>) -> Result<Vec<ChatFileData>, String> {
+pub async fn read_dropped_files(
+    state: tauri::State<'_, AppState>,
+    paths: Vec<String>,
+) -> Result<Vec<ChatFileData>, String> {
     use base64::Engine;
 
-    const MAX_FILE_SIZE: usize = 50 * 1024 * 1024;
+    // Validate all requested paths against the allowed set and consume them.
+    {
+        let mut allowed = state.allowed_file_paths.lock().map_err(|e| e.to_string())?;
+        for p in &paths {
+            if !allowed.remove(p) {
+                return Err(format!(
+                    "Path not allowed (not from a drop/picker event): {p}"
+                ));
+            }
+        }
+    }
+
     let mut results = Vec::new();
 
     for path_str in &paths {

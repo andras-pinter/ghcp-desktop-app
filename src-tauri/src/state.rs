@@ -3,6 +3,7 @@
 use copilot_api::CopilotClient;
 use mcp_client::McpManager;
 use rusqlite::Connection;
+use std::collections::HashSet;
 use std::sync::Mutex;
 use tauri::{AppHandle, Manager};
 use tokio::sync::Mutex as TokioMutex;
@@ -21,6 +22,9 @@ pub struct AppState {
     pub http_client: web_research::HttpClient,
     /// MCP connection manager (handles multiple server connections).
     pub mcp: McpManager,
+    /// Paths allowed for read, populated by native drag-drop and file-picker events.
+    /// Paths are consumed on read (one-time use).
+    pub allowed_file_paths: Mutex<HashSet<String>>,
 }
 
 impl AppState {
@@ -46,6 +50,7 @@ impl AppState {
             cancel_stream: TokioMutex::new(None),
             http_client: web_research::new_client()?,
             mcp: McpManager::new(),
+            allowed_file_paths: Mutex::new(HashSet::new()),
         })
     }
 }

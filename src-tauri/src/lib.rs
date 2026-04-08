@@ -32,25 +32,38 @@ pub fn run(force_logout: bool) {
         .setup(|app| {
             let app_state = AppState::new(app.handle())?;
 
-            // Load enabled MCP servers for auto-connect
+            // Load enabled MCP servers for auto-connect (with keychain auth + binary approval)
             let mcp_configs = {
                 let conn = app_state.db.lock().map_err(|e| e.to_string())?;
                 let rows =
                     db::queries::get_enabled_mcp_servers(&conn).map_err(|e| e.to_string())?;
                 rows.iter()
-                    .map(|row| mcp_client::McpServerConfig {
-                        id: row.id.clone(),
-                        name: row.name.clone(),
-                        transport: row
-                            .transport
-                            .parse()
-                            .unwrap_or(mcp_client::types::McpTransport::Http),
-                        url: row.url.clone(),
-                        binary_path: row.binary_path.clone(),
-                        args: row.args.clone(),
-                        auth_header: row.auth_header.clone(),
-                        from_catalog: row.from_catalog,
-                        enabled: row.enabled,
+                    .filter_map(|row| {
+                        let config = commands::mcp::row_to_config(row);
+                        // Skip unapproved stdio servers
+                        if config.transport == mcp_client::types::McpTransport::Stdio {
+                            if let Some(ref binary) = config.binary_path {
+                                match db::queries::is_binary_approved(&conn, binary) {
+                                    Ok(true) => {}
+                                    Ok(false) => {
+                                        log::warn!(
+                                            "Skipping unapproved stdio MCP server '{}' (binary: {})",
+                                            config.id,
+                                            binary
+                                        );
+                                        return None;
+                                    }
+                                    Err(e) => {
+                                        log::warn!(
+                                            "Failed to check binary approval for '{}': {e}",
+                                            config.id
+                                        );
+                                        return None;
+                                    }
+                                }
+                            }
+                        }
+                        Some(config)
                     })
                     .collect::<Vec<_>>()
             };
@@ -115,10 +128,31 @@ pub fn run(force_logout: bool) {
             // Intercept window close → hide to tray instead of quitting
             if let Some(win) = app.get_webview_window("main") {
                 let win_clone = win.clone();
+                let app_handle_dd = app.handle().clone();
                 win.on_window_event(move |event| {
-                    if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                        api.prevent_close();
-                        let _ = win_clone.hide();
+                    match event {
+                        tauri::WindowEvent::CloseRequested { api, .. } => {
+                            api.prevent_close();
+                            let _ = win_clone.hide();
+                        }
+                        tauri::WindowEvent::DragDrop(tauri::DragDropEvent::Drop {
+                            paths, ..
+                        }) => {
+                            // Register dropped file paths server-side so that
+                            // read_dropped_files can validate them. This avoids
+                            // exposing an IPC command that the webview could call
+                            // with arbitrary paths.
+                            if let Some(state) = app_handle_dd.try_state::<AppState>() {
+                                if let Ok(mut allowed) = state.allowed_file_paths.lock() {
+                                    for path in paths {
+                                        if let Some(s) = path.to_str() {
+                                            allowed.insert(s.to_string());
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        _ => {}
                     }
                 });
             }
@@ -167,9 +201,12 @@ pub fn run(force_logout: bool) {
             commands::mcp::connect_mcp_server,
             commands::mcp::disconnect_mcp_server,
             commands::mcp::test_mcp_connection,
+            commands::mcp::test_mcp_connection_config,
             commands::mcp::get_mcp_tools,
             commands::mcp::invoke_mcp_tool,
             commands::mcp::fetch_mcp_registry,
+            commands::mcp::approve_mcp_binary,
+            commands::mcp::is_mcp_binary_approved,
             commands::agents::get_agents,
             commands::agents::get_agent,
             commands::agents::create_agent,

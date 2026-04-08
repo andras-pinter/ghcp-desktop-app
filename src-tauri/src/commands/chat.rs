@@ -1,4 +1,4 @@
-//! Chat commands: send_message, stop_streaming, regenerate.
+//! Chat commands: send_message, stop_streaming, generate_title.
 
 use crate::db::queries;
 use crate::state::AppState;
