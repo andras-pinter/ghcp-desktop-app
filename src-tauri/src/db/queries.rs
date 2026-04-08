@@ -1170,6 +1170,38 @@ pub fn get_project_text_files(
     rows.collect()
 }
 
+// ── Approved MCP Binaries ────────────────────────────────────────
+
+/// Check whether a binary path has been approved for stdio MCP execution.
+pub fn is_binary_approved(conn: &Connection, binary_path: &str) -> Result<bool, rusqlite::Error> {
+    let count: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM approved_mcp_binaries WHERE binary_path = ?1",
+        [binary_path],
+        |row| row.get(0),
+    )?;
+    Ok(count > 0)
+}
+
+/// Approve a binary path for stdio MCP execution.
+pub fn approve_binary(conn: &Connection, binary_path: &str) -> Result<(), rusqlite::Error> {
+    conn.execute(
+        "INSERT OR REPLACE INTO approved_mcp_binaries (binary_path, approved_at)
+         VALUES (?1, datetime('now'))",
+        [binary_path],
+    )?;
+    Ok(())
+}
+
+/// Revoke approval for a binary path.
+#[allow(dead_code)]
+pub fn revoke_binary(conn: &Connection, binary_path: &str) -> Result<(), rusqlite::Error> {
+    conn.execute(
+        "DELETE FROM approved_mcp_binaries WHERE binary_path = ?1",
+        [binary_path],
+    )?;
+    Ok(())
+}
+
 // ── Tests ───────────────────────────────────────────────────────
 
 #[cfg(test)]
@@ -1291,9 +1323,9 @@ mod tests {
     fn test_settings() {
         let conn = setup_db();
 
-        // Schema version was seeded (v2 after all migrations)
+        // Schema version was seeded (v3 after all migrations)
         let ver = get_setting(&conn, "schema_version").unwrap();
-        assert_eq!(ver, Some("2".to_string()));
+        assert_eq!(ver, Some("3".to_string()));
 
         // Set new value
         set_setting(&conn, "theme", "dark").unwrap();

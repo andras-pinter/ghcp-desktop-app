@@ -10,6 +10,9 @@ pub fn run(conn: &Connection, current_version: i32) -> Result<(), Box<dyn std::e
     if current_version < 2 {
         migrate_v2(conn)?;
     }
+    if current_version < 3 {
+        migrate_v3(conn)?;
+    }
     Ok(())
 }
 
@@ -183,6 +186,25 @@ fn migrate_v2(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+/// Version 3: Approved MCP binaries table (security: stdio binary approval).
+fn migrate_v3(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
+    conn.execute_batch(
+        "
+        -- Approved MCP stdio binaries (user must approve before first launch)
+        CREATE TABLE IF NOT EXISTS approved_mcp_binaries (
+            binary_path TEXT PRIMARY KEY,
+            approved_at TEXT NOT NULL
+        );
+
+        -- Bump schema version
+        UPDATE config SET value = '3' WHERE key = 'schema_version';
+        ",
+    )?;
+
+    log::info!("Database migrated to schema version 3");
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -233,7 +255,7 @@ mod tests {
         conn.execute_batch("PRAGMA foreign_keys=ON;").unwrap();
         run(&conn, 0).unwrap();
 
-        // Verify schema version is now 2
+        // Verify schema version is now 3
         let version: String = conn
             .query_row(
                 "SELECT value FROM config WHERE key='schema_version'",
@@ -241,7 +263,7 @@ mod tests {
                 |row| row.get(0),
             )
             .unwrap();
-        assert_eq!(version, "2");
+        assert_eq!(version, "3");
 
         // Verify new skill columns exist
         conn.execute(
@@ -288,11 +310,11 @@ mod tests {
         // Simulate existing v1 database
         run(&conn, 0).unwrap();
 
-        // Now simulate upgrading from v1 to v2 only
+        // Now simulate upgrading from v1 to latest
         let conn2 = Connection::open_in_memory().unwrap();
         conn2.execute_batch("PRAGMA foreign_keys=ON;").unwrap();
         migrate_v1(&conn2).unwrap();
-        // Run from v1 should only apply v2
+        // Run from v1 should apply v2 and v3
         run(&conn2, 1).unwrap();
 
         let version: String = conn2
@@ -302,6 +324,6 @@ mod tests {
                 |row| row.get(0),
             )
             .unwrap();
-        assert_eq!(version, "2");
+        assert_eq!(version, "3");
     }
 }

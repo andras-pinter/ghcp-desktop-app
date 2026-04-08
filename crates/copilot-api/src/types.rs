@@ -23,7 +23,7 @@ pub struct DeviceCodeResponse {
 }
 
 /// Successful response from polling `POST https://github.com/login/oauth/access_token`.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct OAuthTokenResponse {
     pub access_token: String,
     pub token_type: String,
@@ -41,7 +41,7 @@ pub struct OAuthErrorResponse {
 // ── Copilot Token ──────────────────────────────────────────────────
 
 /// Response from `GET https://api.github.com/copilot_internal/v2/token`.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct CopilotTokenResponse {
     /// Short-lived JWT for Copilot API calls.
     pub token: String,

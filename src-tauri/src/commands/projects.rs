@@ -331,13 +331,46 @@ pub async fn extract_file_text(
     .map_err(|e| format!("Extraction task failed: {e}"))?
 }
 
+/// Register file paths as allowed for reading (called from native drag-drop
+/// or file-picker events). These are consumed once by `read_dropped_files`.
+#[tauri::command]
+pub fn register_allowed_paths(
+    state: tauri::State<'_, AppState>,
+    paths: Vec<String>,
+) -> Result<(), String> {
+    let mut allowed = state.allowed_file_paths.lock().map_err(|e| e.to_string())?;
+    for p in paths {
+        allowed.insert(p);
+    }
+    Ok(())
+}
+
 /// Read files from OS-level drag-and-drop paths (provided by Tauri's
 /// `onDragDropEvent`).  Returns base64-encoded content for each valid file.
+///
+/// Only reads paths that were previously registered via `register_allowed_paths`.
+/// Paths are consumed (removed from the allow-set) after reading.
 #[tauri::command]
-pub async fn read_dropped_files(paths: Vec<String>) -> Result<Vec<ChatFileData>, String> {
+pub async fn read_dropped_files(
+    state: tauri::State<'_, AppState>,
+    paths: Vec<String>,
+) -> Result<Vec<ChatFileData>, String> {
     use base64::Engine;
 
     const MAX_FILE_SIZE: usize = 50 * 1024 * 1024;
+
+    // Validate all requested paths against the allowed set and consume them.
+    {
+        let mut allowed = state.allowed_file_paths.lock().map_err(|e| e.to_string())?;
+        for p in &paths {
+            if !allowed.remove(p) {
+                return Err(format!(
+                    "Path not allowed (not from a drop/picker event): {p}"
+                ));
+            }
+        }
+    }
+
     let mut results = Vec::new();
 
     for path_str in &paths {

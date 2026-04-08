@@ -12,6 +12,7 @@
     loadRegistryMore,
     searchRegistry,
   } from "$lib/stores/mcp.svelte";
+  import { approveMcpBinary } from "$lib/utils/commands";
   import type { McpConnectionInfo, McpServerConfig, RegistryServer } from "$lib/types/mcp";
   import McpServerForm from "./McpServerForm.svelte";
   import { onMount, onDestroy } from "svelte";
@@ -170,8 +171,18 @@
   async function handleConnect(serverId: string) {
     try {
       await connectServer(serverId);
-    } catch {
-      // Error is in the store
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.startsWith("BINARY_NOT_APPROVED:")) {
+        const binaryPath = msg.replace("BINARY_NOT_APPROVED:", "");
+        const confirmed = window.confirm(
+          `Allow MCP server to run "${binaryPath}"?\n\nThis binary will be executed on your system. Only approve binaries you trust.`,
+        );
+        if (confirmed) {
+          await approveMcpBinary(binaryPath);
+          await handleConnect(serverId);
+        }
+      }
     }
   }
 

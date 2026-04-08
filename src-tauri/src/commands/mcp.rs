@@ -7,9 +7,35 @@ use tauri::State;
 use crate::db::queries::{self, McpServerRow};
 use crate::state::AppState;
 
+// ── Keychain helpers for MCP auth ───────────────────────────────
+
+/// Keychain key for an MCP server's auth header.
+fn mcp_auth_key(server_id: &str) -> String {
+    format!("mcp_auth_{server_id}")
+}
+
+/// Store an MCP auth header in the OS keychain.
+fn store_mcp_auth(server_id: &str, auth_header: &str) {
+    if let Err(e) = copilot_api::keychain::store(&mcp_auth_key(server_id), auth_header) {
+        log::warn!("Failed to store MCP auth for {server_id}: {e}");
+    }
+}
+
+/// Retrieve an MCP auth header from the OS keychain.
+fn retrieve_mcp_auth(server_id: &str) -> Option<String> {
+    copilot_api::keychain::retrieve(&mcp_auth_key(server_id)).ok()
+}
+
+/// Delete an MCP auth header from the OS keychain.
+fn delete_mcp_auth(server_id: &str) {
+    if let Err(e) = copilot_api::keychain::delete(&mcp_auth_key(server_id)) {
+        log::warn!("Failed to delete MCP auth for {server_id}: {e}");
+    }
+}
+
 // ── Helpers ─────────────────────────────────────────────────────
 
-/// Convert a DB row to an `McpServerConfig`.
+/// Convert a DB row to an `McpServerConfig`, loading auth from keychain.
 fn row_to_config(row: &McpServerRow) -> McpServerConfig {
     McpServerConfig {
         id: row.id.clone(),
@@ -25,13 +51,15 @@ fn row_to_config(row: &McpServerRow) -> McpServerConfig {
         url: row.url.clone(),
         binary_path: row.binary_path.clone(),
         args: row.args.clone(),
-        auth_header: row.auth_header.clone(),
+        // Load auth from keychain, falling back to DB for migration
+        auth_header: retrieve_mcp_auth(&row.id).or_else(|| row.auth_header.clone()),
         from_catalog: row.from_catalog,
         enabled: row.enabled,
     }
 }
 
 /// Convert an `McpServerConfig` to a DB row (with timestamps).
+/// Auth header is stored in the keychain, not in the DB row.
 fn config_to_row(config: &McpServerConfig, now: &str) -> McpServerRow {
     McpServerRow {
         id: config.id.clone(),
@@ -40,7 +68,7 @@ fn config_to_row(config: &McpServerConfig, now: &str) -> McpServerRow {
         url: config.url.clone(),
         binary_path: config.binary_path.clone(),
         args: config.args.clone(),
-        auth_header: config.auth_header.clone(),
+        auth_header: None, // Never store auth in SQLite
         from_catalog: config.from_catalog,
         enabled: config.enabled,
         created_at: now.to_string(),
@@ -166,6 +194,11 @@ pub async fn add_mcp_server(
 ) -> Result<McpConnectionInfo, String> {
     validate_config(&config)?;
 
+    // Store auth header in keychain (not SQLite)
+    if let Some(auth) = &config.auth_header {
+        store_mcp_auth(&config.id, auth);
+    }
+
     let now = now_iso();
     let row = config_to_row(&config, &now);
 
@@ -193,6 +226,13 @@ pub async fn update_mcp_server(
     config: McpServerConfig,
 ) -> Result<(), String> {
     validate_config(&config)?;
+
+    // Update auth header in keychain
+    if let Some(auth) = &config.auth_header {
+        store_mcp_auth(&config.id, auth);
+    } else {
+        delete_mcp_auth(&config.id);
+    }
 
     let now = now_iso();
     let mut row = config_to_row(&config, &now);
@@ -227,10 +267,19 @@ pub async fn remove_mcp_server(
         queries::delete_mcp_server(&conn, &server_id).map_err(|e| e.to_string())?;
     }
 
+    // Clean up auth from keychain
+    delete_mcp_auth(&server_id);
+
     // Disconnect + remove from manager
     let _ = state.mcp.remove_server(&server_id).await;
 
     Ok(())
+}
+
+/// Redact sensitive fields from connection info before returning to the frontend.
+fn redact_connection_info(mut info: McpConnectionInfo) -> McpConnectionInfo {
+    info.config = redact_config(info.config);
+    info
 }
 
 /// Connect to an MCP server.
@@ -247,6 +296,20 @@ pub async fn connect_mcp_server(
             .ok_or_else(|| format!("Server not found: {server_id}"))?;
         row_to_config(&row)
     };
+
+    // Enforce stdio binary approval before connecting
+    if config.transport == McpTransport::Stdio {
+        if let Some(binary) = &config.binary_path {
+            let approved = {
+                let conn = state.db.lock().map_err(|e| e.to_string())?;
+                queries::is_binary_approved(&conn, binary).map_err(|e| e.to_string())?
+            };
+            if !approved {
+                return Err(format!("BINARY_NOT_APPROVED:{binary}"));
+            }
+        }
+    }
+
     state.mcp.register_server(config).await;
 
     state
@@ -255,11 +318,13 @@ pub async fn connect_mcp_server(
         .await
         .map_err(|e| e.to_string())?;
 
-    state
+    let info = state
         .mcp
         .get_connection(&server_id)
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+
+    Ok(redact_connection_info(info))
 }
 
 /// Disconnect from an MCP server.
@@ -330,4 +395,21 @@ pub async fn fetch_mcp_registry(
     mcp_client::fetch_registry(query.as_deref(), cursor.as_deref())
         .await
         .map_err(|e| e.to_string())
+}
+
+/// Approve an MCP stdio binary for execution.
+#[tauri::command]
+pub fn approve_mcp_binary(state: State<'_, AppState>, binary_path: String) -> Result<(), String> {
+    let conn = state.db.lock().map_err(|e| e.to_string())?;
+    queries::approve_binary(&conn, &binary_path).map_err(|e| e.to_string())
+}
+
+/// Check if an MCP stdio binary is approved.
+#[tauri::command]
+pub fn is_mcp_binary_approved(
+    state: State<'_, AppState>,
+    binary_path: String,
+) -> Result<bool, String> {
+    let conn = state.db.lock().map_err(|e| e.to_string())?;
+    queries::is_binary_approved(&conn, &binary_path).map_err(|e| e.to_string())
 }

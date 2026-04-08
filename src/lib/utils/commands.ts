@@ -210,9 +210,9 @@ export async function exportAllConversationsMarkdown(): Promise<string> {
   return invoke<string>("export_all_conversations_markdown");
 }
 
-/** Write text content to a file path (for export). */
-export async function saveExportFile(path: string, content: string): Promise<void> {
-  return invoke("save_export_file", { path, content });
+/** Save exported content to a user-chosen file via native save dialog (server-side). */
+export async function saveExportFile(content: string, defaultName: string): Promise<void> {
+  return invoke("save_export_file", { content, defaultName });
 }
 
 // ── Drafts ──────────────────────────────────────────────────────
@@ -309,6 +309,16 @@ export async function fetchMcpRegistry(query?: string, cursor?: string): Promise
     query: query ?? null,
     cursor: cursor ?? null,
   });
+}
+
+/** Approve an MCP stdio binary for execution. */
+export async function approveMcpBinary(binaryPath: string): Promise<void> {
+  return invoke("approve_mcp_binary", { binaryPath });
+}
+
+/** Check if an MCP stdio binary is approved. */
+export async function isMcpBinaryApproved(binaryPath: string): Promise<boolean> {
+  return invoke<boolean>("is_mcp_binary_approved", { binaryPath });
 }
 
 // ── Agents ──────────────────────────────────────────────────────
@@ -593,6 +603,11 @@ export async function extractFileText(
   name: string,
 ): Promise<string | null> {
   return invoke<string | null>("extract_file_text", { contentBase64, contentType, name });
+}
+
+/** Register file paths as allowed for reading (must be called before readDroppedFiles). */
+export async function registerAllowedPaths(paths: string[]): Promise<void> {
+  return invoke("register_allowed_paths", { paths });
 }
 
 /** Read files from OS-level drag-and-drop paths via Tauri backend. */

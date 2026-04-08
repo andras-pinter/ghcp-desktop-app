@@ -170,6 +170,8 @@ pub fn run(force_logout: bool) {
             commands::mcp::get_mcp_tools,
             commands::mcp::invoke_mcp_tool,
             commands::mcp::fetch_mcp_registry,
+            commands::mcp::approve_mcp_binary,
+            commands::mcp::is_mcp_binary_approved,
             commands::agents::get_agents,
             commands::agents::get_agent,
             commands::agents::create_agent,
@@ -203,6 +205,7 @@ pub fn run(force_logout: bool) {
             commands::projects::pick_file_for_chat,
             commands::projects::extract_file_text,
             commands::projects::read_dropped_files,
+            commands::projects::register_allowed_paths,
         ])
         .build(tauri::generate_context!())
         .expect("error while building Chuck")
