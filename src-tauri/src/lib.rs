@@ -71,14 +71,12 @@ pub fn run(force_logout: bool) {
 
             // ── System tray ──────────────────────────────────────
             let new_chat = MenuItemBuilder::with_id("new_chat", "New Chat").build(app)?;
-            let show = MenuItemBuilder::with_id("show", "Show Chuck").build(app)?;
+            let show = MenuItemBuilder::with_id("show", "Show").build(app)?;
             let quit = MenuItemBuilder::with_id("quit", "Quit").build(app)?;
 
             let tray_menu = MenuBuilder::new(app)
                 .item(&new_chat)
-                .separator()
                 .item(&show)
-                .separator()
                 .item(&quit)
                 .build()?;
 
