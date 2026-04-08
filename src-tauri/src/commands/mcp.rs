@@ -1,5 +1,7 @@
 //! MCP commands: server management + tool invocation.
 
+use std::path::{Component, Path};
+
 use mcp_client::types::{McpConnectionInfo, McpServerConfig, McpServerStatus, McpTransport};
 use mcp_client::{McpToolInfo, McpToolResult};
 use tauri::State;
@@ -36,7 +38,7 @@ fn delete_mcp_auth(server_id: &str) {
 // ── Helpers ─────────────────────────────────────────────────────
 
 /// Convert a DB row to an `McpServerConfig`, loading auth from keychain.
-fn row_to_config(row: &McpServerRow) -> McpServerConfig {
+pub(crate) fn row_to_config(row: &McpServerRow) -> McpServerConfig {
     McpServerConfig {
         id: row.id.clone(),
         name: row.name.clone(),
@@ -56,6 +58,25 @@ fn row_to_config(row: &McpServerRow) -> McpServerConfig {
         from_catalog: row.from_catalog,
         enabled: row.enabled,
     }
+}
+
+/// Check if a stdio server's binary has been approved by the user.
+///
+/// Returns `Ok(())` if the server is HTTP or if the binary is approved.
+/// Returns `Err("BINARY_NOT_APPROVED:{path}")` if approval is required.
+fn check_binary_approval(state: &AppState, config: &McpServerConfig) -> Result<(), String> {
+    if config.transport == McpTransport::Stdio {
+        if let Some(binary) = &config.binary_path {
+            let approved = {
+                let conn = state.db.lock().map_err(|e| e.to_string())?;
+                queries::is_binary_approved(&conn, binary).map_err(|e| e.to_string())?
+            };
+            if !approved {
+                return Err(format!("BINARY_NOT_APPROVED:{binary}"));
+            }
+        }
+    }
+    Ok(())
 }
 
 /// Convert an `McpServerConfig` to a DB row (with timestamps).
@@ -133,8 +154,11 @@ fn validate_config(config: &McpServerConfig) -> Result<(), String> {
             if binary.is_empty() {
                 return Err("Stdio transport requires a binary path".to_string());
             }
-            // Block path traversal components
-            if binary.contains("..") {
+            // Block path traversal components using proper path parsing
+            if Path::new(binary)
+                .components()
+                .any(|c| matches!(c, Component::ParentDir))
+            {
                 return Err("Binary path must not contain '..' components".to_string());
             }
             // If it looks like a path (contains separator), must be absolute
@@ -324,17 +348,7 @@ pub async fn connect_mcp_server(
     validate_config(&config)?;
 
     // Enforce stdio binary approval before connecting
-    if config.transport == McpTransport::Stdio {
-        if let Some(binary) = &config.binary_path {
-            let approved = {
-                let conn = state.db.lock().map_err(|e| e.to_string())?;
-                queries::is_binary_approved(&conn, binary).map_err(|e| e.to_string())?
-            };
-            if !approved {
-                return Err(format!("BINARY_NOT_APPROVED:{binary}"));
-            }
-        }
-    }
+    check_binary_approval(&state, &config)?;
 
     state.mcp.register_server(config).await;
 
@@ -387,17 +401,7 @@ pub async fn test_mcp_connection(
     validate_config(&config)?;
 
     // Enforce stdio binary approval before testing (same as connect)
-    if config.transport == McpTransport::Stdio {
-        if let Some(binary) = &config.binary_path {
-            let approved = {
-                let conn = state.db.lock().map_err(|e| e.to_string())?;
-                queries::is_binary_approved(&conn, binary).map_err(|e| e.to_string())?
-            };
-            if !approved {
-                return Err(format!("BINARY_NOT_APPROVED:{binary}"));
-            }
-        }
-    }
+    check_binary_approval(&state, &config)?;
 
     state
         .mcp
@@ -417,19 +421,7 @@ pub async fn test_mcp_connection_config(
     config: McpServerConfig,
 ) -> Result<usize, String> {
     validate_config(&config)?;
-
-    // Enforce stdio binary approval
-    if config.transport == McpTransport::Stdio {
-        if let Some(binary) = &config.binary_path {
-            let approved = {
-                let conn = state.db.lock().map_err(|e| e.to_string())?;
-                queries::is_binary_approved(&conn, binary).map_err(|e| e.to_string())?
-            };
-            if !approved {
-                return Err(format!("BINARY_NOT_APPROVED:{binary}"));
-            }
-        }
-    }
+    check_binary_approval(&state, &config)?;
 
     state
         .mcp
@@ -495,7 +487,10 @@ pub async fn approve_mcp_binary(
     if binary_path.trim().is_empty() {
         return Err("Binary path is required".to_string());
     }
-    if binary_path.contains("..") {
+    if Path::new(&binary_path)
+        .components()
+        .any(|c| matches!(c, Component::ParentDir))
+    {
         return Err("Binary path must not contain '..' components".to_string());
     }
     if (binary_path.contains('/') || binary_path.contains('\\'))

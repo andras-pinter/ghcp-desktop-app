@@ -446,6 +446,27 @@ pub struct McpServerRow {
     pub updated_at: String,
 }
 
+/// Map a rusqlite Row to an McpServerRow.
+///
+/// Expects columns in the standard SELECT order:
+/// `id, name, transport, url, binary_path, args, auth_header,
+///  from_catalog, enabled, created_at, updated_at`
+fn map_mcp_row(row: &rusqlite::Row) -> rusqlite::Result<McpServerRow> {
+    Ok(McpServerRow {
+        id: row.get(0)?,
+        name: row.get(1)?,
+        transport: row.get(2)?,
+        url: row.get(3)?,
+        binary_path: row.get(4)?,
+        args: row.get(5)?,
+        auth_header: row.get(6)?,
+        from_catalog: row.get::<_, i64>(7)? != 0,
+        enabled: row.get::<_, i64>(8)? != 0,
+        created_at: row.get(9)?,
+        updated_at: row.get(10)?,
+    })
+}
+
 /// List all MCP servers.
 pub fn get_mcp_servers(conn: &Connection) -> Result<Vec<McpServerRow>, rusqlite::Error> {
     let mut stmt = conn.prepare(
@@ -455,21 +476,7 @@ pub fn get_mcp_servers(conn: &Connection) -> Result<Vec<McpServerRow>, rusqlite:
          ORDER BY name ASC",
     )?;
     let rows = stmt
-        .query_map([], |row| {
-            Ok(McpServerRow {
-                id: row.get(0)?,
-                name: row.get(1)?,
-                transport: row.get(2)?,
-                url: row.get(3)?,
-                binary_path: row.get(4)?,
-                args: row.get(5)?,
-                auth_header: row.get(6)?,
-                from_catalog: row.get::<_, i64>(7)? != 0,
-                enabled: row.get::<_, i64>(8)? != 0,
-                created_at: row.get(9)?,
-                updated_at: row.get(10)?,
-            })
-        })?
+        .query_map([], map_mcp_row)?
         .collect::<Result<Vec<_>, _>>()?;
     Ok(rows)
 }
@@ -484,21 +491,7 @@ pub fn get_mcp_server(
                 from_catalog, enabled, created_at, updated_at
          FROM mcp_servers WHERE id = ?1",
     )?;
-    let mut rows = stmt.query_map(params![id], |row| {
-        Ok(McpServerRow {
-            id: row.get(0)?,
-            name: row.get(1)?,
-            transport: row.get(2)?,
-            url: row.get(3)?,
-            binary_path: row.get(4)?,
-            args: row.get(5)?,
-            auth_header: row.get(6)?,
-            from_catalog: row.get::<_, i64>(7)? != 0,
-            enabled: row.get::<_, i64>(8)? != 0,
-            created_at: row.get(9)?,
-            updated_at: row.get(10)?,
-        })
-    })?;
+    let mut rows = stmt.query_map(params![id], map_mcp_row)?;
     rows.next().transpose()
 }
 
@@ -511,21 +504,7 @@ pub fn get_enabled_mcp_servers(conn: &Connection) -> Result<Vec<McpServerRow>, r
          ORDER BY name ASC",
     )?;
     let rows = stmt
-        .query_map([], |row| {
-            Ok(McpServerRow {
-                id: row.get(0)?,
-                name: row.get(1)?,
-                transport: row.get(2)?,
-                url: row.get(3)?,
-                binary_path: row.get(4)?,
-                args: row.get(5)?,
-                auth_header: row.get(6)?,
-                from_catalog: row.get::<_, i64>(7)? != 0,
-                enabled: row.get::<_, i64>(8)? != 0,
-                created_at: row.get(9)?,
-                updated_at: row.get(10)?,
-            })
-        })?
+        .query_map([], map_mcp_row)?
         .collect::<Result<Vec<_>, _>>()?;
     Ok(rows)
 }

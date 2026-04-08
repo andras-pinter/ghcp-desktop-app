@@ -283,7 +283,7 @@ mod tests {
     }
 
     #[test]
-    fn test_migration_v2() {
+    fn test_full_migration() {
         let conn = Connection::open_in_memory().unwrap();
         conn.execute_batch("PRAGMA foreign_keys=ON;").unwrap();
         run(&conn, 0).unwrap();

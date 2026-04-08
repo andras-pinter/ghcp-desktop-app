@@ -32,25 +32,38 @@ pub fn run(force_logout: bool) {
         .setup(|app| {
             let app_state = AppState::new(app.handle())?;
 
-            // Load enabled MCP servers for auto-connect
+            // Load enabled MCP servers for auto-connect (with keychain auth + binary approval)
             let mcp_configs = {
                 let conn = app_state.db.lock().map_err(|e| e.to_string())?;
                 let rows =
                     db::queries::get_enabled_mcp_servers(&conn).map_err(|e| e.to_string())?;
                 rows.iter()
-                    .map(|row| mcp_client::McpServerConfig {
-                        id: row.id.clone(),
-                        name: row.name.clone(),
-                        transport: row
-                            .transport
-                            .parse()
-                            .unwrap_or(mcp_client::types::McpTransport::Http),
-                        url: row.url.clone(),
-                        binary_path: row.binary_path.clone(),
-                        args: row.args.clone(),
-                        auth_header: row.auth_header.clone(),
-                        from_catalog: row.from_catalog,
-                        enabled: row.enabled,
+                    .filter_map(|row| {
+                        let config = commands::mcp::row_to_config(row);
+                        // Skip unapproved stdio servers
+                        if config.transport == mcp_client::types::McpTransport::Stdio {
+                            if let Some(ref binary) = config.binary_path {
+                                match db::queries::is_binary_approved(&conn, binary) {
+                                    Ok(true) => {}
+                                    Ok(false) => {
+                                        log::warn!(
+                                            "Skipping unapproved stdio MCP server '{}' (binary: {})",
+                                            config.id,
+                                            binary
+                                        );
+                                        return None;
+                                    }
+                                    Err(e) => {
+                                        log::warn!(
+                                            "Failed to check binary approval for '{}': {e}",
+                                            config.id
+                                        );
+                                        return None;
+                                    }
+                                }
+                            }
+                        }
+                        Some(config)
                     })
                     .collect::<Vec<_>>()
             };

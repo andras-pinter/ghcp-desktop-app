@@ -174,8 +174,7 @@
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       if (msg.startsWith("BINARY_NOT_APPROVED:") && !isRetry) {
-        const binaryPath = msg.replace("BINARY_NOT_APPROVED:", "");
-        // approveMcpBinary shows a native OS confirmation dialog server-side
+        const binaryPath = msg.slice("BINARY_NOT_APPROVED:".length);
         try {
           await approveMcpBinary(binaryPath);
           await handleConnect(serverId, true);
@@ -208,7 +207,7 @@
       const msg = e instanceof Error ? e.message : String(e);
       // Handle binary approval the same way as connect
       if (msg.startsWith("BINARY_NOT_APPROVED:")) {
-        const binaryPath = msg.replace("BINARY_NOT_APPROVED:", "");
+        const binaryPath = msg.slice("BINARY_NOT_APPROVED:".length);
         try {
           await approveMcpBinary(binaryPath);
           // Retry the test after approval
