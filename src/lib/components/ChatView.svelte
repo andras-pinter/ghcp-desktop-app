@@ -62,6 +62,7 @@
   let draftTimer: ReturnType<typeof setTimeout> | undefined;
   let showSearch = $state(false);
   let extractingFiles = $state(false);
+  let generatingTitleForConv: string | null = null;
   const greeting = greetings[Math.floor(Math.random() * greetings.length)];
 
   // Full-window drag-and-drop via Tauri's native onDragDropEvent.
@@ -435,34 +436,39 @@
   /** Auto-generate a title via AI from the first exchange. Falls back to truncation. */
   async function generateTitle(convId: string, msgs: Message[]): Promise<void> {
     const conv = store.conversations.find((c) => c.id === convId);
-    if (conv?.title) return;
+    if (conv?.title || generatingTitleForConv === convId) return;
 
-    const firstUser = msgs.find((m) => m.role === "user");
-    const firstAssistant = msgs.find((m) => m.role === "assistant");
-    if (!firstUser) return;
-
-    let title: string;
+    generatingTitleForConv = convId;
     try {
-      title = await generateConversationTitle(
-        firstUser.content,
-        firstAssistant?.content ?? "",
-        selectedModel,
-      );
-    } catch {
-      // Fallback: truncate the first user message
-      const cleaned = firstUser.content
-        .replace(/\n+---\n📎\s*\[.*$/s, "")
-        .replace(/\n+📎\s*.*/g, "")
-        .trim();
-      if (!cleaned) return;
-      title = cleaned.length > 50 ? cleaned.slice(0, 49) + "…" : cleaned;
-    }
+      const firstUser = msgs.find((m) => m.role === "user");
+      const firstAssistant = msgs.find((m) => m.role === "assistant");
+      if (!firstUser) return;
 
-    try {
-      await updateConversation(convId, title);
-      setConversationTitle(convId, title);
-    } catch (e) {
-      console.error("Failed to set conversation title:", e);
+      let title: string;
+      try {
+        title = await generateConversationTitle(
+          firstUser.content,
+          firstAssistant?.content ?? "",
+          selectedModel,
+        );
+      } catch {
+        // Fallback: truncate the first user message
+        const cleaned = firstUser.content
+          .replace(/\n+---\n📎\s*\[.*$/s, "")
+          .replace(/\n+📎\s*.*/g, "")
+          .trim();
+        if (!cleaned) return;
+        title = cleaned.length > 50 ? cleaned.slice(0, 49) + "…" : cleaned;
+      }
+
+      try {
+        await updateConversation(convId, title);
+        setConversationTitle(convId, title);
+      } catch (e) {
+        console.error("Failed to set conversation title:", e);
+      }
+    } finally {
+      generatingTitleForConv = null;
     }
   }
 
