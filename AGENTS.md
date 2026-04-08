@@ -824,11 +824,11 @@ and **events** (`listen()`/`emit()`). This is the only bridge between the two la
 | `auth.rs` | `authenticate` — initiate OAuth device flow; `poll_auth_token` — poll for token after user authorizes; `logout` — clear token from keychain; `get_auth_state` — check current auth status | ✅ |
 | `conversations.rs` | `get_conversations` — list from SQLite; `get_conversation` — single by ID; `create_conversation` — new conversation; `update_conversation` — rename/update metadata; `delete_conversation` — remove conversation + messages; `get_messages` — messages for a conversation; `create_message` — insert message; `update_message_content` — update after streaming/edit; `delete_messages_after` — discard messages after sort order (for editing) | ✅ |
 | `models.rs` | `get_models` — fetch available Copilot models (deduplicates API response) | ✅ |
-| `settings.rs` | `get_setting` — read config key; `update_setting` — write config key-value; `get_db_size` — return database file size; `save_draft` — persist input draft; `get_draft` — retrieve draft for conversation; `delete_draft` — clear draft | ✅ |
+| `settings.rs` | `get_setting` — read config key; `update_setting` — write config key-value; `get_db_size` — return database file size; `save_export_file` — export conversations via server-side save dialog (Rust controls path selection); `save_draft` — persist input draft; `get_draft` — retrieve draft for conversation; `delete_draft` — clear draft | ✅ |
 | `agents.rs` | `get_agents` — list agent personas; `get_agent` — single by ID; `create_agent` — new agent; `update_agent` — edit agent; `delete_agent` — remove agent (blocks default); `set_agent_skills` — assign skills; `set_agent_mcp_connections` — assign MCP servers; `install_agent_from_registry` — install from aitmpl.com; `import_agent_from_git` — import from git; `fetch_git_agents` — discover agent files from git repo | ✅ |
 | `skills.rs` | `get_skills` — list all skills; `create_skill` — add new skill; `update_skill` — edit skill; `delete_skill` — remove skill; `toggle_skill` — enable/disable; `search_registry` — search aitmpl.com registry; `install_from_registry` — fetch SKILL.md + save; `fetch_git_skills` — discover SKILL.md files from git URL; `import_git_skill` — save parsed skill from git | ✅ |
-| `projects.rs` | `get_projects` — list projects; `get_project` — single by ID; `create_project` — new project; `update_project` — edit instructions/name; `delete_project` — remove project; `get_project_files` — list files; `add_project_file` — attach file (BLOB); `get_project_file_content` — read file content; `remove_project_file` — detach file; `get_project_conversations` — list conversations in project; `pick_file_for_upload` — native file picker for project files; `pick_file_for_chat` — native file picker for chat attachments; `extract_file_text` — async text extraction (PDF, DOCX, XLSX, PPTX, RTF, 60+ text formats); `read_dropped_files` — read file paths from Tauri drag-drop events | ✅ |
-| `mcp.rs` | `get_mcp_servers` — list configured servers; `add_mcp_server` — register new server; `update_mcp_server` — update server config; `remove_mcp_server` — delete server; `connect_mcp_server` — connect to server; `disconnect_mcp_server` — disconnect; `test_mcp_connection` — verify server responds; `get_mcp_tools` — list discovered tools; `invoke_mcp_tool` — call an MCP tool; `fetch_mcp_registry` — browse official MCP Registry | ✅ |
+| `projects.rs` | `get_projects` — list projects; `get_project` — single by ID; `create_project` — new project; `update_project` — edit instructions/name; `delete_project` — remove project; `get_project_files` — list files; `add_project_file` — attach file (BLOB); `get_project_file_content` — read file content; `remove_project_file` — detach file; `get_project_conversations` — list conversations in project; `pick_file_for_upload` — native file picker for project files; `pick_file_for_chat` — native file picker for chat attachments; `extract_file_text` — async text extraction (PDF, DOCX, XLSX, PPTX, RTF, 60+ text formats); `read_dropped_files` — read file paths from Tauri drag-drop events (validated against OS-registered allowed paths); `register_allowed_paths` — register OS drag-drop paths for validation | ✅ |
+| `mcp.rs` | `get_mcp_servers` — list configured servers; `add_mcp_server` — register new server; `update_mcp_server` — update server config; `remove_mcp_server` — delete server; `connect_mcp_server` — connect to server (auth_header redacted in response; stdio binaries require prior approval); `disconnect_mcp_server` — disconnect; `test_mcp_connection` — verify server responds; `get_mcp_tools` — list discovered tools; `invoke_mcp_tool` — call an MCP tool; `fetch_mcp_registry` — browse official MCP Registry; `approve_mcp_binary` — approve a stdio binary for execution (persisted to SQLite); `is_mcp_binary_approved` — check if a binary is approved | ✅ |
 | `web_research.rs` | `web_search` — trigger web search via API; `fetch_url` — fetch + extract URL content | ✅ |
 
 **Events** (backend → frontend, push):
@@ -919,7 +919,7 @@ copilot-desktop/
 │   └── src/
 │       ├── main.rs               # Entry point (Tauri bootstrap)
 │       ├── lib.rs                # Tauri app setup, plugin registration, state init
-│       ├── state.rs              # Tauri managed state (AppState, DB pool, etc.)
+│       ├── state.rs              # Tauri managed state (AppState, DB pool, allowed file paths, etc.)
 │       ├── skillmd.rs            # SKILL.md parser (YAML frontmatter + markdown body)
 │       ├── registry.rs           # Skill/agent registry client (aitmpl.com API, git import)
 │       ├── text_extract.rs       # Text extraction from files (PDF, DOCX, XLSX, PPTX, RTF, 60+ text formats)
@@ -1118,19 +1118,24 @@ test(web-research): add URL validation tests for private IP blocking
 
 - **Never log or display OAuth tokens or API keys** in any output (Rust logs or browser console)
 - Tokens and API keys must be stored only in the OS keychain — never in plain text files, SQLite, or localStorage
+- **MCP auth headers** are stored in the OS keychain (key pattern: `mcp_auth_{server_id}`), never in SQLite. Migration v3 proactively migrates any pre-existing plaintext auth headers to keychain.
+- **Token types must not derive `Serialize`** — `OAuthTokenResponse` and `CopilotTokenResponse` are `Deserialize`-only to prevent accidental serialization back to the frontend
+- **Sensitive fields must not appear in Debug output** — types containing secrets (e.g., `McpServerConfig`) use custom `Debug` impls that redact sensitive fields
 - Validate all API responses — don't trust server data shapes blindly
 - **No filesystem access** — the app cannot read, write, or browse files on its own. Files only enter via explicit user drag-and-drop or Tauri dialog file picker. File contents are read into memory once; the app never stores or re-accesses file paths.
+- **Drag-and-drop path validation** — dropped file paths are registered in `AppState.allowed_file_paths` from the OS drag event, then validated when `read_dropped_files` is called. Paths are consumed (one-time use) to prevent replay.
 - **No shell/subprocess execution** — the app must never spawn processes or run commands, **except** for MCP stdio transport (see MCP Security below)
 - **No network requests** except to: GitHub Copilot API, GitHub OAuth, user-configured MCP servers, web search API, user-provided URLs, and GitHub Releases API (for auto-update). All non-GitHub network destinations must be explicitly user-configured or user-initiated.
 - **URL fetching:** block private IPs (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16), localhost (127.0.0.0/8), link-local (169.254.0.0/16), and cloud metadata (169.254.169.254). Only fetch public HTTPS URLs.
 - **Tauri capabilities** must be configured with the minimal set of permissions needed. Audit `capabilities/default.json` in every review cycle.
-- **Content Security Policy (CSP)** must be configured in `tauri.conf.json` to prevent XSS. No `unsafe-inline` or `unsafe-eval`.
+- **Content Security Policy (CSP)** must be configured in `tauri.conf.json` to prevent XSS. `style-src 'unsafe-inline'` is required for Svelte scoped styles and Shiki runtime injection — this is an accepted trade-off. No `unsafe-eval`.
+- **IPC boundary hardening** — all Tauri commands that return data to the frontend must redact sensitive fields (auth headers, tokens). File save operations must use server-side dialogs (Rust controls path selection via `tauri-plugin-dialog`).
 - **Markdown sanitization** — all rendered markdown must be sanitized with DOMPurify before insertion into the DOM. Never use `{@html}` with unsanitized content.
 - **MCP response sanitization** — all MCP tool responses must be sanitized before rendering. Strip scripts from text content, enforce max payload size (e.g., 1MB), validate JSON structure.
 - **MCP server connections** are user-managed — the app never auto-discovers or connects to MCP servers without explicit user configuration
 - **macOS App Sandbox required** — enforce filesystem and network restrictions at the OS level via entitlements
 - Treat any code path that touches the filesystem (outside app data dir) or spawns a non-MCP process as a **security violation**
-- **Conversation export exception:** exporting conversations (JSON/Markdown) writes to a user-chosen location via the Tauri save-file dialog. The app never picks a destination on its own — the user explicitly selects the output path through the system file picker.
+- **Conversation export exception:** exporting conversations (JSON/Markdown) writes to a user-chosen location via the Tauri server-side save dialog. The Rust backend controls the dialog and writes the file — the frontend never receives or handles the file path.
 - This is the **only** permitted filesystem write outside the app data directory.
 
 ### MCP Security
@@ -1138,10 +1143,10 @@ test(web-research): add URL validation tests for private IP blocking
 MCP supports two transports: **HTTP** and **stdio**. Stdio transport spawns a local process to run
 an MCP server binary. This is the **only** exception to the no-subprocess rule:
 
-- Stdio MCP servers may **only** be spawned if the user has explicitly configured them in settings
+- **Binary approval enforcement** — stdio MCP servers require explicit user approval before first launch. Approved binary paths are persisted in the `approved_mcp_binaries` SQLite table. The Rust backend checks `is_binary_approved()` before connecting; if not approved, returns a `BINARY_NOT_APPROVED:{path}` sentinel error. The frontend shows a confirmation dialog and calls `approve_mcp_binary` on user consent (single retry to prevent infinite loops).
 - The binary path must be user-provided — the app never searches the filesystem for binaries
 - Each stdio server launch must be logged and visible in the MCP settings UI
-- The app should show a clear confirmation dialog the first time a new stdio server binary is launched
+- **Auth header security** — MCP server auth headers are stored in the OS keychain (key pattern: `mcp_auth_{server_id}`), never in SQLite. The `connect_mcp_server` command redacts `auth_header` to `"[REDACTED]"` before returning data to the frontend via `redact_connection_info()`. `McpServerConfig` uses a custom `Debug` implementation that masks auth headers as `"••••••••"`.
 - HTTP transport is preferred and should be the default recommendation in the registry
 - Tauri's `shell` plugin scope must be configured to allow **only** user-configured MCP binaries — no wildcard execution
 - If App Sandbox restricts subprocess spawning, document this limitation and fall back to HTTP-only
@@ -1592,11 +1597,17 @@ CREATE TABLE mcp_servers (
     url TEXT,                      -- For HTTP transport
     binary_path TEXT,              -- For stdio transport
     args TEXT,                     -- JSON array of arguments for stdio
-    auth_header TEXT,              -- Optional auth for HTTP
+    auth_header TEXT,              -- DEPRECATED: migrated to OS keychain in v3; column kept for schema compat
     from_catalog INTEGER DEFAULT 0, -- 1 if added from MCP Registry
     enabled INTEGER DEFAULT 1,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
+);
+
+-- Approved MCP stdio binary paths (user must approve before first launch)
+CREATE TABLE approved_mcp_binaries (
+    binary_path TEXT PRIMARY KEY,
+    approved_at TEXT NOT NULL      -- ISO 8601
 );
 
 -- User preferences
@@ -1625,13 +1636,13 @@ CREATE INDEX idx_skills_source ON skills(source);
 
 -- ── Initial seed data ──
 
-INSERT INTO config (key, value) VALUES ('schema_version', '1');
+INSERT INTO config (key, value) VALUES ('schema_version', '3');
 ```
 
 ### Persistence Rules
 
 - **Conversations, messages, projects, agents, skills, MCP configs** → SQLite (managed by Rust backend)
-- **OAuth tokens, API keys** → OS keychain via `keyring` crate (never in SQLite or localStorage)
+- **OAuth tokens, API keys, MCP auth headers** → OS keychain via `keyring` crate (never in SQLite or localStorage)
 - **User preferences** (theme, font size, hotkey, send shortcut, auto-update) → SQLite `config` table (e.g., keys: `theme`, `font_size`, `global_hotkey`, `send_shortcut`, `auto_update_enabled`, `auto_update_frequency`)
 - **File contents** for project pinned files → SQLite `project_files.content` as BLOB
 - **Attached file contents** in chat → stored in `messages.attachments` as metadata only; full content is ephemeral (in-memory during conversation, not persisted)

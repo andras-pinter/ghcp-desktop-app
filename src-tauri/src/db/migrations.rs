@@ -188,18 +188,28 @@ fn migrate_v2(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
 
 /// Version 3: Approved MCP binaries table + migrate auth headers to keychain.
 fn migrate_v3(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
-    // Proactively move existing plaintext auth headers to OS keychain
+    // Proactively move existing plaintext auth headers to OS keychain.
+    // Only clear each row's auth_header after confirmed keychain storage.
     {
-        let mut stmt = conn.prepare(
-            "SELECT id, auth_header FROM mcp_servers WHERE auth_header IS NOT NULL",
-        )?;
+        let mut stmt =
+            conn.prepare("SELECT id, auth_header FROM mcp_servers WHERE auth_header IS NOT NULL")?;
         let rows = stmt.query_map([], |row| {
             Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
         })?;
         for (server_id, auth_header) in rows.flatten() {
             let key = format!("mcp_auth_{server_id}");
-            if let Err(e) = copilot_api::keychain::store(&key, &auth_header) {
-                log::warn!("Failed to migrate MCP auth for {server_id} to keychain: {e}");
+            match copilot_api::keychain::store(&key, &auth_header) {
+                Ok(()) => {
+                    // Keychain write succeeded — safe to clear this row's plaintext auth
+                    conn.execute(
+                        "UPDATE mcp_servers SET auth_header = NULL WHERE id = ?1",
+                        [&server_id],
+                    )?;
+                }
+                Err(e) => {
+                    // Keychain write failed — keep plaintext auth as fallback for this server
+                    log::warn!("Failed to migrate MCP auth for {server_id} to keychain: {e}. Keeping plaintext auth as fallback.");
+                }
             }
         }
     }
@@ -211,9 +221,6 @@ fn migrate_v3(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
             binary_path TEXT PRIMARY KEY,
             approved_at TEXT NOT NULL
         );
-
-        -- Clear plaintext auth headers now that they've been migrated to keychain
-        UPDATE mcp_servers SET auth_header = NULL WHERE auth_header IS NOT NULL;
 
         -- Bump schema version
         UPDATE config SET value = '3' WHERE key = 'schema_version';

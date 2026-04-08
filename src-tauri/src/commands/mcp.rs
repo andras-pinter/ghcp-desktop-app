@@ -297,6 +297,9 @@ pub async fn connect_mcp_server(
         row_to_config(&row)
     };
 
+    // Re-validate config loaded from DB (guards against corruption or legacy data)
+    validate_config(&config)?;
+
     // Enforce stdio binary approval before connecting
     if config.transport == McpTransport::Stdio {
         if let Some(binary) = &config.binary_path {
@@ -347,6 +350,20 @@ pub async fn test_mcp_connection(
     config: McpServerConfig,
 ) -> Result<usize, String> {
     validate_config(&config)?;
+
+    // Enforce stdio binary approval before testing (same as connect)
+    if config.transport == McpTransport::Stdio {
+        if let Some(binary) = &config.binary_path {
+            let approved = {
+                let conn = state.db.lock().map_err(|e| e.to_string())?;
+                queries::is_binary_approved(&conn, binary).map_err(|e| e.to_string())?
+            };
+            if !approved {
+                return Err(format!("BINARY_NOT_APPROVED:{binary}"));
+            }
+        }
+    }
+
     state
         .mcp
         .test_connection(&config)
