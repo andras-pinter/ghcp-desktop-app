@@ -8,6 +8,9 @@ mod state;
 pub mod text_extract;
 
 use state::AppState;
+use tauri::menu::{MenuBuilder, MenuItemBuilder};
+use tauri::tray::TrayIconBuilder;
+use tauri::Emitter;
 use tauri::Manager;
 
 /// Run the Tauri application.
@@ -66,6 +69,60 @@ pub fn run(force_logout: bool) {
                 });
             }
 
+            // ── System tray ──────────────────────────────────────
+            let new_chat = MenuItemBuilder::with_id("new_chat", "New Chat").build(app)?;
+            let show = MenuItemBuilder::with_id("show", "Show").build(app)?;
+            let quit = MenuItemBuilder::with_id("quit", "Quit").build(app)?;
+
+            let tray_menu = MenuBuilder::new(app)
+                .item(&new_chat)
+                .item(&show)
+                .item(&quit)
+                .build()?;
+
+            let icon = app
+                .default_window_icon()
+                .cloned()
+                .expect("default window icon must be set");
+
+            let _tray = TrayIconBuilder::new()
+                .icon(icon)
+                .icon_as_template(false)
+                .tooltip("Chuck")
+                .menu(&tray_menu)
+                .on_menu_event(|app, event| match event.id().as_ref() {
+                    "new_chat" => {
+                        show_and_focus(app);
+                        if let Some(win) = app.get_webview_window("main") {
+                            let _ = win.emit("tray-new-chat", ());
+                        }
+                    }
+                    "show" => {
+                        show_and_focus(app);
+                    }
+                    "quit" => {
+                        app.exit(0);
+                    }
+                    _ => {}
+                })
+                .on_tray_icon_event(|tray, event| {
+                    if let tauri::tray::TrayIconEvent::DoubleClick { .. } = event {
+                        show_and_focus(tray.app_handle());
+                    }
+                })
+                .build(app)?;
+
+            // Intercept window close → hide to tray instead of quitting
+            if let Some(win) = app.get_webview_window("main") {
+                let win_clone = win.clone();
+                win.on_window_event(move |event| {
+                    if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                        api.prevent_close();
+                        let _ = win_clone.hide();
+                    }
+                });
+            }
+
             log::info!("Chuck initialized");
             Ok(())
         })
@@ -78,6 +135,7 @@ pub fn run(force_logout: bool) {
             commands::auth::get_auth_state,
             commands::chat::send_message,
             commands::chat::stop_streaming,
+            commands::chat::generate_title,
             commands::models::get_models,
             commands::conversations::get_conversations,
             commands::conversations::get_conversation,
@@ -91,6 +149,12 @@ pub fn run(force_logout: bool) {
             commands::settings::get_setting,
             commands::settings::update_setting,
             commands::settings::get_db_size,
+            commands::settings::delete_old_conversations,
+            commands::settings::export_conversation_json,
+            commands::settings::export_conversation_markdown,
+            commands::settings::export_all_conversations_json,
+            commands::settings::export_all_conversations_markdown,
+            commands::settings::save_export_file,
             commands::settings::save_draft,
             commands::settings::get_draft,
             commands::settings::delete_draft,
@@ -140,6 +204,28 @@ pub fn run(force_logout: bool) {
             commands::projects::extract_file_text,
             commands::projects::read_dropped_files,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running Chuck");
+        .build(tauri::generate_context!())
+        .expect("error while building Chuck")
+        .run(|app_handle, event| {
+            // macOS: reopen the main window when the dock icon is clicked
+            if let tauri::RunEvent::Reopen {
+                has_visible_windows,
+                ..
+            } = event
+            {
+                if !has_visible_windows {
+                    show_and_focus(app_handle);
+                }
+            }
+        });
+}
+
+/// Show the main window and activate the app (macOS needs app-level activation).
+fn show_and_focus(app: &tauri::AppHandle) {
+    #[cfg(target_os = "macos")]
+    let _ = app.show();
+    if let Some(win) = app.get_webview_window("main") {
+        let _ = win.show();
+        let _ = win.set_focus();
+    }
 }

@@ -12,6 +12,7 @@
     updateConversation,
     extractFileText,
     readDroppedFiles,
+    generateConversationTitle,
   } from "$lib/utils/commands";
   import {
     onStreamingToken,
@@ -37,6 +38,7 @@
   } from "$lib/stores/conversations.svelte";
   import { getModelStore, setDefaultModel } from "$lib/stores/models.svelte";
   import { getAgentStore, selectAgent } from "$lib/stores/agents.svelte";
+  import { getNetwork } from "$lib/stores/network.svelte";
 
   const greetings = [
     "Your co-pilot is ready. Where to?",
@@ -52,6 +54,7 @@
   const store = getConversationStore();
   const modelStore = getModelStore();
   const agentStore = getAgentStore();
+  const network = getNetwork();
   let chatContainer: HTMLElement | undefined = $state();
   let streaming = $state(false);
   let selectedModel = $state("gpt-4o");
@@ -59,6 +62,7 @@
   let draftTimer: ReturnType<typeof setTimeout> | undefined;
   let showSearch = $state(false);
   let extractingFiles = $state(false);
+  let generatingTitleForConv: string | null = null;
   const greeting = greetings[Math.floor(Math.random() * greetings.length)];
 
   // Full-window drag-and-drop via Tauri's native onDragDropEvent.
@@ -205,9 +209,12 @@
         const msg = store.messages.find((m) => m.id === streamingAssistantId);
         if (msg && msg.content) {
           await updateMessageContentStore(msg.id, msg.content, msg.thinkingContent);
-          // Auto-generate title if this is the first exchange (best-effort)
-          if (store.activeConversationId && store.messages.length <= 2) {
-            generateTitle(store.activeConversationId, store.messages).catch(() => {});
+          // Auto-generate title if conversation has no title yet (best-effort)
+          if (store.activeConversationId) {
+            const conv = store.conversations.find((c) => c.id === store.activeConversationId);
+            if (!conv?.title) {
+              generateTitle(store.activeConversationId, store.messages).catch(() => {});
+            }
           }
         }
         streamingAssistantId = null;
@@ -426,18 +433,42 @@
     }
   }
 
-  /** Auto-generate a title from the first user message. */
+  /** Auto-generate a title via AI from the first exchange. Falls back to truncation. */
   async function generateTitle(convId: string, msgs: Message[]): Promise<void> {
-    const firstUser = msgs.find((m) => m.role === "user");
-    if (!firstUser) return;
-    // Simple heuristic: take first 50 chars of user's message as title
-    const title =
-      firstUser.content.length > 50 ? firstUser.content.slice(0, 49) + "…" : firstUser.content;
+    const conv = store.conversations.find((c) => c.id === convId);
+    if (conv?.title || generatingTitleForConv === convId) return;
+
+    generatingTitleForConv = convId;
     try {
-      await updateConversation(convId, title);
-      setConversationTitle(convId, title);
-    } catch (e) {
-      console.error("Failed to set conversation title:", e);
+      const firstUser = msgs.find((m) => m.role === "user");
+      const firstAssistant = msgs.find((m) => m.role === "assistant");
+      if (!firstUser) return;
+
+      let title: string;
+      try {
+        title = await generateConversationTitle(
+          firstUser.content,
+          firstAssistant?.content ?? "",
+          selectedModel,
+        );
+      } catch {
+        // Fallback: truncate the first user message
+        const cleaned = firstUser.content
+          .replace(/\n+---\n📎\s*\[.*$/s, "")
+          .replace(/\n+📎\s*.*/g, "")
+          .trim();
+        if (!cleaned) return;
+        title = cleaned.length > 50 ? cleaned.slice(0, 49) + "…" : cleaned;
+      }
+
+      try {
+        await updateConversation(convId, title);
+        setConversationTitle(convId, title);
+      } catch (e) {
+        console.error("Failed to set conversation title:", e);
+      }
+    } finally {
+      generatingTitleForConv = null;
     }
   }
 
@@ -547,6 +578,17 @@
     </div>
   {/if}
 
+  {#if !network.isOnline}
+    <div class="offline-banner" role="alert">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+        <path
+          d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm0 10.5a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5zM8.75 8a.75.75 0 0 1-1.5 0V5a.75.75 0 0 1 1.5 0v3z"
+        />
+      </svg>
+      <span>You're offline. Conversations are read-only.</span>
+    </div>
+  {/if}
+
   {#if store.messages.length === 0}
     <div class="welcome-container">
       <div class="welcome">
@@ -611,6 +653,9 @@
           </div>
         {/each}
       </div>
+    </div>
+    <div class="visually-hidden" aria-live="polite" aria-atomic="true">
+      {#if streaming}Copilot is responding…{/if}
     </div>
     <div class="chat-input-container">
       <InputArea
@@ -685,6 +730,21 @@
     font-weight: 500;
     color: var(--color-accent-copper);
     letter-spacing: var(--letter-spacing-tight);
+  }
+
+  /* ── Offline banner ── */
+
+  .offline-banner {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-lg);
+    background: var(--color-bg-secondary);
+    border-bottom: 1px solid var(--color-border-secondary);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    flex-shrink: 0;
+    animation: fadeIn 200ms ease both;
   }
 
   /* ── Welcome ── */

@@ -369,3 +369,64 @@ pub async fn stop_streaming(app: AppHandle) -> Result<(), String> {
     }
     Ok(())
 }
+
+/// Generate a concise conversation title from the first user message and assistant response.
+#[tauri::command]
+pub async fn generate_title(
+    app: AppHandle,
+    user_message: String,
+    assistant_message: String,
+    model: String,
+) -> Result<String, String> {
+    let state = app.state::<AppState>();
+
+    let request = ChatRequest {
+        model,
+        messages: vec![
+            ChatMessage {
+                role: MessageRole::System,
+                content: "Generate a concise 4-6 word title for this conversation. \
+                    Return ONLY the title, no quotes, no punctuation at the end, no explanation."
+                    .to_string(),
+                name: None,
+                tool_call_id: None,
+            },
+            ChatMessage {
+                role: MessageRole::User,
+                content: format!(
+                    "User: {}\n\nAssistant: {}",
+                    truncate_for_title(&user_message, 500),
+                    truncate_for_title(&assistant_message, 500),
+                ),
+                name: None,
+                tool_call_id: None,
+            },
+        ],
+        temperature: Some(0.3),
+        max_tokens: Some(30),
+        stream: true,
+    };
+
+    let title = collect_stream_response(&state.copilot, request).await?;
+    let title = title.trim().trim_matches('"').trim().to_string();
+
+    if title.is_empty() {
+        return Err("Empty title generated".to_string());
+    }
+
+    Ok(title)
+}
+
+/// Truncate text for title generation context, keeping it reasonably short.
+fn truncate_for_title(text: &str, max_len: usize) -> &str {
+    if text.len() <= max_len {
+        text
+    } else {
+        // Find a safe char boundary
+        let mut end = max_len;
+        while !text.is_char_boundary(end) && end > 0 {
+            end -= 1;
+        }
+        &text[..end]
+    }
+}

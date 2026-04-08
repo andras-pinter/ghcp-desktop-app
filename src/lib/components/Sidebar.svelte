@@ -54,6 +54,32 @@
     contextMenuConv = contextMenuConv === id ? null : id;
   }
 
+  function handleContextMenuKeydown(event: KeyboardEvent) {
+    const menu = event.currentTarget as HTMLElement;
+    const items = Array.from(menu.querySelectorAll<HTMLElement>('[role="menuitem"]'));
+    const active = document.activeElement as HTMLElement;
+    const idx = items.indexOf(active);
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      const next = idx < items.length - 1 ? idx + 1 : 0;
+      items[next]?.focus();
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      const prev = idx > 0 ? idx - 1 : items.length - 1;
+      items[prev]?.focus();
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      contextMenuConv = null;
+    } else if (event.key === "Home") {
+      event.preventDefault();
+      items[0]?.focus();
+    } else if (event.key === "End") {
+      event.preventDefault();
+      items[items.length - 1]?.focus();
+    }
+  }
+
   function startRename(id: string, currentTitle: string | null) {
     renamingConv = id;
     renameText = currentTitle ?? "";
@@ -286,7 +312,7 @@
     {/if}
 
     {#if contextMenuConv === conv.id}
-      <div class="context-menu" role="menu">
+      <div class="context-menu" role="menu" tabindex="-1" onkeydown={handleContextMenuKeydown}>
         <button
           class="context-item"
           role="menuitem"

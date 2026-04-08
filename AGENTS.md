@@ -837,7 +837,7 @@ and **events** (`listen()`/`emit()`). This is the only bridge between the two la
 - `streaming-error` — error during streaming
 - `auth-state-changed` — login/logout
 - `git-import-progress` — progress updates during git skill/agent import (total, fetched, phase)
-- `network-status` — online/offline *(⬚ Phase 10)*
+- `network-status` — online/offline
 - `update-available` — new version found *(⬚ Phase 11)*
 
 ---
@@ -868,7 +868,7 @@ copilot-desktop/
 │   │   │   ├── ThinkingSection.svelte   # Collapsible reasoning/thinking display
 │   │   │   ├── WebResultCard.svelte     # Cited web search result card
 │   │   │   ├── AuthScreen.svelte        # OAuth login/welcome screen
-│   │   │   ├── SettingsPanel.svelte     # Settings (account, theme, model, MCP, export, DB, shortcuts) (⬚ Phase 10)
+│   │   │   ├── SettingsPanel.svelte     # Settings (account, theme, model, MCP, export, DB, shortcuts)
 │   │   │   ├── ProjectView.svelte       # Project detail (instructions, files, conversations)
 │   │   │   ├── AgentsPanel.svelte       # Agent management (create/edit/delete + registry browse + git import)
 │   │   │   ├── SkillsPanel.svelte       # Skills browser (local + registry + git import, toggle on/off)
@@ -884,9 +884,9 @@ copilot-desktop/
 │   │   │   ├── agents.svelte.ts         # Agent personas state
 │   │   │   ├── skills.svelte.ts         # Skills/extensions state
 │   │   │   ├── projects.svelte.ts       # Projects state
-│   │   │   ├── settings.svelte.ts       # User preferences (⬚ Phase 10)
-│   │   │   ├── theme.svelte.ts          # Light/dark theme state (⬚ Phase 10)
-│   │   │   └── network.svelte.ts        # Online/offline state (⬚ Phase 10)
+│   │   │   ├── settings.svelte.ts       # User preferences
+│   │   │   ├── theme.svelte.ts          # Light/dark theme state
+│   │   │   └── network.svelte.ts        # Online/offline state
 │   │   ├── types/                # TypeScript type definitions (mirrors Rust types)
 │   │   │   ├── auth.ts
 │   │   │   ├── conversation.ts
@@ -1715,13 +1715,13 @@ INSERT INTO config (key, value) VALUES ('schema_version', '1');
 37. ✅ **file-context** — User-initiated only: drag-and-drop (Tauri native `onDragDropEvent`) or `tauri-plugin-dialog` file picker. Instant placeholder pills on drop, async background text extraction via `text_extract.rs` (PDF via `pdf-extract`+`lopdf` fallback, DOCX/XLSX/PPTX via XML extraction, RTF, 60+ text extensions). Extraction cache (`SvelteMap<string, Promise>`) + reactive status record drives pill UI (reading→extracting→✓/⚠). Extracted content sent to API only (never visible in chat). 50MB file size limit with user warning. Never retain paths or re-read from disk.
 38. ✅ **context-window** — Implement conversation summarization for long chats. Older messages summarized into condensed recap. Visual indicator when summarization has occurred.
 
-### Phase 10: Polish & Platform Features
-39. ⬚ **settings-panel** — `SettingsPanel.svelte`: account, theme, font size, default model, keyboard shortcuts, MCP management, conversation export (JSON + Markdown), database size display + cleanup, clear history
-40. ⬚ **global-hotkey** — System-wide app summon via `tauri-plugin-global-shortcut` (Cmd+Shift+Space or configurable)
-41. ⬚ **system-tray** — Tauri core `tray-icon` feature: minimize to tray instead of closing. Streaming continues when window is hidden. Right-click menu: New Chat, Show, Quit. Status indicator.
-42. ⬚ **keyboard-shortcuts** — Cmd+N (new chat), Cmd+K (search conversations), Cmd+F (search in conversation), Cmd+, (settings), Cmd+Shift+S (toggle sidebar), Escape (cancel streaming). Send shortcut configuration (Enter vs Cmd+Enter / Ctrl+Enter) persisted via `send_shortcut` config key.
-43. ⬚ **offline-mode** — Detect network status. Full read access when offline, sending disabled with clear indicator. Auto-reconnect with "Back online" toast.
-44. ⬚ **accessibility** — Semantic HTML, ARIA roles/labels, keyboard navigation, focus management, visible focus indicators, screen reader testing
+### Phase 10: Polish & Platform Features ✅
+39. ✅ **settings-panel** — `SettingsPanel.svelte`: account, theme, font size, default model, keyboard shortcuts, MCP management, conversation export (JSON + Markdown), database size display + cleanup, clear history
+40. ✅ **global-hotkey** — System-wide app summon via `tauri-plugin-global-shortcut` (Cmd+Shift+Space or configurable)
+41. ✅ **system-tray** — Tauri core `tray-icon` feature: minimize to tray instead of closing. Streaming continues when window is hidden. Right-click menu: New Chat, Show, Quit. Status indicator.
+42. ✅ **keyboard-shortcuts** — Cmd+N (new chat), Cmd+K (search conversations), Cmd+F (search in conversation), Cmd+, (settings), Cmd+Shift+S (toggle sidebar), Escape (cancel streaming). Send shortcut configuration (Enter vs Cmd+Enter / Ctrl+Enter) persisted via `send_shortcut` config key.
+43. ✅ **offline-mode** — Detect network status. Full read access when offline, sending disabled with clear indicator. Auto-reconnect with "Back online" toast.
+44. ✅ **accessibility** — Semantic HTML, ARIA roles/labels, keyboard navigation, focus management, visible focus indicators, screen reader testing
 
 ### Phase 11: Auto-Update
 45. ⬚ **auto-update** — Configure `tauri-plugin-updater` with GitHub Releases endpoint. `UpdateBanner.svelte` for notifications. Show changelog/release notes. Allow "skip this version" and "remind me later". Settings toggle to disable auto-update. Ed25519 signature verification.

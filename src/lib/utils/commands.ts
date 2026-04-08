@@ -68,6 +68,15 @@ export async function stopStreaming(): Promise<void> {
   return invoke("stop_streaming");
 }
 
+/** Generate a conversation title via the AI from the first exchange. */
+export async function generateConversationTitle(
+  userMessage: string,
+  assistantMessage: string,
+  model: string,
+): Promise<string> {
+  return invoke<string>("generate_title", { userMessage, assistantMessage, model });
+}
+
 // ── Models ──────────────────────────────────────────────────────
 
 /** Fetch available Copilot models. */
@@ -174,6 +183,36 @@ export async function updateSetting(key: string, value: string): Promise<void> {
 /** Get the database file size in bytes. */
 export async function getDbSize(): Promise<number> {
   return invoke<number>("get_db_size");
+}
+
+/** Delete conversations older than X days. Returns count deleted. */
+export async function deleteOldConversations(olderThanDays: number): Promise<number> {
+  return invoke<number>("delete_old_conversations", { olderThanDays });
+}
+
+/** Export a single conversation as JSON string. */
+export async function exportConversationJson(id: string): Promise<string> {
+  return invoke<string>("export_conversation_json", { id });
+}
+
+/** Export a single conversation as Markdown string. */
+export async function exportConversationMarkdown(id: string): Promise<string> {
+  return invoke<string>("export_conversation_markdown", { id });
+}
+
+/** Export all conversations as JSON string. */
+export async function exportAllConversationsJson(): Promise<string> {
+  return invoke<string>("export_all_conversations_json");
+}
+
+/** Export all conversations as Markdown string. */
+export async function exportAllConversationsMarkdown(): Promise<string> {
+  return invoke<string>("export_all_conversations_markdown");
+}
+
+/** Write text content to a file path (for export). */
+export async function saveExportFile(path: string, content: string): Promise<void> {
+  return invoke("save_export_file", { path, content });
 }
 
 // ── Drafts ──────────────────────────────────────────────────────

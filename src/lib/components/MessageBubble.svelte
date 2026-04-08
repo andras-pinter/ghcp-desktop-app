@@ -187,7 +187,7 @@
         {/if}
         {#if message.content}
           <div class="markdown-prose" bind:this={contentEl}></div>
-          {#if isStreaming}<span class="cursor">▊</span>{/if}
+          {#if isStreaming}<span class="cursor" aria-hidden="true">▊</span>{/if}
         {:else if isStreaming}
           {#if !message.thinkingContent}
             <span class="thinking-placeholder">Thinking<span class="dots">...</span></span>

@@ -81,6 +81,13 @@
 
   let confirmDelete = $state<Agent | null>(null);
   let deleting = $state(false);
+  let confirmCancelBtn: HTMLButtonElement | undefined = $state();
+
+  $effect(() => {
+    if (confirmDelete && confirmCancelBtn) {
+      confirmCancelBtn.focus();
+    }
+  });
 
   // ── Registry / Git state ──────────────────────────────────────
 
@@ -684,8 +691,26 @@
         <div
           class="confirm-overlay"
           role="alertdialog"
+          tabindex="-1"
           aria-modal="true"
           aria-label="Confirm agent deletion"
+          onkeydown={(e) => {
+            if (e.key === "Escape") cancelDelete();
+            if (e.key === "Tab") {
+              const dialog = e.currentTarget as HTMLElement;
+              const focusable = dialog.querySelectorAll<HTMLElement>("button:not(:disabled)");
+              if (focusable.length === 0) return;
+              const first = focusable[0];
+              const last = focusable[focusable.length - 1];
+              if (e.shiftKey && document.activeElement === first) {
+                e.preventDefault();
+                last.focus();
+              } else if (!e.shiftKey && document.activeElement === last) {
+                e.preventDefault();
+                first.focus();
+              }
+            }
+          }}
         >
           <div class="confirm-dialog">
             <p class="confirm-message">
@@ -695,7 +720,12 @@
               Conversations using this agent will keep their history but use the default agent.
             </p>
             <div class="confirm-actions">
-              <button class="action-btn" onclick={cancelDelete} disabled={deleting}>
+              <button
+                bind:this={confirmCancelBtn}
+                class="action-btn"
+                onclick={cancelDelete}
+                disabled={deleting}
+              >
                 Cancel
               </button>
               <button

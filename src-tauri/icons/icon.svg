@@ -1,0 +1,71 @@
+<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0d1117"/>
+      <stop offset="100%" stop-color="#161b22"/>
+    </linearGradient>
+    <linearGradient id="bubble" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#21262d"/>
+      <stop offset="100%" stop-color="#161b22"/>
+    </linearGradient>
+    <linearGradient id="planeTop" x1="0" y1="0.5" x2="1" y2="0">
+      <stop offset="0%" stop-color="#3fb950"/>
+      <stop offset="40%" stop-color="#58a6ff"/>
+      <stop offset="75%" stop-color="#bc8cff"/>
+      <stop offset="100%" stop-color="#f778ba"/>
+    </linearGradient>
+    <linearGradient id="planeBot" x1="0" y1="0" x2="1" y2="0.8">
+      <stop offset="0%" stop-color="#196c2e"/>
+      <stop offset="40%" stop-color="#1f6feb"/>
+      <stop offset="75%" stop-color="#6e40c9"/>
+      <stop offset="100%" stop-color="#b5446e"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+    <filter id="ambient"><feGaussianBlur stdDeviation="20"/></filter>
+  </defs>
+  <!-- Background -->
+  <rect x="16" y="16" width="480" height="480" rx="96" fill="url(#bg)"/>
+  <rect x="16" y="16" width="480" height="480" rx="96" fill="none" stroke="#30363d" stroke-width="2"/>
+  <!-- Ambient color glow from plane -->
+  <g filter="url(#ambient)" opacity="0.15">
+    <ellipse cx="350" cy="180" rx="80" ry="60" fill="#58a6ff"/>
+    <ellipse cx="320" cy="200" rx="60" ry="40" fill="#bc8cff"/>
+  </g>
+  <!-- Chat bubble -->
+  <path d="M 68 155 C 68 130, 88 110, 113 110 L 330 110 C 355 110, 375 130, 375 155 L 375 310 C 375 335, 355 355, 330 355 L 180 355 L 125 410 L 142 355 L 113 355 C 88 355, 68 335, 68 310 Z"
+        fill="url(#bubble)" stroke="#30363d" stroke-width="2"/>
+  <!-- Text lines inside bubble -->
+  <g opacity="0.08">
+    <rect x="108" y="195" width="85" height="5" rx="2.5" fill="#c9d1d9"/>
+    <rect x="108" y="213" width="175" height="5" rx="2.5" fill="#c9d1d9"/>
+    <rect x="108" y="231" width="130" height="5" rx="2.5" fill="#c9d1d9"/>
+  </g>
+  <!-- Speed lines -->
+  <g stroke="#484f58" stroke-width="1.5" stroke-linecap="round" opacity="0.3">
+    <line x1="145" y1="268" x2="210" y2="250"/>
+    <line x1="135" y1="290" x2="200" y2="275"/>
+    <line x1="150" y1="310" x2="205" y2="298"/>
+  </g>
+  <!-- Paper airplane -->
+  <g filter="url(#glow)" transform="translate(340, 178) rotate(-40)">
+    <path d="M -120 0 L 115 -10 L -25 -58 Z" fill="url(#planeTop)"/>
+    <path d="M -120 0 L 115 -10 L -25 42 Z" fill="url(#planeBot)"/>
+    <line x1="-120" y1="0" x2="115" y2="-10" stroke="#f0f6fc" stroke-width="1.2" opacity="0.25"/>
+  </g>
+  <!-- Burst sparkles -->
+  <g opacity="0.6">
+    <circle cx="418" cy="112" r="3" fill="#58a6ff"/>
+    <circle cx="435" cy="128" r="2.5" fill="#bc8cff"/>
+    <circle cx="408" cy="95" r="2" fill="#3fb950"/>
+    <circle cx="442" cy="148" r="2" fill="#f778ba"/>
+  </g>
+  <!-- Burst lines -->
+  <g stroke-width="2" stroke-linecap="round" opacity="0.3">
+    <line x1="400" y1="110" x2="420" y2="92" stroke="#58a6ff"/>
+    <line x1="418" y1="132" x2="442" y2="120" stroke="#bc8cff"/>
+    <line x1="425" y1="152" x2="448" y2="150" stroke="#f778ba"/>
+  </g>
+</svg>
