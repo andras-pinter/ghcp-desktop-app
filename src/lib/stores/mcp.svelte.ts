@@ -14,6 +14,7 @@ import {
   connectMcpServer,
   disconnectMcpServer,
   testMcpConnection,
+  testMcpConnectionConfig,
   getMcpTools,
   fetchMcpRegistry,
 } from "$lib/utils/commands";
@@ -170,9 +171,14 @@ export async function disconnectServer(serverId: string): Promise<void> {
   );
 }
 
-/** Test a server connection. Returns discovered tool count. */
-export async function testConnection(config: McpServerConfig): Promise<number> {
-  return await testMcpConnection(config);
+/** Test a server connection by ID. Returns discovered tool count. */
+export async function testConnection(serverId: string): Promise<number> {
+  return await testMcpConnection(serverId);
+}
+
+/** Test connectivity with a raw config (for unsaved servers in the add form). */
+export async function testConnectionConfig(config: McpServerConfig): Promise<number> {
+  return await testMcpConnectionConfig(config);
 }
 
 /** Load tools for a specific server. */

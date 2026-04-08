@@ -11,7 +11,6 @@
     stopStreaming,
     updateConversation,
     extractFileText,
-    registerAllowedPaths,
     readDroppedFiles,
     generateConversationTitle,
   } from "$lib/utils/commands";
@@ -119,8 +118,7 @@
         // Set extraction status BEFORE updating pendingDropFiles so there's no
         // window where loading=false but extraction hasn't started (race condition).
         try {
-          // Register paths server-side first (security: only drop-event paths allowed)
-          await registerAllowedPaths(paths);
+          // Paths are validated server-side against the OS drag-drop handler
           const files = await readDroppedFiles(paths);
           if (files.length > 0) {
             startExtractions(files);

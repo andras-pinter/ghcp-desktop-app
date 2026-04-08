@@ -278,9 +278,15 @@ export async function disconnectMcpServer(serverId: string): Promise<void> {
   return invoke("disconnect_mcp_server", { serverId });
 }
 
-/** Test an MCP server connection. Returns the number of tools discovered. */
-export async function testMcpConnection(config: McpServerConfig): Promise<number> {
-  return invoke<number>("test_mcp_connection", { config });
+/** Test an MCP server connection. Returns the number of tools discovered.
+ *  Uses server_id to load real config from DB+keychain (avoids redacted auth). */
+export async function testMcpConnection(serverId: string): Promise<number> {
+  return invoke<number>("test_mcp_connection", { serverId });
+}
+
+/** Test an MCP server using a raw config (for unsaved servers in the add form). */
+export async function testMcpConnectionConfig(config: McpServerConfig): Promise<number> {
+  return invoke<number>("test_mcp_connection_config", { config });
 }
 
 /** Get discovered tools from a connected MCP server. */
@@ -605,12 +611,8 @@ export async function extractFileText(
   return invoke<string | null>("extract_file_text", { contentBase64, contentType, name });
 }
 
-/** Register file paths as allowed for reading (must be called before readDroppedFiles). */
-export async function registerAllowedPaths(paths: string[]): Promise<void> {
-  return invoke("register_allowed_paths", { paths });
-}
-
-/** Read files from OS-level drag-and-drop paths via Tauri backend. */
+/** Read files from OS-level drag-and-drop paths via Tauri backend.
+ *  Paths are validated server-side against the OS drag-drop event (no separate registration needed). */
 export async function readDroppedFiles(
   paths: string[],
 ): Promise<import("$lib/types/project").ChatFileData[]> {

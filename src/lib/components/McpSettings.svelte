@@ -175,12 +175,12 @@
       const msg = e instanceof Error ? e.message : String(e);
       if (msg.startsWith("BINARY_NOT_APPROVED:") && !isRetry) {
         const binaryPath = msg.replace("BINARY_NOT_APPROVED:", "");
-        const confirmed = window.confirm(
-          `Allow MCP server to run "${binaryPath}"?\n\nThis binary will be executed on your system. Only approve binaries you trust.`,
-        );
-        if (confirmed) {
+        // approveMcpBinary shows a native OS confirmation dialog server-side
+        try {
           await approveMcpBinary(binaryPath);
           await handleConnect(serverId, true);
+        } catch {
+          // User denied or approval failed — do nothing
         }
       }
     }
@@ -198,18 +198,40 @@
     testingServer = info.config.id;
     testResult = null;
     try {
-      const count = await testConnection(info.config);
+      const count = await testConnection(info.config.id);
       testResult = {
         serverId: info.config.id,
         success: true,
         message: `Connected — ${count} tool${count !== 1 ? "s" : ""} discovered`,
       };
     } catch (e) {
-      testResult = {
-        serverId: info.config.id,
-        success: false,
-        message: e instanceof Error ? e.message : String(e),
-      };
+      const msg = e instanceof Error ? e.message : String(e);
+      // Handle binary approval the same way as connect
+      if (msg.startsWith("BINARY_NOT_APPROVED:")) {
+        const binaryPath = msg.replace("BINARY_NOT_APPROVED:", "");
+        try {
+          await approveMcpBinary(binaryPath);
+          // Retry the test after approval
+          const count = await testConnection(info.config.id);
+          testResult = {
+            serverId: info.config.id,
+            success: true,
+            message: `Connected — ${count} tool${count !== 1 ? "s" : ""} discovered`,
+          };
+        } catch (retryErr) {
+          testResult = {
+            serverId: info.config.id,
+            success: false,
+            message: retryErr instanceof Error ? retryErr.message : String(retryErr),
+          };
+        }
+      } else {
+        testResult = {
+          serverId: info.config.id,
+          success: false,
+          message: msg,
+        };
+      }
     } finally {
       testingServer = null;
     }

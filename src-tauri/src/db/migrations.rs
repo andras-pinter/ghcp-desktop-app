@@ -196,7 +196,14 @@ fn migrate_v3(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
         let rows = stmt.query_map([], |row| {
             Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
         })?;
-        for (server_id, auth_header) in rows.flatten() {
+        for row in rows {
+            let (server_id, auth_header) = match row {
+                Ok(pair) => pair,
+                Err(e) => {
+                    log::warn!("Skipping unreadable mcp_servers row during migration: {e}");
+                    continue;
+                }
+            };
             let key = format!("mcp_auth_{server_id}");
             match copilot_api::keychain::store(&key, &auth_header) {
                 Ok(()) => {

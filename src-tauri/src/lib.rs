@@ -115,10 +115,31 @@ pub fn run(force_logout: bool) {
             // Intercept window close → hide to tray instead of quitting
             if let Some(win) = app.get_webview_window("main") {
                 let win_clone = win.clone();
+                let app_handle_dd = app.handle().clone();
                 win.on_window_event(move |event| {
-                    if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                        api.prevent_close();
-                        let _ = win_clone.hide();
+                    match event {
+                        tauri::WindowEvent::CloseRequested { api, .. } => {
+                            api.prevent_close();
+                            let _ = win_clone.hide();
+                        }
+                        tauri::WindowEvent::DragDrop(tauri::DragDropEvent::Drop {
+                            paths, ..
+                        }) => {
+                            // Register dropped file paths server-side so that
+                            // read_dropped_files can validate them. This avoids
+                            // exposing an IPC command that the webview could call
+                            // with arbitrary paths.
+                            if let Some(state) = app_handle_dd.try_state::<AppState>() {
+                                if let Ok(mut allowed) = state.allowed_file_paths.lock() {
+                                    for path in paths {
+                                        if let Some(s) = path.to_str() {
+                                            allowed.insert(s.to_string());
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        _ => {}
                     }
                 });
             }
@@ -167,6 +188,7 @@ pub fn run(force_logout: bool) {
             commands::mcp::connect_mcp_server,
             commands::mcp::disconnect_mcp_server,
             commands::mcp::test_mcp_connection,
+            commands::mcp::test_mcp_connection_config,
             commands::mcp::get_mcp_tools,
             commands::mcp::invoke_mcp_tool,
             commands::mcp::fetch_mcp_registry,
@@ -205,7 +227,6 @@ pub fn run(force_logout: bool) {
             commands::projects::pick_file_for_chat,
             commands::projects::extract_file_text,
             commands::projects::read_dropped_files,
-            commands::projects::register_allowed_paths,
         ])
         .build(tauri::generate_context!())
         .expect("error while building Chuck")

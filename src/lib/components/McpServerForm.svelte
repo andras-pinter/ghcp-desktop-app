@@ -1,6 +1,11 @@
 <script lang="ts">
   import type { McpServerConfig, McpConnectionInfo, RegistryServer } from "$lib/types/mcp";
-  import { addServer, editServer, testConnection } from "$lib/stores/mcp.svelte";
+  import {
+    addServer,
+    editServer,
+    testConnection,
+    testConnectionConfig,
+  } from "$lib/stores/mcp.svelte";
   import { untrack } from "svelte";
 
   interface Props {
@@ -169,7 +174,11 @@
     testing = true;
     testResult = null;
     try {
-      const count = await testConnection(buildConfig());
+      // Use server_id for existing servers (loads real auth from keychain),
+      // or raw config for unsaved servers (auth is the real value from form).
+      const count = isEditing
+        ? await testConnection(initialEdit!.config.id)
+        : await testConnectionConfig(buildConfig());
       testResult = {
         success: true,
         message: `Connected successfully — ${count} tool${count !== 1 ? "s" : ""} discovered`,

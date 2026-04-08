@@ -88,6 +88,22 @@ fn now_iso() -> String {
 /// configs before they reach the database — a compromised webview could
 /// bypass the frontend form and send arbitrary IPC payloads.
 fn validate_config(config: &McpServerConfig) -> Result<(), String> {
+    // Validate server_id format — used as keychain key suffix and DB primary key.
+    // Reject anything that could cause path traversal in debug keychain or key collisions.
+    if config.id.is_empty() || config.id.len() > 128 {
+        return Err("Server ID must be 1-128 characters".to_string());
+    }
+    if !config
+        .id
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+    {
+        return Err(
+            "Server ID must contain only alphanumeric characters, hyphens, and underscores"
+                .to_string(),
+        );
+    }
+
     if config.name.trim().is_empty() {
         return Err("Server name is required".to_string());
     }
@@ -227,9 +243,16 @@ pub async fn update_mcp_server(
 ) -> Result<(), String> {
     validate_config(&config)?;
 
-    // Update auth header in keychain
+    // Sentinel value used when frontend returns the redacted placeholder.
+    const REDACTED: &str = "••••••••";
+
+    // Update auth header in keychain — but skip if it's the redacted sentinel
+    // (the user didn't change the auth, so we keep the existing keychain value).
     if let Some(auth) = &config.auth_header {
-        store_mcp_auth(&config.id, auth);
+        if auth != REDACTED {
+            store_mcp_auth(&config.id, auth);
+        }
+        // else: unchanged redacted value → keep existing keychain entry
     } else {
         delete_mcp_auth(&config.id);
     }
@@ -344,14 +367,58 @@ pub async fn disconnect_mcp_server(
 }
 
 /// Test an MCP connection (connect + list tools + disconnect).
+///
+/// Accepts a `server_id` and loads the real config from DB + keychain
+/// (so it uses the actual auth header, not a redacted placeholder).
 #[tauri::command]
 pub async fn test_mcp_connection(
+    state: State<'_, AppState>,
+    server_id: String,
+) -> Result<usize, String> {
+    // Load real config from DB + keychain (same as connect_mcp_server)
+    let config = {
+        let conn = state.db.lock().map_err(|e| e.to_string())?;
+        let row = queries::get_mcp_server(&conn, &server_id)
+            .map_err(|e| e.to_string())?
+            .ok_or_else(|| format!("Server not found: {server_id}"))?;
+        row_to_config(&row)
+    };
+
+    validate_config(&config)?;
+
+    // Enforce stdio binary approval before testing (same as connect)
+    if config.transport == McpTransport::Stdio {
+        if let Some(binary) = &config.binary_path {
+            let approved = {
+                let conn = state.db.lock().map_err(|e| e.to_string())?;
+                queries::is_binary_approved(&conn, binary).map_err(|e| e.to_string())?
+            };
+            if !approved {
+                return Err(format!("BINARY_NOT_APPROVED:{binary}"));
+            }
+        }
+    }
+
+    state
+        .mcp
+        .test_connection(&config)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Test an MCP server connection using a raw config (for unsaved servers).
+///
+/// Used by the "Add Server" form where the server hasn't been persisted to DB yet.
+/// The auth_header passed here is the real value (not redacted), since the user
+/// just typed it in the form.
+#[tauri::command]
+pub async fn test_mcp_connection_config(
     state: State<'_, AppState>,
     config: McpServerConfig,
 ) -> Result<usize, String> {
     validate_config(&config)?;
 
-    // Enforce stdio binary approval before testing (same as connect)
+    // Enforce stdio binary approval
     if config.transport == McpTransport::Stdio {
         if let Some(binary) = &config.binary_path {
             let approved = {
@@ -415,8 +482,48 @@ pub async fn fetch_mcp_registry(
 }
 
 /// Approve an MCP stdio binary for execution.
+///
+/// Shows a native OS confirmation dialog (cannot be forged by the webview)
+/// before persisting approval. This is the security gate for MCP stdio.
 #[tauri::command]
-pub fn approve_mcp_binary(state: State<'_, AppState>, binary_path: String) -> Result<(), String> {
+pub async fn approve_mcp_binary(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+    binary_path: String,
+) -> Result<(), String> {
+    // Validate the path (same rules as stdio config)
+    if binary_path.trim().is_empty() {
+        return Err("Binary path is required".to_string());
+    }
+    if binary_path.contains("..") {
+        return Err("Binary path must not contain '..' components".to_string());
+    }
+    if (binary_path.contains('/') || binary_path.contains('\\'))
+        && !std::path::Path::new(&binary_path).is_absolute()
+    {
+        return Err("Binary path must be absolute or a bare command name".to_string());
+    }
+
+    // Native OS confirmation dialog — cannot be spoofed by webview JS
+    use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
+    let confirmed = app
+        .dialog()
+        .message(format!(
+            "Allow MCP server to run \"{}\"?\n\nThis binary will be executed on your system. Only approve binaries you trust.",
+            binary_path
+        ))
+        .title("MCP Binary Approval")
+        .kind(MessageDialogKind::Warning)
+        .buttons(MessageDialogButtons::OkCancelCustom(
+            "Allow".into(),
+            "Deny".into(),
+        ))
+        .blocking_show();
+
+    if !confirmed {
+        return Err("User denied binary approval".to_string());
+    }
+
     let conn = state.db.lock().map_err(|e| e.to_string())?;
     queries::approve_binary(&conn, &binary_path).map_err(|e| e.to_string())
 }
