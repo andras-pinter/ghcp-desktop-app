@@ -82,16 +82,6 @@ pub fn run(force_logout: bool) {
                 .item(&quit)
                 .build()?;
 
-            // Helper: show the main window and activate the app (macOS needs app-level activation)
-            fn show_and_focus(app: &tauri::AppHandle) {
-                #[cfg(target_os = "macos")]
-                let _ = app.show();
-                if let Some(win) = app.get_webview_window("main") {
-                    let _ = win.show();
-                    let _ = win.set_focus();
-                }
-            }
-
             let icon = app
                 .default_window_icon()
                 .cloned()
@@ -215,6 +205,28 @@ pub fn run(force_logout: bool) {
             commands::projects::extract_file_text,
             commands::projects::read_dropped_files,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running Chuck");
+        .build(tauri::generate_context!())
+        .expect("error while building Chuck")
+        .run(|app_handle, event| {
+            // macOS: reopen the main window when the dock icon is clicked
+            if let tauri::RunEvent::Reopen {
+                has_visible_windows,
+                ..
+            } = event
+            {
+                if !has_visible_windows {
+                    show_and_focus(app_handle);
+                }
+            }
+        });
+}
+
+/// Show the main window and activate the app (macOS needs app-level activation).
+fn show_and_focus(app: &tauri::AppHandle) {
+    #[cfg(target_os = "macos")]
+    let _ = app.show();
+    if let Some(win) = app.get_webview_window("main") {
+        let _ = win.show();
+        let _ = win.set_focus();
+    }
 }
