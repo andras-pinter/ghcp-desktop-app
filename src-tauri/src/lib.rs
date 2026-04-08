@@ -135,6 +135,7 @@ pub fn run(force_logout: bool) {
             commands::auth::get_auth_state,
             commands::chat::send_message,
             commands::chat::stop_streaming,
+            commands::chat::generate_title,
             commands::models::get_models,
             commands::conversations::get_conversations,
             commands::conversations::get_conversation,

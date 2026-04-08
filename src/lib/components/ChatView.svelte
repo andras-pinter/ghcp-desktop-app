@@ -12,6 +12,7 @@
     updateConversation,
     extractFileText,
     readDroppedFiles,
+    generateConversationTitle,
   } from "$lib/utils/commands";
   import {
     onStreamingToken,
@@ -431,24 +432,33 @@
     }
   }
 
-  /** Auto-generate a title from the first exchange. */
+  /** Auto-generate a title via AI from the first exchange. Falls back to truncation. */
   async function generateTitle(convId: string, msgs: Message[]): Promise<void> {
-    // Only generate if the conversation currently has no title
     const conv = store.conversations.find((c) => c.id === convId);
     if (conv?.title) return;
 
     const firstUser = msgs.find((m) => m.role === "user");
+    const firstAssistant = msgs.find((m) => m.role === "assistant");
     if (!firstUser) return;
 
-    // Use the first user message, cleaned up: strip file attachments, truncate
-    const cleaned = firstUser.content
-      .replace(/\n+---\n📎\s*\[.*$/s, "") // strip URL attachments
-      .replace(/\n+📎\s*.*/g, "") // strip file attachment lines
-      .trim();
+    let title: string;
+    try {
+      // Ask the AI to generate a concise title
+      title = await generateConversationTitle(
+        firstUser.content,
+        firstAssistant?.content ?? "",
+        selectedModel,
+      );
+    } catch {
+      // Fallback: truncate the first user message
+      const cleaned = firstUser.content
+        .replace(/\n+---\n📎\s*\[.*$/s, "")
+        .replace(/\n+📎\s*.*/g, "")
+        .trim();
+      if (!cleaned) return;
+      title = cleaned.length > 50 ? cleaned.slice(0, 49) + "…" : cleaned;
+    }
 
-    if (!cleaned) return;
-
-    const title = cleaned.length > 50 ? cleaned.slice(0, 49) + "…" : cleaned;
     try {
       await updateConversation(convId, title);
       setConversationTitle(convId, title);

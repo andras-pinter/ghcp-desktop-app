@@ -68,6 +68,15 @@ export async function stopStreaming(): Promise<void> {
   return invoke("stop_streaming");
 }
 
+/** Generate a conversation title via the AI from the first exchange. */
+export async function generateConversationTitle(
+  userMessage: string,
+  assistantMessage: string,
+  model: string,
+): Promise<string> {
+  return invoke<string>("generate_title", { userMessage, assistantMessage, model });
+}
+
 // ── Models ──────────────────────────────────────────────────────
 
 /** Fetch available Copilot models. */
