@@ -207,9 +207,12 @@
         const msg = store.messages.find((m) => m.id === streamingAssistantId);
         if (msg && msg.content) {
           await updateMessageContentStore(msg.id, msg.content, msg.thinkingContent);
-          // Auto-generate title if this is the first exchange (best-effort)
-          if (store.activeConversationId && store.messages.length <= 2) {
-            generateTitle(store.activeConversationId, store.messages).catch(() => {});
+          // Auto-generate title if conversation has no title yet (best-effort)
+          if (store.activeConversationId) {
+            const conv = store.conversations.find((c) => c.id === store.activeConversationId);
+            if (!conv?.title) {
+              generateTitle(store.activeConversationId, store.messages).catch(() => {});
+            }
           }
         }
         streamingAssistantId = null;
@@ -428,13 +431,24 @@
     }
   }
 
-  /** Auto-generate a title from the first user message. */
+  /** Auto-generate a title from the first exchange. */
   async function generateTitle(convId: string, msgs: Message[]): Promise<void> {
+    // Only generate if the conversation currently has no title
+    const conv = store.conversations.find((c) => c.id === convId);
+    if (conv?.title) return;
+
     const firstUser = msgs.find((m) => m.role === "user");
     if (!firstUser) return;
-    // Simple heuristic: take first 50 chars of user's message as title
-    const title =
-      firstUser.content.length > 50 ? firstUser.content.slice(0, 49) + "…" : firstUser.content;
+
+    // Use the first user message, cleaned up: strip file attachments, truncate
+    const cleaned = firstUser.content
+      .replace(/\n+---\n📎\s*\[.*$/s, "") // strip URL attachments
+      .replace(/\n+📎\s*.*/g, "") // strip file attachment lines
+      .trim();
+
+    if (!cleaned) return;
+
+    const title = cleaned.length > 50 ? cleaned.slice(0, 49) + "…" : cleaned;
     try {
       await updateConversation(convId, title);
       setConversationTitle(convId, title);

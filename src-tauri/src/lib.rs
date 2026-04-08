@@ -82,21 +82,35 @@ pub fn run(force_logout: bool) {
                 .item(&quit)
                 .build()?;
 
+            // Helper: show the main window and activate the app (macOS needs app-level activation)
+            fn show_and_focus(app: &tauri::AppHandle) {
+                #[cfg(target_os = "macos")]
+                let _ = app.show();
+                if let Some(win) = app.get_webview_window("main") {
+                    let _ = win.show();
+                    let _ = win.set_focus();
+                }
+            }
+
+            let icon = app
+                .default_window_icon()
+                .cloned()
+                .expect("default window icon must be set");
+
             let _tray = TrayIconBuilder::new()
+                .icon(icon)
+                .icon_as_template(false)
+                .tooltip("Chuck")
                 .menu(&tray_menu)
                 .on_menu_event(|app, event| match event.id().as_ref() {
                     "new_chat" => {
+                        show_and_focus(app);
                         if let Some(win) = app.get_webview_window("main") {
-                            let _ = win.show();
-                            let _ = win.set_focus();
                             let _ = win.emit("tray-new-chat", ());
                         }
                     }
                     "show" => {
-                        if let Some(win) = app.get_webview_window("main") {
-                            let _ = win.show();
-                            let _ = win.set_focus();
-                        }
+                        show_and_focus(app);
                     }
                     "quit" => {
                         app.exit(0);
@@ -104,15 +118,8 @@ pub fn run(force_logout: bool) {
                     _ => {}
                 })
                 .on_tray_icon_event(|tray, event| {
-                    if let tauri::tray::TrayIconEvent::Click { .. } = event {
-                        if let Some(win) = tray.app_handle().get_webview_window("main") {
-                            if win.is_visible().unwrap_or(false) {
-                                let _ = win.hide();
-                            } else {
-                                let _ = win.show();
-                                let _ = win.set_focus();
-                            }
-                        }
+                    if let tauri::tray::TrayIconEvent::DoubleClick { .. } = event {
+                        show_and_focus(tray.app_handle());
                     }
                 })
                 .build(app)?;
