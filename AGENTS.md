@@ -133,6 +133,48 @@ For any non-trivial task, the review cycle SHOULD be split across multiple agent
 Each agent independently reviews and reports issues. ALL reported issues must be fixed
 before the task is considered complete. Then the full review cycle runs again.
 
+### 4. Pre-Merge / Finalization Review
+
+When the user requests finalization, merge preparation, or uses phrases like *"let's prepare for merge"*, *"let's finalize"*, *"give it a final review"*, or *"prepare for merging"*, the agent **MUST** trigger a **full extensive review cycle** — regardless of whether the agent believes the code is already clean.
+
+**This is NOT the same as the per-task review in section 1.** The pre-merge review is a comprehensive, branch-wide audit:
+
+1. **Run the full check suite** (all Rust + frontend checks from the Review Checklist above)
+2. **Dispatch parallel review agents** (at minimum: Security Agent + Code Review Agent)
+3. **Fix ALL reported issues** — no deferral, no "cosmetic only" exceptions
+4. **Re-run the full check suite + re-dispatch review agents**
+5. **Repeat steps 2–4 until BOTH review agents report zero issues**
+
+```
+User says "prepare for merge / finalize"
+              │
+              ▼
+┌─────────────────────────────────┐
+│  Run full check suite           │
+│  (cargo + pnpm, all checks)    │
+└────────────┬────────────────────┘
+             ▼
+┌─────────────────────────────────┐
+│  Dispatch review agents:        │
+│  • Security Agent               │
+│  • Code Review Agent            │
+│  (+ Docs Agent if applicable)   │
+└────────────┬────────────────────┘
+             ▼
+        ┌─────────┐     YES     ┌──────────────────┐
+        │ Issues? │────────────▶│  FIX all issues   │──┐
+        └────┬────┘             │  Commit fixes     │  │
+             │ NO               │  Re-run checks    │  │
+             ▼                  └──────────────────┘  │
+┌─────────────────────────┐          ┌────────────────┘
+│  ✅ Branch ready for     │          │
+│  merge (0 issues across  │          ▼
+│  ALL review agents)      │    (loop back to dispatch)
+└──────────────────────────┘
+```
+
+**The loop terminates ONLY when all dispatched review agents independently report zero findings.** One clean pass is not enough if a fix introduced a new issue — the full cycle must re-run.
+
 ---
 
 ## Project Overview
