@@ -7,3 +7,4 @@ pnpm-lock.yaml
 src-tauri/gen
 AGENTS.md
 README.md
+CHANGELOG.md
