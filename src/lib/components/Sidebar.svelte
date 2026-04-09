@@ -8,6 +8,7 @@
     renameConversation,
   } from "$lib/stores/conversations.svelte";
   import { formatDateGroup, truncate } from "$lib/utils/format";
+  import ConfirmDialog from "./ConfirmDialog.svelte";
 
   interface Props {
     collapsed: boolean;
@@ -37,6 +38,7 @@
   let contextMenuConv: string | null = $state(null);
   let renamingConv: string | null = $state(null);
   let renameText = $state("");
+  let pendingDeleteId: string | null = $state(null);
 
   function handleNewChat() {
     clearActiveConversation();
@@ -103,14 +105,36 @@
     }
   }
 
-  async function handleDelete(id: string) {
+  function handleDelete(id: string) {
     contextMenuConv = null;
+    pendingDeleteId = id;
+  }
+
+  async function confirmDelete() {
+    if (!pendingDeleteId) return;
+    const id = pendingDeleteId;
+    pendingDeleteId = null;
     await removeConversation(id);
+  }
+
+  function cancelDelete() {
+    pendingDeleteId = null;
   }
 
   async function handleToggleFavourite(id: string) {
     contextMenuConv = null;
     await toggleFavourite(id);
+  }
+
+  /** Keyboard handler for span[role="button"] elements (Enter/Space activates). */
+  function actionKeydown(callback: () => void) {
+    return (e: KeyboardEvent) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        e.stopPropagation();
+        callback();
+      }
+    };
   }
 
   function handleWindowClick() {
@@ -285,6 +309,14 @@
   </div>
 </nav>
 
+<ConfirmDialog
+  open={pendingDeleteId !== null}
+  title="Delete this conversation?"
+  detail="This cannot be undone."
+  onconfirm={confirmDelete}
+  oncancel={cancelDelete}
+/>
+
 {#snippet convItem(conv: (typeof favourites)[0])}
   <div class="conv-item-wrapper" role="listitem">
     {#if renamingConv === conv.id}
@@ -304,10 +336,75 @@
         class:active={store.activeConversationId === conv.id}
         onclick={() => handleClick(conv.id)}
         oncontextmenu={(e) => handleContextMenu(e, conv.id)}
+        onmousedown={(e) => {
+          if (e.button === 2) e.preventDefault();
+        }}
+        onselectstart={(e) => e.preventDefault()}
         title={conv.title ?? "Untitled"}
         aria-label="Open conversation: {conv.title ?? 'Untitled'}"
       >
         <span class="conv-title">{truncate(conv.title ?? "Untitled", 32)}</span>
+        <span class="conv-actions">
+          <span
+            class="conv-action-btn"
+            class:starred={conv.isFavourite}
+            role="button"
+            tabindex="0"
+            onclick={(e) => {
+              e.stopPropagation();
+              handleToggleFavourite(conv.id);
+            }}
+            onkeydown={actionKeydown(() => handleToggleFavourite(conv.id))}
+            title={conv.isFavourite ? "Remove from favourites" : "Add to favourites"}
+            aria-label={conv.isFavourite ? "Remove from favourites" : "Add to favourites"}
+          >
+            {#if conv.isFavourite}
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"
+                ><path
+                  d="M8 1.23l2.18 4.41 4.87.71-3.52 3.43.83 4.85L8 12.17l-4.36 2.46.83-4.85L1 6.35l4.87-.71L8 1.23z"
+                /></svg
+              >
+            {:else}
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.2"
+                aria-hidden="true"
+                ><path
+                  d="M8 1.23l2.18 4.41 4.87.71-3.52 3.43.83 4.85L8 12.17l-4.36 2.46.83-4.85L1 6.35l4.87-.71L8 1.23z"
+                /></svg
+              >
+            {/if}
+          </span>
+          <span
+            class="conv-action-btn delete-btn"
+            role="button"
+            tabindex="0"
+            onclick={(e) => {
+              e.stopPropagation();
+              handleDelete(conv.id);
+            }}
+            onkeydown={actionKeydown(() => handleDelete(conv.id))}
+            title="Delete conversation"
+            aria-label="Delete conversation"
+          >
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.2"
+              aria-hidden="true"
+              ><path
+                d="M3 4h10M6 4V3a1 1 0 011-1h2a1 1 0 011 1v1m2 0v9a1 1 0 01-1 1H5a1 1 0 01-1-1V4h8z"
+              /></svg
+            >
+          </span>
+        </span>
       </button>
     {/if}
 
@@ -462,6 +559,8 @@
     text-align: left;
     white-space: nowrap;
     overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
   }
 
   .conv-item:hover {
@@ -478,6 +577,68 @@
   .conv-title {
     overflow: hidden;
     text-overflow: ellipsis;
+    flex: 1;
+    min-width: 0;
+  }
+
+  /* ── Inline action icons (star + trash) ── */
+
+  .conv-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    margin-left: auto;
+    flex-shrink: 0;
+    opacity: 0;
+    transition: opacity var(--transition-fast);
+  }
+
+  .conv-item:hover .conv-actions,
+  .conv-item:focus-within .conv-actions,
+  .conv-item.active .conv-actions {
+    opacity: 1;
+  }
+
+  /* Always show star if favourited */
+  .conv-actions:has(.starred) {
+    opacity: 1;
+  }
+
+  .conv-action-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    background: none;
+    border: none;
+    border-radius: var(--radius-sm);
+    color: var(--color-text-tertiary);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+  }
+
+  .conv-action-btn:hover {
+    background: var(--color-bg-tertiary);
+    color: var(--color-text-primary);
+  }
+
+  .conv-action-btn:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 1px;
+  }
+
+  .conv-action-btn.starred {
+    color: var(--color-accent-copper);
+  }
+
+  .conv-action-btn.starred:hover {
+    color: var(--color-accent-copper);
+  }
+
+  .delete-btn:hover {
+    color: var(--color-error);
   }
 
   .conv-rename {

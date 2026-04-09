@@ -13,6 +13,7 @@
   import { updateConversation } from "$lib/utils/commands";
   import { formatBytes, truncate } from "$lib/utils/format";
   import type { FileUpload } from "$lib/types/project";
+  import ConfirmDialog from "./ConfirmDialog.svelte";
 
   interface Props {
     onBack: () => void;
@@ -99,6 +100,7 @@
 
   async function handleDelete() {
     if (!store.activeProjectId) return;
+    confirmingDelete = false;
     await removeProject(store.activeProjectId);
     view = { kind: "list" };
   }
@@ -525,24 +527,22 @@
 
       <!-- Danger zone -->
       <div class="detail-section danger-zone">
-        {#if confirmingDelete}
-          <p class="danger-text">
-            Delete "{store.activeProject.name}" and all its files? Conversations will be unlinked
-            but not deleted.
-          </p>
-          <div class="form-actions">
-            <button class="btn btn-ghost" onclick={() => (confirmingDelete = false)}>Cancel</button>
-            <button class="btn btn-danger" onclick={handleDelete}>Delete Project</button>
-          </div>
-        {:else}
-          <button class="btn btn-danger-outline" onclick={() => (confirmingDelete = true)}>
-            Delete Project
-          </button>
-        {/if}
+        <button class="btn btn-danger-outline" onclick={() => (confirmingDelete = true)}>
+          Delete Project
+        </button>
       </div>
     {/if}
   </div>
 </div>
+
+<ConfirmDialog
+  open={confirmingDelete}
+  title={'Delete "' + (store.activeProject?.name ?? "") + '"?'}
+  detail="All project files will be deleted. Conversations will be unlinked but not deleted."
+  confirmLabel="Delete Project"
+  onconfirm={handleDelete}
+  oncancel={() => (confirmingDelete = false)}
+/>
 
 <style>
   .projects-panel {
@@ -834,16 +834,6 @@
     opacity: 0.85;
   }
 
-  .btn-danger {
-    background: var(--color-error);
-    color: white;
-    border-color: var(--color-error);
-  }
-
-  .btn-danger:hover:not(:disabled) {
-    opacity: 0.85;
-  }
-
   .btn-danger-outline {
     background: none;
     color: var(--color-error);
@@ -1114,12 +1104,6 @@
   .danger-zone {
     border-top: 1px solid var(--color-border-secondary);
     padding-top: var(--spacing-lg);
-  }
-
-  .danger-text {
-    font-size: var(--font-size-sm);
-    color: var(--color-error);
-    margin: 0 0 var(--spacing-sm) 0;
   }
 
   .hidden-file-input {

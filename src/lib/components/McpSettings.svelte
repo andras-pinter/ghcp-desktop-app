@@ -15,6 +15,7 @@
   import { approveMcpBinary } from "$lib/utils/commands";
   import type { McpConnectionInfo, McpServerConfig, RegistryServer } from "$lib/types/mcp";
   import McpServerForm from "./McpServerForm.svelte";
+  import ConfirmDialog from "./ConfirmDialog.svelte";
   import { onMount, onDestroy } from "svelte";
 
   interface Props {
@@ -236,13 +237,25 @@
     }
   }
 
-  async function handleRemove(serverId: string) {
-    if (!confirm("Remove this MCP server? This cannot be undone.")) return;
+  let pendingRemoveId: string | null = $state(null);
+
+  function handleRemove(serverId: string) {
+    pendingRemoveId = serverId;
+  }
+
+  async function confirmRemove() {
+    if (!pendingRemoveId) return;
+    const id = pendingRemoveId;
+    pendingRemoveId = null;
     try {
-      await removeServer(serverId);
+      await removeServer(id);
     } catch {
       // Error is in the store
     }
+  }
+
+  function cancelRemove() {
+    pendingRemoveId = null;
   }
 
   async function toggleTools(serverId: string) {
@@ -676,6 +689,15 @@
     </div>
   </div>
 {/if}
+
+<ConfirmDialog
+  open={pendingRemoveId !== null}
+  title="Remove this MCP server?"
+  detail="This cannot be undone."
+  confirmLabel="Remove"
+  onconfirm={confirmRemove}
+  oncancel={cancelRemove}
+/>
 
 <style>
   .mcp-settings {

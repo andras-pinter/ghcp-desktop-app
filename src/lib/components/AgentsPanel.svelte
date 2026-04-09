@@ -22,6 +22,7 @@
   import { renderMarkdown, stripFrontmatter } from "$lib/utils/markdown";
   import { onMount, onDestroy } from "svelte";
   import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+  import ConfirmDialog from "./ConfirmDialog.svelte";
 
   interface Props {
     onBack: () => void;
@@ -81,13 +82,6 @@
 
   let confirmDelete = $state<Agent | null>(null);
   let deleting = $state(false);
-  let confirmCancelBtn: HTMLButtonElement | undefined = $state();
-
-  $effect(() => {
-    if (confirmDelete && confirmCancelBtn) {
-      confirmCancelBtn.focus();
-    }
-  });
 
   // ── Registry / Git state ──────────────────────────────────────
 
@@ -687,58 +681,14 @@
       </section>
 
       <!-- ── Delete confirmation overlay ─────────────────── -->
-      {#if confirmDelete}
-        <div
-          class="confirm-overlay"
-          role="alertdialog"
-          tabindex="-1"
-          aria-modal="true"
-          aria-label="Confirm agent deletion"
-          onkeydown={(e) => {
-            if (e.key === "Escape") cancelDelete();
-            if (e.key === "Tab") {
-              const dialog = e.currentTarget as HTMLElement;
-              const focusable = dialog.querySelectorAll<HTMLElement>("button:not(:disabled)");
-              if (focusable.length === 0) return;
-              const first = focusable[0];
-              const last = focusable[focusable.length - 1];
-              if (e.shiftKey && document.activeElement === first) {
-                e.preventDefault();
-                last.focus();
-              } else if (!e.shiftKey && document.activeElement === last) {
-                e.preventDefault();
-                first.focus();
-              }
-            }
-          }}
-        >
-          <div class="confirm-dialog">
-            <p class="confirm-message">
-              Delete agent <strong>'{confirmDelete.name}'</strong>?
-            </p>
-            <p class="confirm-detail">
-              Conversations using this agent will keep their history but use the default agent.
-            </p>
-            <div class="confirm-actions">
-              <button
-                bind:this={confirmCancelBtn}
-                class="action-btn"
-                onclick={cancelDelete}
-                disabled={deleting}
-              >
-                Cancel
-              </button>
-              <button
-                class="action-btn danger-fill"
-                onclick={confirmDeleteAgent}
-                disabled={deleting}
-              >
-                {deleting ? "Deleting…" : "Delete"}
-              </button>
-            </div>
-          </div>
-        </div>
-      {/if}
+      <ConfirmDialog
+        open={confirmDelete !== null}
+        title="Delete agent '{confirmDelete?.name ?? ''}'?"
+        detail="Conversations using this agent will keep their history but use the default agent."
+        loading={deleting}
+        onconfirm={confirmDeleteAgent}
+        oncancel={cancelDelete}
+      />
     {:else if view.kind === "form"}
       <!-- ── Create / Edit Form ──────────────────────────── -->
       <div class="agent-form">
@@ -1168,59 +1118,6 @@
   .action-btn.primary:hover:not(:disabled) {
     opacity: 0.9;
     color: var(--color-bg-primary);
-  }
-  .action-btn.danger-fill {
-    background: var(--color-error);
-    color: #fff;
-    border-color: var(--color-error);
-    font-weight: var(--font-weight-medium);
-  }
-  .action-btn.danger-fill:hover:not(:disabled) {
-    opacity: 0.9;
-    color: #fff;
-  }
-
-  /* ── Delete Confirmation ── */
-
-  .confirm-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.4);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 100;
-    animation: fadeIn 120ms ease;
-  }
-
-  .confirm-dialog {
-    background: var(--color-bg-primary);
-    border: 1px solid var(--color-border-primary);
-    border-radius: var(--radius-lg);
-    padding: var(--spacing-xl);
-    max-width: 400px;
-    width: 90%;
-    box-shadow: var(--shadow-lg);
-    animation: scaleIn 160ms ease;
-  }
-
-  .confirm-message {
-    font-size: var(--font-size-sm);
-    color: var(--color-text-primary);
-    margin: 0 0 var(--spacing-sm) 0;
-  }
-
-  .confirm-detail {
-    font-size: var(--font-size-xs);
-    color: var(--color-text-secondary);
-    margin: 0 0 var(--spacing-lg) 0;
-    line-height: var(--line-height-normal);
-  }
-
-  .confirm-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: var(--spacing-sm);
   }
 
   /* ── Form ── */
