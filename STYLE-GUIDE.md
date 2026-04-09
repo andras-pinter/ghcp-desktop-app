@@ -235,30 +235,48 @@ Every panel page (Agents, Skills, MCP, Settings, Projects) uses the same outer s
 
 ### Classes
 
-| Class                | Element    | Purpose                                                     |
-| -------------------- | ---------- | ----------------------------------------------------------- |
-| `.panel`             | `<div>`    | Flex column container, full height, hidden overflow         |
-| `.panel-header`      | `<div>`    | Top bar with back button + title. `border-bottom`, flex row |
-| `.panel-back`        | `<button>` | "← Back" link in copper accent. Hover: `--color-bg-hover`   |
-| `.panel-title`       | `<h2>`     | Instrument Serif italic, `--font-size-xl`                   |
-| `.panel-body`        | `<div>`    | Scrollable content area, `padding: --spacing-lg`            |
-| `.panel-body-narrow` | `<div>`    | Same as `.panel-body` but `max-width: 640px`, centered      |
+| Class                | Element    | Purpose                                                                                                                       |
+| -------------------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `.panel`             | `<div>`    | Flex column container, full height, hidden overflow                                                                           |
+| `.panel-header`      | `<header>` | Top bar with back button + title. `border-bottom`, flex row, `data-tauri-drag-region`                                         |
+| `.panel-back`        | `<button>` | SVG chevron icon button in copper accent (`--color-accent-copper`). Hover: `--color-accent-copper-hover` + `--color-bg-hover` |
+| `.panel-title`       | `<h2>`     | Instrument Serif italic, `--font-size-xl`                                                                                     |
+| `.panel-body`        | `<div>`    | Scrollable content area, `padding: --spacing-lg`                                                                              |
+| `.panel-body-narrow` | `<div>`    | Same as `.panel-body` but `max-width: 640px`, centered                                                                        |
 
-### Usage
+### Canonical Header Markup
+
+**All panels must use this exact structure.** No text labels in the back button — SVG only.
 
 ```svelte
 <div class="panel">
-  <div class="panel-header">
-    <button class="panel-back" onclick={goBack}>
-      <svg>...</svg> Back
+  <header class="panel-header" data-tauri-drag-region>
+    <button class="panel-back" onclick={goBack} aria-label="Go back">
+      <svg width="18" height="18" viewBox="0 0 16 16" fill="none">
+        <path
+          d="M10 3L5 8l5 5"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+      </svg>
     </button>
     <h2 class="panel-title">Agents</h2>
-  </div>
+  </header>
   <div class="panel-body">
     <!-- scrollable content -->
   </div>
 </div>
 ```
+
+**Header rules:**
+
+- Always `<header>` (semantic), never `<div>`
+- Always `data-tauri-drag-region` for window dragging
+- Back button: SVG chevron only, no text label, `aria-label="Go back"`
+- Title: always `<h2>`, never `<h1>`
+- Optional action button (e.g., "+ New Agent") after the title
 
 ### When to use `.panel-body` vs `.panel-body-narrow`
 
@@ -634,7 +652,8 @@ Small inline toggle for mode switching (e.g., HTTP/Stdio transport).
 
 ### Tab Bar
 
-Pill-shaped navigation tabs (e.g., Settings panel tabs).
+Pill-shaped navigation tabs. Available for components that need tabbed navigation
+(currently unused — Settings panel was migrated to sections layout).
 
 | Class               | Purpose                               |
 | ------------------- | ------------------------------------- |
@@ -821,8 +840,8 @@ If none of these fit, create a scoped style — but name it descriptively and ke
 The Agents panel has 3 views sharing one `.panel` container:
 
 1. **List View** — Panel header ("Agents") + agent cards
-2. **Create View** — Panel header ("← Back" + "Create Agent") + form
-3. **Edit View** — Panel header ("← Back" + "Edit Agent") + pre-filled form
+2. **Create View** — Panel header (chevron back + "Create Agent") + form
+3. **Edit View** — Panel header (chevron back + "Edit Agent") + pre-filled form
 
 ### Agent Card Structure
 
@@ -967,38 +986,42 @@ This is the **canonical reference implementation** for how to use global classes
 
 ## 31. Settings Panel Reference
 
-### Tab Structure
+### Layout
 
-Settings uses `.tab-bar` + `.tab-pill` for navigation across sections:
-General, Account, MCP, Shortcuts, Data.
+Settings uses a **single scrollable sections layout** (no tabs). All settings are grouped
+under `<h2 class="section-heading">` headings with `.settings-card` containers:
+
+**Section order:** Account → Appearance → Input → Defaults → Auto-Update → Keyboard Shortcuts → Storage → Cleanup → Export
 
 ### Section Pattern
 
-Each settings section uses `.section-heading` + repeated `.setting-row` entries:
+Each settings section uses `.section-heading` + `.settings-card` + repeated `.setting-row` entries:
 
 ```svelte
-<h3 class="section-heading">General</h3>
+<h2 class="section-heading">Appearance</h2>
 
-<div class="setting-row">
-  <div class="setting-info">
-    <span class="setting-label">Theme</span>
-    <span class="setting-desc">Choose your preferred appearance</span>
+<div class="settings-card">
+  <div class="setting-row">
+    <div class="setting-info">
+      <span class="setting-label">Theme</span>
+      <span class="setting-desc">Choose your preferred appearance</span>
+    </div>
+    <select class="form-select">
+      <option>System</option>
+      <option>Light</option>
+      <option>Dark</option>
+    </select>
   </div>
-  <select class="form-select">
-    <option>System</option>
-    <option>Light</option>
-    <option>Dark</option>
-  </select>
-</div>
 
-<div class="setting-row">
-  <div class="setting-info">
-    <span class="setting-label">Auto-check for updates</span>
+  <div class="setting-row">
+    <div class="setting-info">
+      <span class="setting-label">Auto-check for updates</span>
+    </div>
+    <label class="toggle">
+      <input type="checkbox" />
+      <span class="toggle-track"></span>
+    </label>
   </div>
-  <label class="toggle">
-    <input type="checkbox" />
-    <span class="toggle-track"></span>
-  </label>
 </div>
 ```
 

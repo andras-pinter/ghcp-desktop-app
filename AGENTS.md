@@ -429,14 +429,17 @@ Slides over from the right or opens as a modal. Tabbed navigation.
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
-│  ← Back                    Settings                              │
+│  ‹                         Settings                              │
 ├──────────────────────────────────────────────────────────────────┤
 │                                                                  │
-│  ┌──────────┬──────────┬──────────┬──────────┬──────────┐       │
-│  │ General  │ Account  │  MCP     │ Shortcuts│  Data    │       │
-│  └──────────┴──────────┴──────────┴──────────┴──────────┘       │
+│  ── Account ──────────────────────────────────────────────────   │
 │                                                                  │
-│  ── General ──────────────────────────────────────────────────   │
+│  Signed in as                   @octocat                         │
+│  Copilot Plan                   Copilot Pro                      │
+│                                                                  │
+│  [ Sign Out ]                                                    │
+│                                                                  │
+│  ── Appearance ───────────────────────────────────────────────   │
 │                                                                  │
 │  Theme                          [ System ▾ ]                     │
 │                                  System / Light / Dark           │
@@ -444,12 +447,15 @@ Slides over from the right or opens as a modal. Tabbed navigation.
 │  Font Size                      [ 14px  ▾ ]                      │
 │                                  12 / 13 / 14 / 15 / 16         │
 │                                                                  │
-│  Default Model                  [ GPT-4o ▾ ]                     │
-│                                                                  │
-│  Default Agent                  [ Default ▾ ]                    │
+│  ── Input ────────────────────────────────────────────────────   │
 │                                                                  │
 │  Send Message With              ( ● ) Enter                      │
 │                                 (   ) Cmd+Enter (Ctrl+Enter)     │
+│                                                                  │
+│  ── Defaults ─────────────────────────────────────────────────   │
+│                                                                  │
+│  Default Model                  [ GPT-4o ▾ ]                     │
+│  Default Agent                  [ Default ▾ ]                    │
 │                                                                  │
 │  ── Auto-Update ──────────────────────────────────────────────   │
 │                                                                  │
@@ -457,47 +463,42 @@ Slides over from the right or opens as a modal. Tabbed navigation.
 │  Check frequency                [ On startup ▾ ]                 │
 │                                  On startup / Daily / Weekly     │
 │                                                                  │
+│  ── Keyboard Shortcuts ───────────────────────────────────────   │
+│                                                                  │
+│  New Chat                        ⌘ N                              │
+│  Search Conversations            ⌘ K                              │
+│  Search in Conversation          ⌘ F                              │
+│  Toggle Sidebar                  ⌘ ⇧ S                           │
+│  Settings                        ⌘ ,                              │
+│                                                                  │
 │  ── Global Hotkey ────────────────────────────────────────────   │
 │                                                                  │
 │  Summon Chuck                    [ Cmd+Shift+Space ]              │
 │                                  (click to rebind)               │
 │                                                                  │
-│  ── Web Research ─────────────────────────────────────────────   │
-│                                                                  │
-│  Search API                     [ Bing ▾ ]                       │
-│  API Key                        [ ••••••••••  👁 ]   [Change]    │
-│                                  (stored in OS keychain)         │
-│                                                                  │
-└──────────────────────────────────────────────────────────────────┘
-```
-
-```
-│  ── Account Tab ──────────────────────────────────────────────   │
-│                                                                  │
-│  Signed in as                   @octocat                         │
-│  Copilot Plan                   Copilot Pro                      │
-│                                                                  │
-│  [ Sign Out ]                                                    │
-│                                                                  │
-│  ── Data Tab ─────────────────────────────────────────────────   │
+│  ── Storage ──────────────────────────────────────────────────   │
 │                                                                  │
 │  Database Size                  12.3 MB                          │
+│                                                                  │
+│  ── Cleanup ──────────────────────────────────────────────────   │
 │                                                                  │
 │  Delete old conversations       [ Older than 90 days ▾ ]         │
 │                                 [ Delete Now ]                   │
 │                                                                  │
-│  Export All Conversations       [ JSON ] [ Markdown ]            │
-│                                                                  │
 │  ⚠️ Database is 487 MB — consider cleaning up old conversations  │
 │                                 (shown when > 400MB)             │
+│                                                                  │
+│  ── Export ───────────────────────────────────────────────────   │
+│                                                                  │
+│  Export All Conversations       [ JSON ] [ Markdown ]            │
+│                                                                  │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
 **Key behaviors:**
-- Tab navigation via keyboard (arrow keys) + click
+- Single scrollable page with section headings (no tabs)
 - Changes apply immediately (no save button); persisted to SQLite `config` table
 - Hotkey rebind: click field → "Press new shortcut..." → capture next key combo
-- API key field masked by default; 👁 toggles visibility
 - Sign Out clears keychain + redirects to auth screen
 - Delete confirmation dialog before destructive actions
 - Export opens native save dialog (`tauri-plugin-dialog`)
@@ -508,7 +509,7 @@ Accessed from sidebar "Agents" section or Settings.
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
-│  ← Back                     Agents                               │
+│  ‹                          Agents                               │
 ├──────────────────────────────────────────────────────────────────┤
 │                                                                  │
 │  ┌────────────────────────────────────────────────────────────┐  │
@@ -581,7 +582,7 @@ Browse and manage all available skills (built-in + MCP tools + registry-imported
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
-│  ← Back                     Skills                               │
+│  ‹                          Skills                               │
 ├──────────────────────────────────────────────────────────────────┤
 │                                                                  │
 │  🔍 Filter skills...                                             │
