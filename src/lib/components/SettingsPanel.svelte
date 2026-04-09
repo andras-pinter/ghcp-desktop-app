@@ -116,14 +116,13 @@
 </script>
 
 <div class="settings-panel">
-  <header class="settings-header">
+  <header class="settings-header" data-tauri-drag-region>
     <button class="back-btn" onclick={onBack} aria-label="Back">
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+      <svg width="18" height="18" viewBox="0 0 16 16" fill="none">
         <path
           d="M10 3L5 8l5 5"
           stroke="currentColor"
           stroke-width="1.5"
-          fill="none"
           stroke-linecap="round"
           stroke-linejoin="round"
         />
@@ -132,18 +131,30 @@
     <h1 class="settings-title">Settings</h1>
   </header>
 
-  <div class="tabs" role="tablist" tabindex="-1" onkeydown={handleTabKeydown}>
-    {#each [{ id: "general", label: "General" }, { id: "account", label: "Account" }, { id: "shortcuts", label: "Shortcuts" }, { id: "data", label: "Data" }] as tab (tab.id)}
+  <div class="tab-bar" role="tablist" tabindex="-1" onkeydown={handleTabKeydown}>
+    {#each [{ id: "general", label: "General", icon: "M12 6V4H4v2m8 0H4m8 0v6m-8 0v-6m0 6h8m-8 0H2m10 0h2M8 4V2" }, { id: "account", label: "Account", icon: "M8 8a3 3 0 100-6 3 3 0 000 6zm0 0c-3.3 0-6 1.8-6 4v1h12v-1c0-2.2-2.7-4-6-4z" }, { id: "shortcuts", label: "Shortcuts", icon: "M3 4h10M3 8h6M3 12h8" }, { id: "data", label: "Data", icon: "M3 3h10v10H3zm2 4h6m-6 3h4" }] as tab (tab.id)}
       <button
         id="tab-{tab.id}"
         role="tab"
-        class="tab"
+        class="tab-pill"
         class:active={activeTab === tab.id}
         aria-selected={activeTab === tab.id}
         aria-controls="panel-{tab.id}"
         tabindex={activeTab === tab.id ? 0 : -1}
         onclick={() => (activeTab = tab.id as SettingsTab)}
       >
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 16 16"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.3"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d={tab.icon} />
+        </svg>
         {tab.label}
       </button>
     {/each}
@@ -151,11 +162,14 @@
 
   <div class="tab-content" role="tabpanel" id="panel-{activeTab}" aria-labelledby="tab-{activeTab}">
     {#if activeTab === "general"}
-      <section class="settings-section">
-        <h2 class="section-title">Appearance</h2>
+      <div class="settings-card">
+        <h2 class="card-heading">Appearance</h2>
 
         <div class="setting-row">
-          <label class="setting-label" for="theme-select">Theme</label>
+          <div class="setting-info">
+            <span class="setting-label">Theme</span>
+            <span class="setting-desc">Choose how Chuck looks</span>
+          </div>
           <select
             id="theme-select"
             class="setting-select"
@@ -169,8 +183,13 @@
           </select>
         </div>
 
+        <div class="setting-divider"></div>
+
         <div class="setting-row">
-          <label class="setting-label" for="font-size-select">Font size</label>
+          <div class="setting-info">
+            <span class="setting-label">Font size</span>
+            <span class="setting-desc">Base text size for the interface</span>
+          </div>
           <select
             id="font-size-select"
             class="setting-select"
@@ -183,44 +202,42 @@
             {/each}
           </select>
         </div>
-      </section>
+      </div>
 
-      <section class="settings-section">
-        <h2 class="section-title">Input</h2>
+      <div class="settings-card">
+        <h2 class="card-heading">Input</h2>
 
         <div class="setting-row">
-          <span class="setting-label">Send message with</span>
-          <div class="radio-group">
-            <label class="radio-label">
-              <input
-                type="radio"
-                name="send-shortcut"
-                value="enter"
-                checked={settings.sendShortcut === "enter"}
-                onchange={() => updateSetting(SETTING_KEYS.sendShortcut, "enter")}
-              />
-              Enter
-            </label>
-            <label class="radio-label">
-              <input
-                type="radio"
-                name="send-shortcut"
-                value="cmd-enter"
-                checked={settings.sendShortcut === "cmd-enter"}
-                onchange={() => updateSetting(SETTING_KEYS.sendShortcut, "cmd-enter")}
-              />
-              ⌘ Enter
-            </label>
+          <div class="setting-info">
+            <span class="setting-label">Send message with</span>
+            <span class="setting-desc">How to send messages in the chat input</span>
+          </div>
+          <div class="segmented-control">
+            <button
+              class="segment"
+              class:active={settings.sendShortcut === "enter"}
+              onclick={() => updateSetting(SETTING_KEYS.sendShortcut, "enter")}
+              aria-pressed={settings.sendShortcut === "enter"}>Enter</button
+            >
+            <button
+              class="segment"
+              class:active={settings.sendShortcut === "cmd-enter"}
+              onclick={() => updateSetting(SETTING_KEYS.sendShortcut, "cmd-enter")}
+              aria-pressed={settings.sendShortcut === "cmd-enter"}>⌘ Enter</button
+            >
           </div>
         </div>
-      </section>
+      </div>
 
-      <section class="settings-section">
-        <h2 class="section-title">Defaults</h2>
+      {#if modelStore.models.length > 1}
+        <div class="settings-card">
+          <h2 class="card-heading">Defaults</h2>
 
-        {#if modelStore.models.length > 1}
           <div class="setting-row">
-            <label class="setting-label" for="default-model">Default model</label>
+            <div class="setting-info">
+              <span class="setting-label">Default model</span>
+              <span class="setting-desc">Used for new conversations</span>
+            </div>
             <select
               id="default-model"
               class="setting-select"
@@ -239,14 +256,17 @@
               {/each}
             </select>
           </div>
-        {/if}
-      </section>
+        </div>
+      {/if}
 
-      <section class="settings-section">
-        <h2 class="section-title">Auto-Update</h2>
+      <div class="settings-card">
+        <h2 class="card-heading">Auto-Update</h2>
 
         <div class="setting-row">
-          <label class="setting-label" for="auto-update-toggle">Check for updates</label>
+          <div class="setting-info">
+            <span class="setting-label">Check for updates</span>
+            <span class="setting-desc">Automatically check for new versions</span>
+          </div>
           <label class="toggle-label">
             <input
               id="auto-update-toggle"
@@ -260,13 +280,16 @@
                 )}
             />
             <span class="toggle-switch"></span>
-            <span class="toggle-text">{settings.autoUpdateEnabled ? "Enabled" : "Disabled"}</span>
           </label>
         </div>
 
         {#if settings.autoUpdateEnabled}
+          <div class="setting-divider"></div>
+
           <div class="setting-row">
-            <label class="setting-label" for="update-frequency">Check frequency</label>
+            <div class="setting-info">
+              <span class="setting-label">Check frequency</span>
+            </div>
             <select
               id="update-frequency"
               class="setting-select"
@@ -284,79 +307,148 @@
           </div>
 
           {#if settings.skippedVersion}
+            <div class="setting-divider"></div>
+
             <div class="setting-row">
-              <span class="setting-label">
-                Skipping version <strong>{settings.skippedVersion}</strong>
-              </span>
+              <div class="setting-info">
+                <span class="setting-label">Skipping version</span>
+                <span class="setting-desc">{settings.skippedVersion} will be ignored</span>
+              </div>
               <button
-                class="btn-secondary btn-sm"
+                class="btn-pill"
                 onclick={() => updateSetting(SETTING_KEYS.skippedVersion, "")}
               >
-                Clear
+                Clear skip
               </button>
             </div>
           {/if}
         {/if}
-      </section>
+      </div>
     {:else if activeTab === "account"}
-      <section class="settings-section">
-        <h2 class="section-title">Account</h2>
-
+      <div class="settings-card account-card">
         {#if auth.user}
-          <div class="account-info">
-            <div class="account-row">
-              <span class="account-label">Signed in as</span>
-              <span class="account-value">@{auth.user.login}</span>
+          <div class="account-header">
+            <div class="account-avatar">
+              <svg
+                width="22"
+                height="22"
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <circle cx="8" cy="6" r="3" />
+                <path d="M2 14c0-2.2 2.7-4 6-4s6 1.8 6 4" />
+              </svg>
+            </div>
+            <div class="account-details">
+              <span class="account-username">@{auth.user.login}</span>
+              <span class="account-badge">GitHub Copilot</span>
+            </div>
+          </div>
+        {:else}
+          <div class="account-header">
+            <div class="account-avatar">
+              <svg
+                width="22"
+                height="22"
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <circle cx="8" cy="6" r="3" />
+                <path d="M2 14c0-2.2 2.7-4 6-4s6 1.8 6 4" />
+              </svg>
+            </div>
+            <div class="account-details">
+              <span class="account-username">Not signed in</span>
             </div>
           </div>
         {/if}
 
-        <button class="btn-danger" onclick={handleLogout}>Sign out</button>
-      </section>
-    {:else if activeTab === "shortcuts"}
-      <section class="settings-section">
-        <h2 class="section-title">Keyboard shortcuts</h2>
+        <div class="setting-divider"></div>
 
-        <div class="shortcuts-table" role="table" aria-label="Keyboard shortcuts">
-          {#each shortcuts as shortcut (shortcut.keys)}
-            <div class="shortcut-row" role="row">
-              <kbd class="shortcut-keys">{shortcut.keys}</kbd>
+        <button class="btn-danger-pill" onclick={handleLogout}>
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.3"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M6 2H3v12h3m4-6h5m0 0l-3-3m3 3l-3 3" />
+          </svg>
+          Sign out
+        </button>
+      </div>
+    {:else if activeTab === "shortcuts"}
+      <div class="settings-card">
+        <h2 class="card-heading">Keyboard shortcuts</h2>
+
+        <div class="shortcuts-list" role="list" aria-label="Keyboard shortcuts">
+          {#each shortcuts as shortcut, i (shortcut.keys)}
+            {#if i > 0}
+              <div class="setting-divider"></div>
+            {/if}
+            <div class="shortcut-row" role="listitem">
               <span class="shortcut-action">{shortcut.action}</span>
+              <kbd class="shortcut-kbd">{shortcut.keys}</kbd>
             </div>
           {/each}
         </div>
+      </div>
 
+      <div class="settings-card settings-card-muted">
         <p class="settings-note">
           {#if settings.sendShortcut === "cmd-enter"}
-            Send shortcut: <kbd>⌘ Enter</kbd> (Enter inserts newline)
+            Send shortcut is set to <kbd>⌘ Enter</kbd> — pressing Enter inserts a newline.
           {:else}
-            Send shortcut: <kbd>Enter</kbd> (Shift+Enter inserts newline)
+            Send shortcut is set to <kbd>Enter</kbd> — press Shift+Enter for a newline.
           {/if}
+          You can change this in the
+          <button class="link-btn" onclick={() => (activeTab = "general")}>General</button> tab.
         </p>
-      </section>
+      </div>
     {:else if activeTab === "data"}
-      <section class="settings-section">
-        <h2 class="section-title">Database</h2>
+      <div class="settings-card">
+        <h2 class="card-heading">Storage</h2>
 
         <div class="setting-row">
-          <span class="setting-label">Database size</span>
-          <span class="setting-value">
+          <div class="setting-info">
+            <span class="setting-label">Database size</span>
+            <span class="setting-desc">Local conversation storage</span>
+          </div>
+          <span class="setting-value-badge">
             {dbSize !== null ? formatBytes(dbSize) : "…"}
           </span>
         </div>
 
         {#if dbSize !== null && dbSize > 400 * 1024 * 1024}
           <div class="warning-banner" role="alert">
-            Database is {formatBytes(dbSize)} — consider cleaning up old conversations.
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M8 1l7 13H1L8 1zm0 4v4m0 2v1" />
+            </svg>
+            Database is {formatBytes(dbSize)} — consider cleaning up.
           </div>
         {/if}
-      </section>
+      </div>
 
-      <section class="settings-section">
-        <h2 class="section-title">Cleanup</h2>
+      <div class="settings-card">
+        <h2 class="card-heading">Cleanup</h2>
 
-        <div class="cleanup-row">
-          <label class="setting-label" for="cleanup-days">Delete conversations older than</label>
+        <div class="setting-row">
+          <div class="setting-info">
+            <span class="setting-label">Delete old conversations</span>
+            <span class="setting-desc">Permanently remove conversations older than</span>
+          </div>
           <div class="cleanup-controls">
             <select id="cleanup-days" class="setting-select" bind:value={cleanupDays}>
               <option value={30}>30 days</option>
@@ -365,8 +457,8 @@
               <option value={180}>180 days</option>
               <option value={365}>1 year</option>
             </select>
-            <button class="btn-secondary" onclick={handleCleanup} disabled={cleaningUp}>
-              {cleaningUp ? "Deleting…" : "Delete now"}
+            <button class="btn-pill btn-pill-danger" onclick={handleCleanup} disabled={cleaningUp}>
+              {cleaningUp ? "Deleting…" : "Delete"}
             </button>
           </div>
         </div>
@@ -374,26 +466,47 @@
         {#if cleanupResult}
           <p class="cleanup-result">{cleanupResult}</p>
         {/if}
-      </section>
+      </div>
 
-      <section class="settings-section">
-        <h2 class="section-title">Export</h2>
-
-        <p class="settings-note">Export all conversations to a file.</p>
+      <div class="settings-card">
+        <h2 class="card-heading">Export</h2>
+        <p class="card-desc">Export all conversations to a file for backup or sharing.</p>
 
         <div class="export-buttons">
-          <button class="btn-secondary" onclick={() => handleExport("json")} disabled={exporting}>
-            Export JSON
+          <button class="btn-export" onclick={() => handleExport("json")} disabled={exporting}>
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.3"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M4 2h5l3 3v9H4V2z" />
+              <path d="M9 2v3h3" />
+            </svg>
+            JSON
           </button>
-          <button
-            class="btn-secondary"
-            onclick={() => handleExport("markdown")}
-            disabled={exporting}
-          >
-            Export Markdown
+          <button class="btn-export" onclick={() => handleExport("markdown")} disabled={exporting}>
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.3"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M4 2h5l3 3v9H4V2z" />
+              <path d="M9 2v3h3" />
+            </svg>
+            Markdown
           </button>
         </div>
-      </section>
+      </div>
     {/if}
   </div>
 </div>
@@ -407,33 +520,44 @@
     animation: fadeIn 200ms ease both;
   }
 
+  /* ── Header ── */
+
   .settings-header {
     display: flex;
     align-items: center;
     gap: var(--spacing-md);
     padding: var(--spacing-lg) var(--spacing-xl);
     padding-top: calc(var(--spacing-lg) + var(--titlebar-height));
-    border-bottom: 1px solid var(--color-border-secondary);
     flex-shrink: 0;
+    max-width: 95%;
+    width: 100%;
+    margin: 0 auto;
   }
 
   .back-btn {
-    width: 28px;
-    height: 28px;
+    width: 32px;
+    height: 32px;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: transparent;
-    border: none;
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border-secondary);
     cursor: pointer;
     color: var(--color-text-secondary);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-md);
     transition: all var(--transition-fast);
   }
 
   .back-btn:hover {
-    background: var(--color-bg-hover);
+    background: var(--color-bg-tertiary);
     color: var(--color-text-primary);
+    border-color: var(--color-border-primary);
+  }
+
+  .back-btn:focus-visible {
+    outline: none;
+    box-shadow: var(--shadow-input-focus);
+    border-color: var(--color-border-focus);
   }
 
   .settings-title {
@@ -445,275 +569,206 @@
     margin: 0;
   }
 
-  /* ── Tabs ── */
+  /* ── Tab bar (pill-style) ── */
 
-  .tabs {
+  .tab-bar {
     display: flex;
-    gap: var(--spacing-xs);
-    padding: var(--spacing-sm) var(--spacing-xl);
-    border-bottom: 1px solid var(--color-border-secondary);
+    gap: 2px;
+    margin-bottom: var(--spacing-xs);
     flex-shrink: 0;
-    overflow-x: auto;
+    background: var(--color-bg-secondary);
+    border-radius: var(--radius-md);
+    padding: 3px;
+    max-width: 95%;
+    width: calc(100% - var(--spacing-xl) * 2);
+    margin-left: auto;
+    margin-right: auto;
   }
 
-  .tab {
-    padding: var(--spacing-xs) var(--spacing-md);
+  .tab-pill {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 7px var(--spacing-md);
     background: transparent;
     border: none;
-    border-radius: var(--radius-sm);
+    border-radius: calc(var(--radius-md) - 2px);
     font-size: var(--font-size-sm);
     font-weight: var(--font-weight-medium);
-    color: var(--color-text-secondary);
+    color: var(--color-text-tertiary);
     cursor: pointer;
     transition: all var(--transition-fast);
     white-space: nowrap;
   }
 
-  .tab:hover {
-    background: var(--color-bg-hover);
-    color: var(--color-text-primary);
+  .tab-pill svg {
+    opacity: 0.5;
+    transition: opacity var(--transition-fast);
   }
 
-  .tab.active {
-    background: var(--color-bg-secondary);
-    color: var(--color-text-primary);
+  .tab-pill:hover {
+    color: var(--color-text-secondary);
   }
 
-  /* ── Content ── */
+  .tab-pill:hover svg {
+    opacity: 0.7;
+  }
+
+  .tab-pill:focus-visible {
+    outline: none;
+    box-shadow: var(--shadow-input-focus);
+  }
+
+  .tab-pill.active {
+    background: var(--color-bg-primary);
+    color: var(--color-text-primary);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .tab-pill.active svg {
+    opacity: 1;
+  }
+
+  /* ── Content area ── */
 
   .tab-content {
     flex: 1;
     overflow-y: auto;
-    padding: var(--spacing-xl);
+    padding: var(--spacing-lg) var(--spacing-xl) var(--spacing-2xl);
+    max-width: 95%;
+    width: 100%;
+    margin: 0 auto;
   }
 
-  .settings-section {
-    margin-bottom: var(--spacing-2xl);
+  /* ── Settings card ── */
+
+  .settings-card {
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border-secondary);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-lg) var(--spacing-xl);
+    margin-bottom: var(--spacing-md);
   }
 
-  .section-title {
-    font-size: var(--font-size-sm);
+  .settings-card-muted {
+    background: transparent;
+    border: 1px dashed var(--color-border-secondary);
+  }
+
+  .card-heading {
+    font-size: var(--font-size-xs);
     font-weight: var(--font-weight-semibold);
-    color: var(--color-text-secondary);
+    color: var(--color-text-tertiary);
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.08em;
     margin: 0 0 var(--spacing-lg);
   }
+
+  .card-desc {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    margin: 0 0 var(--spacing-lg);
+    line-height: 1.5;
+  }
+
+  /* ── Setting rows ── */
 
   .setting-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: var(--spacing-sm) 0;
-    gap: var(--spacing-lg);
+    gap: var(--spacing-xl);
+    min-height: 36px;
+  }
+
+  .setting-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
   }
 
   .setting-label {
-    font-size: var(--font-size-base);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
     color: var(--color-text-primary);
   }
 
-  .setting-value {
-    font-size: var(--font-size-base);
-    color: var(--color-text-secondary);
-    font-variant-numeric: tabular-nums;
+  .setting-desc {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-tertiary);
   }
 
+  .setting-divider {
+    height: 1px;
+    background: var(--color-border-secondary);
+    margin: var(--spacing-md) 0;
+  }
+
+  /* ── Select control ── */
+
   .setting-select {
-    padding: var(--spacing-xs) var(--spacing-md);
+    padding: 6px var(--spacing-md);
     border: 1px solid var(--color-border-primary);
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-md);
     background: var(--color-bg-input);
     color: var(--color-text-primary);
     font-size: var(--font-size-sm);
     cursor: pointer;
     min-width: 120px;
+    transition: all var(--transition-fast);
+  }
+
+  .setting-select:hover {
+    border-color: var(--color-text-tertiary);
   }
 
   .setting-select:focus-visible {
     outline: none;
     box-shadow: var(--shadow-input-focus);
+    border-color: var(--color-border-focus);
   }
 
-  /* ── Radio group ── */
+  /* ── Segmented control (send shortcut) ── */
 
-  .radio-group {
+  .segmented-control {
     display: flex;
-    gap: var(--spacing-lg);
-  }
-
-  .radio-label {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-xs);
-    font-size: var(--font-size-sm);
-    color: var(--color-text-primary);
-    cursor: pointer;
-  }
-
-  .radio-label input[type="radio"] {
-    accent-color: var(--color-accent-copper);
-  }
-
-  /* ── Account ── */
-
-  .account-info {
-    margin-bottom: var(--spacing-lg);
-  }
-
-  .account-row {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-lg);
-    padding: var(--spacing-sm) 0;
-  }
-
-  .account-label {
-    font-size: var(--font-size-sm);
-    color: var(--color-text-secondary);
-  }
-
-  .account-value {
-    font-size: var(--font-size-base);
-    font-weight: var(--font-weight-medium);
-    color: var(--color-text-primary);
-  }
-
-  /* ── Shortcuts table ── */
-
-  .shortcuts-table {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-xs);
-    margin-bottom: var(--spacing-lg);
-  }
-
-  .shortcut-row {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-lg);
-    padding: var(--spacing-sm) var(--spacing-md);
-    border-radius: var(--radius-sm);
-    background: var(--color-bg-secondary);
-  }
-
-  .shortcut-keys {
-    font-family: var(--font-mono);
-    font-size: var(--font-size-sm);
-    color: var(--color-text-primary);
-    min-width: 80px;
     background: var(--color-bg-primary);
-    padding: 2px var(--spacing-sm);
-    border-radius: var(--radius-xs);
-    border: 1px solid var(--color-border-secondary);
+    border: 1px solid var(--color-border-primary);
+    border-radius: var(--radius-md);
+    padding: 2px;
+    gap: 2px;
   }
 
-  .shortcut-action {
-    font-size: var(--font-size-sm);
-    color: var(--color-text-secondary);
-  }
-
-  /* ── Cleanup ── */
-
-  .cleanup-row {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-sm);
-  }
-
-  .cleanup-controls {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-sm);
-  }
-
-  .cleanup-result {
-    font-size: var(--font-size-sm);
-    color: var(--color-text-secondary);
-    margin-top: var(--spacing-sm);
-  }
-
-  /* ── Export ── */
-
-  .export-buttons {
-    display: flex;
-    gap: var(--spacing-sm);
-  }
-
-  /* ── Warning banner ── */
-
-  .warning-banner {
-    padding: var(--spacing-sm) var(--spacing-md);
-    border-radius: var(--radius-sm);
-    background: var(
-      --color-warning-subtle,
-      color-mix(in srgb, var(--color-accent-copper) 10%, transparent)
-    );
-    color: var(--color-accent-copper);
-    font-size: var(--font-size-sm);
-    margin-top: var(--spacing-sm);
-  }
-
-  /* ── Notes ── */
-
-  .settings-note {
+  .segment {
+    padding: 5px var(--spacing-md);
+    background: transparent;
+    border: none;
+    border-radius: calc(var(--radius-md) - 3px);
     font-size: var(--font-size-sm);
     color: var(--color-text-tertiary);
-    margin-bottom: var(--spacing-md);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    white-space: nowrap;
   }
 
-  .settings-note kbd {
-    font-family: var(--font-mono);
-    font-size: var(--font-size-xs);
-    background: var(--color-bg-secondary);
-    padding: 1px var(--spacing-xs);
-    border-radius: var(--radius-xs);
-    border: 1px solid var(--color-border-secondary);
+  .segment:hover {
+    color: var(--color-text-secondary);
   }
 
-  /* ── Buttons ── */
-
-  .btn-secondary {
-    padding: var(--spacing-xs) var(--spacing-lg);
-    border: 1px solid var(--color-border-primary);
+  .segment:focus-visible {
+    outline: none;
+    box-shadow: var(--shadow-input-focus);
     border-radius: var(--radius-sm);
+  }
+
+  .segment.active {
     background: var(--color-bg-secondary);
     color: var(--color-text-primary);
-    font-size: var(--font-size-sm);
-    cursor: pointer;
-    transition: all var(--transition-fast);
-  }
-
-  .btn-secondary:hover:not(:disabled) {
-    background: var(--color-bg-hover);
-  }
-
-  .btn-secondary:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  .btn-sm {
-    padding: 2px var(--spacing-sm);
-    font-size: var(--font-size-xs);
-  }
-
-  .btn-danger {
-    padding: var(--spacing-xs) var(--spacing-lg);
-    border: 1px solid var(--color-error, #dc2626);
-    border-radius: var(--radius-sm);
-    background: transparent;
-    color: var(--color-error, #dc2626);
-    font-size: var(--font-size-sm);
-    cursor: pointer;
-    transition: all var(--transition-fast);
-  }
-
-  .btn-danger:hover {
-    background: var(
-      --color-error-subtle,
-      color-mix(in srgb, var(--color-error, #dc2626) 10%, transparent)
-    );
+    font-weight: var(--font-weight-medium);
+    box-shadow: var(--shadow-sm);
   }
 
   /* ── Toggle switch ── */
@@ -721,8 +776,8 @@
   .toggle-label {
     display: flex;
     align-items: center;
-    gap: var(--spacing-sm);
     cursor: pointer;
+    flex-shrink: 0;
   }
 
   .toggle-input {
@@ -734,11 +789,11 @@
 
   .toggle-switch {
     position: relative;
-    width: 36px;
-    height: 20px;
+    width: 40px;
+    height: 22px;
     background: var(--color-border-primary);
-    border-radius: 10px;
-    transition: background var(--transition-fast);
+    border-radius: 11px;
+    transition: background 200ms ease;
     flex-shrink: 0;
   }
 
@@ -747,11 +802,12 @@
     position: absolute;
     top: 2px;
     left: 2px;
-    width: 16px;
-    height: 16px;
-    background: white;
+    width: 18px;
+    height: 18px;
+    background: var(--color-bg-primary);
     border-radius: 50%;
-    transition: transform var(--transition-fast);
+    transition: transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1);
+    box-shadow: var(--shadow-sm);
   }
 
   .toggle-input:checked + .toggle-switch {
@@ -759,15 +815,266 @@
   }
 
   .toggle-input:checked + .toggle-switch::after {
-    transform: translateX(16px);
+    transform: translateX(18px);
   }
 
   .toggle-input:focus-visible + .toggle-switch {
     box-shadow: var(--shadow-input-focus);
   }
 
-  .toggle-text {
+  /* ── Account card ── */
+
+  .account-card {
+    text-align: left;
+  }
+
+  .account-header {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+  }
+
+  .account-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: var(--radius-full);
+    background: var(--color-bg-tertiary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-text-secondary);
+    flex-shrink: 0;
+  }
+
+  .account-details {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .account-username {
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+  }
+
+  .account-badge {
+    font-size: var(--font-size-xs);
+    color: var(--color-accent-copper);
+    font-weight: var(--font-weight-medium);
+  }
+
+  /* ── Shortcuts ── */
+
+  .shortcuts-list {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .shortcut-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--spacing-sm) 0;
+  }
+
+  .shortcut-action {
     font-size: var(--font-size-sm);
     color: var(--color-text-secondary);
+  }
+
+  .shortcut-kbd {
+    font-family: var(--font-mono);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-primary);
+    background: var(--color-bg-primary);
+    padding: 3px var(--spacing-sm);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--color-border-primary);
+    box-shadow: 0 1px 0 var(--color-border-primary);
+    min-width: 48px;
+    text-align: center;
+  }
+
+  .settings-note {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-tertiary);
+    line-height: 1.6;
+    margin: 0;
+  }
+
+  .settings-note kbd {
+    font-family: var(--font-mono);
+    font-size: var(--font-size-xs);
+    background: var(--color-bg-secondary);
+    padding: 1px var(--spacing-xs);
+    border-radius: var(--radius-xs);
+    border: 1px solid var(--color-border-secondary);
+  }
+
+  .link-btn {
+    background: none;
+    border: none;
+    padding: 0;
+    font: inherit;
+    color: var(--color-accent-copper);
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .link-btn:hover {
+    color: var(--color-accent-copper-hover);
+  }
+
+  .link-btn:focus-visible {
+    outline: none;
+    box-shadow: var(--shadow-input-focus);
+    border-radius: var(--radius-sm);
+  }
+
+  /* ── Value badge ── */
+
+  .setting-value-badge {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    font-variant-numeric: tabular-nums;
+    color: var(--color-text-primary);
+    background: var(--color-bg-primary);
+    border: 1px solid var(--color-border-primary);
+    padding: 4px var(--spacing-md);
+    border-radius: var(--radius-full);
+  }
+
+  /* ── Warning banner ── */
+
+  .warning-banner {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-radius: var(--radius-md);
+    background: color-mix(in srgb, var(--color-accent-copper) 8%, transparent);
+    color: var(--color-accent-copper);
+    font-size: var(--font-size-sm);
+    margin-top: var(--spacing-md);
+  }
+
+  /* ── Cleanup ── */
+
+  .cleanup-controls {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    flex-shrink: 0;
+  }
+
+  .cleanup-result {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    margin-top: var(--spacing-md);
+  }
+
+  /* ── Buttons ── */
+
+  .btn-pill {
+    padding: 6px var(--spacing-lg);
+    border: 1px solid var(--color-border-primary);
+    border-radius: var(--radius-full);
+    background: var(--color-bg-primary);
+    color: var(--color-text-primary);
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    white-space: nowrap;
+  }
+
+  .btn-pill:hover:not(:disabled) {
+    background: var(--color-bg-hover);
+    border-color: var(--color-text-tertiary);
+  }
+
+  .btn-pill:focus-visible {
+    outline: none;
+    box-shadow: var(--shadow-input-focus);
+    border-color: var(--color-border-focus);
+  }
+
+  .btn-pill:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .btn-pill-danger {
+    color: var(--color-error);
+    border-color: color-mix(in srgb, var(--color-error) 30%, transparent);
+  }
+
+  .btn-pill-danger:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-error) 8%, transparent);
+    border-color: var(--color-error);
+  }
+
+  .btn-danger-pill {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: 8px var(--spacing-lg);
+    border: 1px solid color-mix(in srgb, var(--color-error) 30%, transparent);
+    border-radius: var(--radius-full);
+    background: transparent;
+    color: var(--color-error);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+  }
+
+  .btn-danger-pill:hover {
+    background: color-mix(in srgb, var(--color-error) 8%, transparent);
+    border-color: var(--color-error);
+  }
+
+  .btn-danger-pill:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-error) 25%, transparent);
+  }
+
+  .btn-export {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px var(--spacing-lg);
+    border: 1px solid var(--color-border-primary);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-primary);
+    color: var(--color-text-primary);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+  }
+
+  .btn-export:hover:not(:disabled) {
+    background: var(--color-bg-hover);
+    border-color: var(--color-text-tertiary);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .btn-export:focus-visible {
+    outline: none;
+    box-shadow: var(--shadow-input-focus);
+    border-color: var(--color-border-focus);
+  }
+
+  .btn-export:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .export-buttons {
+    display: flex;
+    gap: var(--spacing-sm);
   }
 </style>
