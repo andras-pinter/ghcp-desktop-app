@@ -7,6 +7,7 @@
   import SkillsPanel from "$lib/components/SkillsPanel.svelte";
   import AgentsPanel from "$lib/components/AgentsPanel.svelte";
   import ProjectView from "$lib/components/ProjectView.svelte";
+  import UpdateBanner from "$lib/components/UpdateBanner.svelte";
   import { initAuth, getAuth } from "$lib/stores/auth.svelte";
   import { initModels, getModelStore } from "$lib/stores/models.svelte";
   import { initConversations, newConversation } from "$lib/stores/conversations.svelte";
@@ -225,6 +226,8 @@
       <span class="titlebar-title" data-tauri-drag-region>Chuck</span>
       <div class="titlebar-right" data-tauri-drag-region></div>
     </header>
+
+    <UpdateBanner />
 
     <!-- Body: sidebar + chat -->
     <div class="app-body">

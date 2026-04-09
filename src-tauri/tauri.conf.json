@@ -42,8 +42,10 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "",
-      "endpoints": []
+      "pubkey": "PLACEHOLDER_PUBKEY_GENERATE_WITH_CARGO_TAURI_SIGNER_GENERATE",
+      "endpoints": [
+        "https://github.com/andras-pinter/ghcp-desktop-app/releases/latest/download/latest.json"
+      ]
     }
   }
 }

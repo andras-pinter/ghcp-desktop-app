@@ -881,7 +881,7 @@ and **events** (`listen()`/`emit()`). This is the only bridge between the two la
 - `git-import-progress` — progress updates during git skill/agent import (total, fetched, phase)
 - `context-summarized` — older messages were condensed into a summary to manage context window
 - `tray-new-chat` — user clicked "New Chat" in system tray menu
-- `update-available` — new version found *(⬚ Phase 11)*
+- `update-available` — new version found
 
 ---
 
@@ -920,7 +920,7 @@ copilot-desktop/
 │   │   │   ├── SkillsPanel.svelte       # Skills browser (local + registry + git import, toggle on/off)
 │   │   │   ├── McpSettings.svelte       # MCP server management (add, configure, test, browse registry)
 │   │   │   ├── McpServerForm.svelte    # MCP server add/edit form with registry pre-fill
-│   │   │   ├── UpdateBanner.svelte      # Auto-update notification + download progress (⬚ Phase 11)
+│   │   │   ├── UpdateBanner.svelte      # Auto-update notification + download progress
 │   │   │   └── SearchOverlay.svelte     # In-conversation Cmd+F search overlay
 │   │   ├── stores/               # Svelte 5 runes-based stores (reactive state)
 │   │   │   ├── conversations.svelte.ts  # Conversation + message state
@@ -1775,8 +1775,8 @@ INSERT INTO config (key, value) VALUES ('schema_version', '3');
 44. ✅ **offline-mode** — Detect network status. Full read access when offline, sending disabled with clear indicator. Auto-reconnect with "Back online" toast.
 45. ✅ **accessibility** — Semantic HTML, ARIA roles/labels, keyboard navigation, focus management, visible focus indicators, screen reader testing
 
-### Phase 11: Auto-Update
-46. ⬚ **auto-update** — Configure `tauri-plugin-updater` with GitHub Releases endpoint. `UpdateBanner.svelte` for notifications. Show changelog/release notes. Allow "skip this version" and "remind me later". Settings toggle to disable auto-update. Ed25519 signature verification.
+### Phase 11: Auto-Update ✅
+46. ✅ **auto-update** — Configure `tauri-plugin-updater` with GitHub Releases endpoint (placeholder pubkey for Phase 12). `UpdateBanner.svelte` with full lifecycle: check → available (with changelog) → downloading (progress bar) → ready (restart). Skip version (persisted), remind later (24h snooze), dismiss. Auto-Update settings in SettingsPanel (toggle, frequency, skip management). `tauri-plugin-process` for app relaunch. Ed25519 signature verification (keys generated at build time in Phase 12).
 
 ### Phase 12: Distribution
 47. ⬚ **app-packaging** — `cargo tauri build` for all platforms. `.dmg` (macOS with code signing + App Sandbox + notarization), `.AppImage`/`.deb` (Linux), `.msi`/`.nsis` (Windows). GitHub Actions CI/CD for automated builds. Publish releases to GitHub Releases for auto-update consumption.
