@@ -602,7 +602,7 @@ body::after {
   background: none;
   border: none;
   cursor: pointer;
-  color: var(--color-text-secondary);
+  color: var(--color-accent-copper);
   padding: var(--spacing-xs);
   border-radius: var(--radius-sm);
   transition:
@@ -611,7 +611,7 @@ body::after {
 }
 .panel-back:hover {
   background: var(--color-bg-hover);
-  color: var(--color-text-primary);
+  color: var(--color-accent-copper-hover);
 }
 .panel-back svg {
   width: 18px;

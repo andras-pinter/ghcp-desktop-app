@@ -348,17 +348,6 @@
       </div>
     </div>
 
-    <div class="settings-card settings-card--muted">
-      <p class="settings-note">
-        {#if settings.sendShortcut === "cmd-enter"}
-          Send shortcut is set to <kbd class="kbd">⌘ Enter</kbd> — pressing Enter inserts a newline.
-        {:else}
-          Send shortcut is set to <kbd class="kbd">Enter</kbd> — press Shift+Enter for a newline.
-        {/if}
-        You can change this in the Input section above.
-      </p>
-    </div>
-
     <!-- ═══════════════════ STORAGE ═══════════════════ -->
     <h2 class="section-heading">Storage</h2>
     <div class="settings-card">
@@ -458,15 +447,6 @@
     animation: fadeIn 200ms ease both;
   }
 
-  .panel-header {
-    padding: var(--spacing-lg) var(--spacing-xl);
-    padding-top: calc(var(--spacing-lg) + var(--titlebar-height));
-    border-bottom: none;
-    max-width: 95%;
-    width: 100%;
-    margin: 0 auto;
-  }
-
   /* ── Content area override ── */
   .panel-body-narrow {
     padding: var(--spacing-lg) var(--spacing-xl) var(--spacing-2xl);
@@ -495,11 +475,6 @@
     border: 1px solid var(--color-border-secondary);
     border-radius: var(--radius-lg);
     padding: var(--spacing-lg) var(--spacing-xl);
-  }
-
-  .settings-card--muted {
-    background: transparent;
-    border: 1px dashed var(--color-border-secondary);
   }
 
   .card-desc {
@@ -586,13 +561,6 @@
   .shortcut-action {
     font-size: var(--font-size-sm);
     color: var(--color-text-secondary);
-  }
-
-  .settings-note {
-    font-size: var(--font-size-sm);
-    color: var(--color-text-tertiary);
-    line-height: 1.6;
-    margin: 0;
   }
 
   /* ── Cleanup section ── */
