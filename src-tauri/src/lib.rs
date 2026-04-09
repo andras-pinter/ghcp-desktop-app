@@ -12,6 +12,7 @@ use tauri::menu::{MenuBuilder, MenuItemBuilder};
 use tauri::tray::TrayIconBuilder;
 use tauri::Emitter;
 use tauri::Manager;
+use tauri_plugin_store::StoreExt;
 
 /// Run the Tauri application.
 pub fn run(force_logout: bool) {
@@ -116,6 +117,7 @@ pub fn run(force_logout: bool) {
                         show_and_focus(app);
                     }
                     "quit" => {
+                        save_window_state(app);
                         app.exit(0);
                     }
                     _ => {}
@@ -134,6 +136,7 @@ pub fn run(force_logout: bool) {
                 win.on_window_event(move |event| {
                     match event {
                         tauri::WindowEvent::CloseRequested { api, .. } => {
+                            save_window_state(&app_handle_dd);
                             api.prevent_close();
                             let _ = win_clone.hide();
                         }
@@ -158,6 +161,9 @@ pub fn run(force_logout: bool) {
                     }
                 });
             }
+
+            // Restore saved window position/size from previous session
+            restore_window_state(app.handle());
 
             log::info!("Chuck initialized");
             Ok(())
@@ -267,4 +273,111 @@ fn show_and_focus(app: &tauri::AppHandle) {
         let _ = win.show();
         let _ = win.set_focus();
     }
+}
+
+const WINDOW_STATE_STORE: &str = "window-state.json";
+
+/// Save the main window's position, size, and maximized state to the store.
+fn save_window_state(app: &tauri::AppHandle) {
+    let Some(win) = app.get_webview_window("main") else {
+        return;
+    };
+    let store = match app.store(WINDOW_STATE_STORE) {
+        Ok(s) => s,
+        Err(e) => {
+            log::warn!("Failed to open window state store: {e}");
+            return;
+        }
+    };
+
+    let maximized = win.is_maximized().unwrap_or(false);
+    store.set("maximized", serde_json::json!(maximized));
+
+    // Only save position/size when not maximized — the OS manages maximized geometry.
+    if !maximized {
+        if let Ok(pos) = win.outer_position() {
+            store.set("x", serde_json::json!(pos.x));
+            store.set("y", serde_json::json!(pos.y));
+        }
+        if let Ok(size) = win.outer_size() {
+            store.set("width", serde_json::json!(size.width));
+            store.set("height", serde_json::json!(size.height));
+        }
+    }
+}
+
+/// Restore the main window's position, size, and maximized state from the store.
+fn restore_window_state(app: &tauri::AppHandle) {
+    let Some(win) = app.get_webview_window("main") else {
+        return;
+    };
+    let store = match app.store(WINDOW_STATE_STORE) {
+        Ok(s) => s,
+        Err(_) => return,
+    };
+
+    // If no saved state yet, leave the window at its tauri.conf.json defaults.
+    if store.keys().is_empty() {
+        return;
+    }
+
+    if store.get("maximized").and_then(|v| v.as_bool()) == Some(true) {
+        let _ = win.maximize();
+        return;
+    }
+
+    // Restore size first so that position is relative to the correct dimensions.
+    let width = store
+        .get("width")
+        .and_then(|v| v.as_u64())
+        .map(|v| v as u32);
+    let height = store
+        .get("height")
+        .and_then(|v| v.as_u64())
+        .map(|v| v as u32);
+    if let (Some(w), Some(h)) = (width, height) {
+        if w >= 400 && h >= 300 && w <= 10000 && h <= 10000 {
+            let _ = win.set_size(tauri::PhysicalSize::new(w, h));
+        }
+    }
+
+    // Restore position — validate it falls on a connected monitor.
+    let x = store.get("x").and_then(|v| v.as_i64()).map(|v| v as i32);
+    let y = store.get("y").and_then(|v| v.as_i64()).map(|v| v as i32);
+    if let (Some(x), Some(y)) = (x, y) {
+        if is_position_visible(&win, x, y) {
+            let _ = win.set_position(tauri::PhysicalPosition::new(x, y));
+        }
+    }
+}
+
+/// Check if a window position is at least partially visible on any connected monitor.
+///
+/// Handles the case where a saved position refers to a now-disconnected external monitor.
+fn is_position_visible(win: &tauri::WebviewWindow, x: i32, y: i32) -> bool {
+    let monitors = match win.available_monitors() {
+        Ok(m) => m,
+        Err(_) => return true,
+    };
+    if monitors.is_empty() {
+        return true;
+    }
+
+    // Allow some tolerance so the title bar remains reachable even if the
+    // window is partially off-screen.
+    let margin = 200;
+    for monitor in &monitors {
+        let mp = monitor.position();
+        let ms = monitor.size();
+        let mx = mp.x;
+        let my = mp.y;
+        let mw = ms.width as i32;
+        let mh = ms.height as i32;
+
+        if x >= mx - margin && x < mx + mw + margin && y >= my - margin && y < my + mh + margin {
+            return true;
+        }
+    }
+
+    false
 }
