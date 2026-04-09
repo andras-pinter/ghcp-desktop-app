@@ -251,7 +251,10 @@
           </div>
         {:else}
           {#each store.projects as project (project.id)}
-            <button class="card card--clickable project-card" onclick={() => openDetail(project.id)}>
+            <button
+              class="card card--clickable project-card"
+              onclick={() => openDetail(project.id)}
+            >
               <div class="card-icon">📁</div>
               <div class="project-card-body">
                 <span class="card-title">{project.name}</span>

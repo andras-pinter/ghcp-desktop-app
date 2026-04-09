@@ -213,23 +213,23 @@
   }
 </script>
 
-<div class="form-page">
-  <header class="form-header">
-    <button class="back-btn" onclick={onBack} aria-label="Go back">← Back</button>
-    <h2 class="form-title">{isEditing ? "Edit Server" : "Add MCP Server"}</h2>
+<div class="panel">
+  <header class="panel-header">
+    <button class="panel-back" onclick={onBack} aria-label="Go back">← Back</button>
+    <h2 class="panel-title">{isEditing ? "Edit Server" : "Add MCP Server"}</h2>
   </header>
 
-  <div class="form-content">
+  <div class="panel-body-narrow">
     {#if initialRegistry && !isEditing}
-      <div class="prefill-notice">
+      <div class="banner banner--info prefill-notice">
         From MCP Registry: <strong>{initialRegistry.displayName}</strong>
         {#if initialRegistry.isStdioOnly && !initialRegistry.packages.length}
-          <span class="stdio-notice"
+          <span class="prefill-sub"
             >— This is a stdio-only server. You'll need to provide the binary path.</span
           >
         {/if}
         {#if initialRegistry.description}
-          <p class="prefill-desc">{initialRegistry.description}</p>
+          <p class="prefill-sub">{initialRegistry.description}</p>
         {/if}
       </div>
     {/if}
@@ -242,13 +242,19 @@
       }}
     >
       <label class="form-field">
-        <span class="field-label">Name</span>
-        <input type="text" bind:value={formName} placeholder="My MCP Server" required />
+        <span class="form-label">Name</span>
+        <input
+          class="form-input"
+          type="text"
+          bind:value={formName}
+          placeholder="My MCP Server"
+          required
+        />
       </label>
 
-      <fieldset class="form-field">
-        <legend class="field-label">Transport</legend>
-        <div class="radio-group">
+      <fieldset class="form-field fieldset-reset">
+        <legend class="form-label">Transport</legend>
+        <div class="form-radio-group">
           <label>
             <input type="radio" bind:group={formTransport} value="http" /> HTTP
           </label>
@@ -260,29 +266,46 @@
 
       {#if formTransport === "http"}
         <label class="form-field">
-          <span class="field-label">URL</span>
-          <input type="url" bind:value={formUrl} placeholder="https://example.com/mcp" required />
+          <span class="form-label">URL</span>
+          <input
+            class="form-input"
+            type="url"
+            bind:value={formUrl}
+            placeholder="https://example.com/mcp"
+            required
+          />
         </label>
         <label class="form-field">
-          <span class="field-label">Auth Header (optional)</span>
-          <input type="text" bind:value={formAuthHeader} placeholder="Bearer your-token" />
+          <span class="form-label">Auth Header (optional)</span>
+          <input
+            class="form-input"
+            type="text"
+            bind:value={formAuthHeader}
+            placeholder="Bearer your-token"
+          />
         </label>
       {:else}
         <label class="form-field">
-          <span class="field-label">Binary Path</span>
+          <span class="form-label">Binary Path</span>
           <input
+            class="form-input"
             type="text"
             bind:value={formBinaryPath}
             placeholder="npx or /usr/local/bin/mcp-server"
             required
           />
-          <span class="field-hint">
+          <span class="form-hint">
             A command name (e.g., npx, uvx) or absolute path to the MCP server binary.
           </span>
         </label>
         <label class="form-field">
-          <span class="field-label">Arguments (JSON array, optional)</span>
-          <input type="text" bind:value={formArgs} placeholder={argsPlaceholder} />
+          <span class="form-label">Arguments (JSON array, optional)</span>
+          <input
+            class="form-input"
+            type="text"
+            bind:value={formArgs}
+            placeholder={argsPlaceholder}
+          />
         </label>
       {/if}
 
@@ -292,22 +315,22 @@
 
       {#if testResult}
         <div
-          class="test-result"
-          class:success={testResult.success}
-          class:failure={!testResult.success}
+          class="banner"
+          class:banner--success={testResult.success}
+          class:banner--error={!testResult.success}
         >
           {testResult.success ? "✓" : "✗"}
           {testResult.message}
         </div>
       {/if}
 
-      <div class="form-actions">
-        <button type="button" class="action-btn" onclick={handleTest} disabled={testing}>
+      <div class="form-actions form-actions--split">
+        <button type="button" class="btn" onclick={handleTest} disabled={testing}>
           {testing ? "Testing..." : "Test Connection"}
         </button>
         <div class="actions-right">
-          <button type="button" class="action-btn" onclick={onBack}>Cancel</button>
-          <button type="submit" class="action-btn primary" disabled={submitting}>
+          <button type="button" class="btn" onclick={onBack}>Cancel</button>
+          <button type="submit" class="btn btn--primary" disabled={submitting}>
             {#if submitting}
               Saving...
             {:else}
@@ -321,71 +344,14 @@
 </div>
 
 <style>
-  .form-page {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    overflow: hidden;
-  }
-
-  .form-header {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-md);
-    padding: var(--spacing-md) var(--spacing-lg);
-    border-bottom: 1px solid var(--color-border-primary);
-    flex-shrink: 0;
-  }
-
-  .back-btn {
-    background: none;
-    border: none;
-    color: var(--color-accent-copper);
-    cursor: pointer;
-    font-size: var(--font-size-sm);
-    font-weight: var(--font-weight-medium);
-    padding: var(--spacing-xs) var(--spacing-sm);
-    border-radius: var(--radius-sm);
-    transition: background var(--transition-fast);
-  }
-  .back-btn:hover {
-    background: var(--color-bg-hover);
-  }
-
-  .form-title {
-    font-family: var(--font-display);
-    font-style: italic;
-    font-size: var(--font-size-xl);
-    color: var(--color-text-primary);
-    margin: 0;
-  }
-
-  .form-content {
-    flex: 1;
-    overflow-y: auto;
-    padding: var(--spacing-lg);
-    max-width: 640px;
-    margin: 0 auto;
-    width: 100%;
-  }
-
   .prefill-notice {
-    font-size: var(--font-size-sm);
-    color: var(--color-text-secondary);
-    background: var(--color-bg-secondary);
-    border: 1px solid var(--color-border-secondary);
-    border-radius: var(--radius-md);
-    padding: var(--spacing-sm) var(--spacing-md);
     margin-bottom: var(--spacing-lg);
   }
-  .prefill-desc {
-    margin: var(--spacing-xs) 0 0;
+  .prefill-sub {
     font-size: var(--font-size-xs);
     color: var(--color-text-tertiary);
-  }
-  .stdio-notice {
-    font-size: var(--font-size-xs);
-    color: var(--color-text-tertiary);
+    display: block;
+    margin-top: var(--spacing-xs);
   }
 
   .server-form {
@@ -394,115 +360,21 @@
     gap: var(--spacing-md);
   }
 
-  .form-field {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-xs);
+  .fieldset-reset {
     border: none;
     padding: 0;
     margin: 0;
   }
 
-  .field-label {
-    font-size: var(--font-size-xs);
-    font-weight: var(--font-weight-medium);
-    color: var(--color-text-secondary);
-  }
-
-  .field-hint {
-    font-size: var(--font-size-xs);
-    color: var(--color-text-tertiary);
-    font-style: italic;
-  }
-
-  .form-field input[type="text"],
-  .form-field input[type="url"] {
-    padding: var(--spacing-sm);
-    border: 1px solid var(--color-border-primary);
-    border-radius: var(--radius-sm);
-    background: var(--color-bg-primary);
-    color: var(--color-text-primary);
-    font-size: var(--font-size-sm);
-    font-family: var(--font-body);
-  }
-  .form-field input:focus {
-    outline: none;
-    border-color: var(--color-accent-copper);
-    box-shadow: var(--shadow-input-focus);
-  }
-
-  .radio-group {
-    display: flex;
-    gap: var(--spacing-md);
-    font-size: var(--font-size-sm);
-    color: var(--color-text-primary);
-  }
-  .radio-group label {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-xs);
-    cursor: pointer;
-  }
-
-  .form-error {
-    color: var(--color-danger, #dc2626);
-    font-size: var(--font-size-sm);
-    padding: var(--spacing-xs) var(--spacing-sm);
-    background: color-mix(in srgb, var(--color-danger, #dc2626) 8%, transparent);
-    border-radius: var(--radius-sm);
-  }
-
-  .test-result {
-    font-size: var(--font-size-sm);
-    padding: var(--spacing-xs) var(--spacing-sm);
-    border-radius: var(--radius-sm);
-  }
-  .test-result.success {
-    color: var(--color-success);
-    background: color-mix(in srgb, var(--color-success) 8%, transparent);
-  }
-  .test-result.failure {
-    color: var(--color-error);
-    background: color-mix(in srgb, var(--color-error) 8%, transparent);
-  }
-
-  .form-actions {
-    display: flex;
+  .form-actions--split {
     justify-content: space-between;
-    align-items: center;
-    gap: var(--spacing-sm);
+    border-top: none;
+    padding-top: var(--spacing-sm);
     margin-top: var(--spacing-sm);
   }
 
   .actions-right {
     display: flex;
     gap: var(--spacing-sm);
-  }
-
-  .action-btn {
-    font-size: var(--font-size-xs);
-    padding: var(--spacing-xs) var(--spacing-sm);
-    border: 1px solid var(--color-border-primary);
-    border-radius: var(--radius-sm);
-    background: var(--color-bg-primary);
-    color: var(--color-text-secondary);
-    cursor: pointer;
-    transition: all var(--transition-fast);
-  }
-  .action-btn:hover:not(:disabled) {
-    background: var(--color-bg-hover);
-    color: var(--color-text-primary);
-  }
-  .action-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-  .action-btn.primary {
-    background: var(--color-text-primary);
-    color: var(--color-bg-primary);
-    border-color: var(--color-text-primary);
-  }
-  .action-btn.primary:hover:not(:disabled) {
-    opacity: 0.9;
   }
 </style>
