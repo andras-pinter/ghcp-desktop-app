@@ -52,14 +52,15 @@ pub fn run() -> Result<(), String> {
     Ok(())
 }
 
-struct ConventionalCommit {
-    commit_type: String,
-    scope: Option<String>,
-    description: String,
-    hash: String,
+pub(crate) struct ConventionalCommit {
+    pub commit_type: String,
+    pub scope: Option<String>,
+    pub description: String,
+    pub hash: String,
+    pub is_breaking: bool,
 }
 
-fn get_latest_tag() -> Result<Option<String>, String> {
+pub(crate) fn get_latest_tag() -> Result<Option<String>, String> {
     let output = Command::new("git")
         .args(["describe", "--tags", "--abbrev=0"])
         .output()
@@ -73,7 +74,7 @@ fn get_latest_tag() -> Result<Option<String>, String> {
     }
 }
 
-fn get_conventional_commits(range: &str) -> Result<Vec<ConventionalCommit>, String> {
+pub(crate) fn get_conventional_commits(range: &str) -> Result<Vec<ConventionalCommit>, String> {
     let output = Command::new("git")
         .args(["log", range, "--pretty=format:%h %s"])
         .output()
@@ -96,7 +97,7 @@ fn get_conventional_commits(range: &str) -> Result<Vec<ConventionalCommit>, Stri
     Ok(commits)
 }
 
-fn parse_conventional_commit(line: &str) -> Option<ConventionalCommit> {
+pub(crate) fn parse_conventional_commit(line: &str) -> Option<ConventionalCommit> {
     let (hash, subject) = line.split_once(' ')?;
 
     // Match: type(scope): description  OR  type: description
@@ -106,20 +107,21 @@ fn parse_conventional_commit(line: &str) -> Option<ConventionalCommit> {
     let colon_idx = subject.find(':')?;
 
     // Type must come before colon
-    let (commit_type, scope) = if let Some(pi) = paren_idx {
+    let (raw_type, scope) = if let Some(pi) = paren_idx {
         if pi < colon_idx {
             let close = subject.find(')')?;
             let t = &subject[..pi];
             let s = &subject[pi + 1..close];
-            (t.trim_end_matches('!'), Some(s.to_string()))
+            (t, Some(s.to_string()))
         } else {
-            let t = &subject[..colon_idx];
-            (t.trim_end_matches('!'), None)
+            (&subject[..colon_idx], None)
         }
     } else {
-        let t = &subject[..colon_idx];
-        (t.trim_end_matches('!'), None)
+        (&subject[..colon_idx], None)
     };
+
+    let is_breaking = raw_type.ends_with('!');
+    let commit_type = raw_type.trim_end_matches('!');
 
     // Only keep known conventional commit types
     let known_types = [
@@ -136,6 +138,7 @@ fn parse_conventional_commit(line: &str) -> Option<ConventionalCommit> {
         scope,
         description,
         hash: hash.to_string(),
+        is_breaking,
     })
 }
 
@@ -259,6 +262,13 @@ mod tests {
         let c = parse_conventional_commit("aaa1111 feat!: redesign API").unwrap();
         assert_eq!(c.commit_type, "feat");
         assert_eq!(c.description, "redesign API");
+        assert!(c.is_breaking);
+    }
+
+    #[test]
+    fn parse_non_breaking() {
+        let c = parse_conventional_commit("abc1234 feat(ui): add dark mode").unwrap();
+        assert!(!c.is_breaking);
     }
 
     #[test]

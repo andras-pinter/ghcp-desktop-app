@@ -4,6 +4,7 @@ use std::process;
 mod bump;
 mod changelog;
 mod check;
+mod release;
 mod version;
 
 fn main() {
@@ -38,6 +39,29 @@ fn main() {
                 process::exit(1);
             }
         }
+        Some("release") => {
+            let mut force_level = None;
+            let mut dry_run = false;
+            let mut i = 1;
+            while i < args.len() {
+                match args[i].as_str() {
+                    "--dry-run" => dry_run = true,
+                    "--bump" => {
+                        i += 1;
+                        force_level = args.get(i).map(String::as_str);
+                    }
+                    other => {
+                        eprintln!("Unknown option for release: {other}");
+                        process::exit(1);
+                    }
+                }
+                i += 1;
+            }
+            if let Err(e) = release::run(force_level, dry_run) {
+                eprintln!("Error: {e}");
+                process::exit(1);
+            }
+        }
         _ => {
             eprintln!("Usage: cargo xtask <command>");
             eprintln!();
@@ -45,6 +69,7 @@ fn main() {
             eprintln!("  bump <major|minor|patch>   Bump version across all project files");
             eprintln!("  check-version              Verify all version strings are in sync");
             eprintln!("  changelog                  Generate CHANGELOG.md from git history");
+            eprintln!("  release [--dry-run] [--bump <level>]  Auto-detect and release");
             process::exit(1);
         }
     }
