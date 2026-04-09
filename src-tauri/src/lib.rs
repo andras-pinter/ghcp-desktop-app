@@ -330,11 +330,11 @@ fn restore_window_state(app: &tauri::AppHandle) {
     let width = store
         .get("width")
         .and_then(|v| v.as_u64())
-        .map(|v| v as u32);
+        .and_then(|v| u32::try_from(v).ok());
     let height = store
         .get("height")
         .and_then(|v| v.as_u64())
-        .map(|v| v as u32);
+        .and_then(|v| u32::try_from(v).ok());
     if let (Some(w), Some(h)) = (width, height) {
         if w >= 400 && h >= 300 && w <= 10000 && h <= 10000 {
             let _ = win.set_size(tauri::PhysicalSize::new(w, h));
@@ -342,8 +342,14 @@ fn restore_window_state(app: &tauri::AppHandle) {
     }
 
     // Restore position — validate it falls on a connected monitor.
-    let x = store.get("x").and_then(|v| v.as_i64()).map(|v| v as i32);
-    let y = store.get("y").and_then(|v| v.as_i64()).map(|v| v as i32);
+    let x = store
+        .get("x")
+        .and_then(|v| v.as_i64())
+        .and_then(|v| i32::try_from(v).ok());
+    let y = store
+        .get("y")
+        .and_then(|v| v.as_i64())
+        .and_then(|v| i32::try_from(v).ok());
     if let (Some(x), Some(y)) = (x, y) {
         if is_position_visible(&win, x, y) {
             let _ = win.set_position(tauri::PhysicalPosition::new(x, y));
@@ -371,8 +377,8 @@ fn is_position_visible(win: &tauri::WebviewWindow, x: i32, y: i32) -> bool {
         let ms = monitor.size();
         let mx = mp.x;
         let my = mp.y;
-        let mw = ms.width as i32;
-        let mh = ms.height as i32;
+        let mw = i32::try_from(ms.width).unwrap_or(i32::MAX);
+        let mh = i32::try_from(ms.height).unwrap_or(i32::MAX);
 
         if x >= mx - margin && x < mx + mw + margin && y >= my - margin && y < my + mh + margin {
             return true;
