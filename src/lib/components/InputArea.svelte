@@ -7,6 +7,7 @@
   import { formatBytes } from "$lib/utils/format";
   import { getSettings } from "$lib/stores/settings.svelte";
   import { getNetwork } from "$lib/stores/network.svelte";
+  import { tick } from "svelte";
 
   interface Props {
     onSend: (text: string, urls?: UrlPreview[], files?: ChatFileData[]) => void;
@@ -151,14 +152,110 @@
       if (event.key === "Enter" && mod) {
         event.preventDefault();
         handleSend();
+        return;
       }
+      // Plain Enter inserts newline — check for list continuation
+      if (event.key === "Enter" && !mod && handleListContinuation(event)) return;
     } else {
       // Enter sends (default); Shift+Enter inserts newline
       if (event.key === "Enter" && !event.shiftKey) {
         event.preventDefault();
         handleSend();
+        return;
       }
+      // Shift+Enter inserts newline — check for list continuation
+      if (event.key === "Enter" && event.shiftKey && handleListContinuation(event)) return;
     }
+  }
+
+  /**
+   * Auto-continue numbered and bullet lists when pressing the newline key.
+   * Returns true if the event was handled (caller should return early).
+   *
+   * Behaviour:
+   * - `1. text` + Enter → inserts `\n2. `
+   * - `- text` or `* text` + Enter → inserts `\n- ` / `\n* `
+   * - Empty list item (e.g. `3. ` with nothing after) + Enter → removes the marker
+   */
+  function handleListContinuation(event: KeyboardEvent): boolean {
+    if (!textareaEl) return false;
+
+    // Skip if text is selected — let the browser handle the replacement
+    if (textareaEl.selectionStart !== textareaEl.selectionEnd) return false;
+
+    const pos = textareaEl.selectionStart;
+    const text = inputText;
+
+    // Only trigger at end of line, not in the middle
+    const lineEnd = text.indexOf("\n", pos);
+    const actualLineEnd = lineEnd === -1 ? text.length : lineEnd;
+    if (pos !== actualLineEnd) return false;
+
+    // Find the start of the current line
+    const lineStart = text.lastIndexOf("\n", pos - 1) + 1;
+    const lineText = text.slice(lineStart, pos);
+
+    // Try numbered list: `  1. content`
+    const numMatch = lineText.match(/^(\s*)(\d+)\.\s(.*)$/);
+    if (numMatch) {
+      const [, indent, numStr, content] = numMatch;
+      if (content.length === 0) {
+        // Empty list item → remove the marker
+        event.preventDefault();
+        inputText = text.slice(0, lineStart) + text.slice(pos);
+        tick().then(() => {
+          if (textareaEl) {
+            textareaEl.selectionStart = textareaEl.selectionEnd = lineStart;
+            handleInput();
+          }
+        });
+        return true;
+      }
+      // Continue with next number
+      const next = parseInt(numStr, 10) + 1;
+      const insertion = `\n${indent}${next}. `;
+      event.preventDefault();
+      inputText = text.slice(0, pos) + insertion + text.slice(pos);
+      const newPos = pos + insertion.length;
+      tick().then(() => {
+        if (textareaEl) {
+          textareaEl.selectionStart = textareaEl.selectionEnd = newPos;
+          handleInput();
+        }
+      });
+      return true;
+    }
+
+    // Try bullet list: `  - content` or `  * content`
+    const bulletMatch = lineText.match(/^(\s*)([-*])\s(.*)$/);
+    if (bulletMatch) {
+      const [, indent, bullet, content] = bulletMatch;
+      if (content.length === 0) {
+        // Empty bullet → remove the marker
+        event.preventDefault();
+        inputText = text.slice(0, lineStart) + text.slice(pos);
+        tick().then(() => {
+          if (textareaEl) {
+            textareaEl.selectionStart = textareaEl.selectionEnd = lineStart;
+            handleInput();
+          }
+        });
+        return true;
+      }
+      const insertion = `\n${indent}${bullet} `;
+      event.preventDefault();
+      inputText = text.slice(0, pos) + insertion + text.slice(pos);
+      const newPos = pos + insertion.length;
+      tick().then(() => {
+        if (textareaEl) {
+          textareaEl.selectionStart = textareaEl.selectionEnd = newPos;
+          handleInput();
+        }
+      });
+      return true;
+    }
+
+    return false;
   }
 
   function handleInput() {
