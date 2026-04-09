@@ -32,7 +32,9 @@
 
   /** Whether the banner should be visible. */
   let visible = $derived(
-    !dismissed && updateState.kind !== "idle" && (updateState as UpdateState).kind !== "checking",
+    !dismissed &&
+      updateState.kind !== "idle" &&
+      (updateState as { kind: string }).kind !== "checking",
   );
 
   onMount(() => {
@@ -62,6 +64,19 @@
     return false;
   }
 
+  /** Clear stale suppression settings that no longer apply to the given version. */
+  async function clearStaleSuppression(version: string): Promise<void> {
+    if (settings.skippedVersion && settings.skippedVersion !== version) {
+      await updateSetting(SETTING_KEYS.skippedVersion, "");
+    }
+    if (settings.updateSnoozedUntil) {
+      const snoozedUntil = new Date(settings.updateSnoozedUntil).getTime();
+      if (Date.now() >= snoozedUntil) {
+        await updateSetting(SETTING_KEYS.updateSnoozedUntil, "");
+      }
+    }
+  }
+
   /** Check for available updates. */
   export async function checkForUpdates(): Promise<void> {
     if (!shouldCheck()) return;
@@ -73,6 +88,8 @@
       const update = await check();
 
       if (update) {
+        await clearStaleSuppression(update.version);
+
         if (isVersionSuppressed(update.version)) {
           updateState = { kind: "idle" };
           return;
