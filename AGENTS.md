@@ -236,6 +236,7 @@ custom agent personas, and streaming responses.
 - **Conversation export** — export conversations as JSON (structured backup) or Markdown (human-readable) via `tauri-plugin-dialog` save dialog
 - **Database management** — show DB size in settings, offer cleanup of old conversations, warn at 500MB
 - **Accessibility** — semantic HTML, ARIA attributes, keyboard navigation, screen reader support, focus management
+- **Window state persistence** — remember window position, size, and maximized state across restarts via `tauri-plugin-store`; validate against connected monitors on restore
 
 ### ⛔ Hard Requirement: No Filesystem / Machine Access
 
@@ -1831,6 +1832,10 @@ If changelog generation or later steps fail after files are bumped, the tool pri
 
 ### Phase 11: Auto-Update ✅
 46. ✅ **auto-update** — Configure `tauri-plugin-updater` with GitHub Releases endpoint (placeholder pubkey for Phase 12). `UpdateBanner.svelte` with full lifecycle: check → available (with changelog) → downloading (progress bar) → ready (restart). Skip version (persisted), remind later (24h snooze), dismiss. Auto-Update settings in SettingsPanel (toggle, frequency, skip management). `tauri-plugin-process` for app relaunch. Ed25519 signature verification (keys generated at build time in Phase 12).
+
+### Improvements (post-Phase 11)
+47. ✅ **versioning-strategy** — Workspace version inheritance: single `version` in root `Cargo.toml` `[workspace.package]`, all crates use `version.workspace = true`. Rust `xtask` crate with 4 commands: `bump` (major/minor/patch across Cargo.toml + package.json + tauri.conf.json), `check-version` (verify all files in sync), `changelog` (generate from conventional commits), `release` (auto-detect bump level from commit history + bump + changelog + commit + tag).
+48. ✅ **window-state-persistence** — Save/restore window position, size, and maximized state via `tauri-plugin-store` (`window-state.json`). Save on close-to-tray and quit. Restore on launch with monitor validation (`is_position_visible()` checks all connected monitors with 200px margin). Size sanity bounds (400–10000). Safe integer conversions via `try_from()`. Entirely Rust-side — no new IPC surface.
 
 ### Phase 12: Distribution
 47. ⬚ **app-packaging** — `cargo tauri build` for all platforms. `.dmg` (macOS with code signing + App Sandbox + notarization), `.AppImage`/`.deb` (Linux), `.msi`/`.nsis` (Windows). GitHub Actions CI/CD for automated builds. Publish releases to GitHub Releases for auto-update consumption.
