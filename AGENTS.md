@@ -1007,13 +1007,14 @@ copilot-desktop/
 │   │   │   ├── fetcher.rs        # URL fetcher + HTML-to-text extraction
 │   │   │   └── types.rs          # Search results, extracted content types
 │   │   └── Cargo.toml
-│   └── xtask/                    # Version management CLI (cargo xtask)
+│   └── xtask/                    # Version management + release automation CLI (cargo xtask)
 │       ├── src/
-│       │   ├── main.rs           # CLI entry: bump, check-version, changelog subcommands
+│       │   ├── main.rs           # CLI entry: bump, check-version, changelog, release subcommands
 │       │   ├── version.rs        # Shared: project_root(), read/write version across files
 │       │   ├── bump.rs           # Bump version in Cargo.toml + package.json + tauri.conf.json
 │       │   ├── check.rs          # Verify all version files are in sync
-│       │   └── changelog.rs      # Generate CHANGELOG.md from conventional commits
+│       │   ├── changelog.rs      # Generate CHANGELOG.md from conventional commits
+│       │   └── release.rs        # Automated release: auto-detect bump + changelog + commit + tag
 │       └── Cargo.toml
 ├── .cargo/
 │   └── config.toml               # Cargo aliases (xtask)
@@ -1714,12 +1715,48 @@ INSERT INTO config (key, value) VALUES ('schema_version', '3');
 - **Lockstep versioning:** all Rust crates share a single version via `[workspace.package]` in the root `Cargo.toml`
 - **Single source of truth:** root `Cargo.toml` → all crates use `version.workspace = true`
 - **Three files kept in sync:** `Cargo.toml` (workspace), `package.json`, `src-tauri/tauri.conf.json`
-- **`cargo xtask bump <patch|minor|major>`** updates all three files atomically
-- **`cargo xtask check-version`** verifies consistency (suitable for CI pre-commit hook)
-- **`cargo xtask changelog`** generates `CHANGELOG.md` from conventional commits since the last git tag
 - Git tags for releases use the format `vX.Y.Z` (e.g., `v1.2.3`)
 - `tauri-plugin-updater` compares the app version against the latest GitHub Release tag
 - Pre-release versions (e.g., `v1.0.0-beta.1`) should be excluded from auto-update by default
+
+#### xtask Commands
+
+| Command | Purpose |
+|---|---|
+| `cargo xtask bump <patch\|minor\|major>` | Bump version across all 3 files |
+| `cargo xtask check-version` | Verify all version strings are in sync (CI-friendly) |
+| `cargo xtask changelog` | Generate/update `CHANGELOG.md` from conventional commits since last tag |
+| `cargo xtask release` | **Automated release** — auto-detect bump level, bump, changelog, commit, tag |
+| `cargo xtask release --dry-run` | Preview what a release would do without making changes |
+| `cargo xtask release --bump <level>` | Force a specific bump level instead of auto-detecting |
+
+#### Release Flow
+
+The recommended way to cut a release:
+
+```
+cargo xtask release              # auto-detect + release
+cargo xtask release --dry-run    # preview first (recommended)
+git push && git push --tags      # publish after review
+```
+
+**Auto-detection logic** (from conventional commits since last tag):
+- Any `!` (breaking change indicator) → **major** bump
+- Any `feat` commit → **minor** bump
+- Otherwise (fix, chore, refactor, etc.) → **patch** bump
+
+**What `cargo xtask release` does:**
+1. Verifies the working tree is clean
+2. Scans conventional commits since the last git tag
+3. Auto-detects bump level (or uses `--bump` override)
+4. Bumps version across all 3 files (`bump::run`)
+5. Generates/updates `CHANGELOG.md` (`changelog::run`)
+6. Verifies version consistency (`check::run`)
+7. Creates a git commit: `chore: release vX.Y.Z`
+8. Creates an annotated git tag: `vX.Y.Z`
+9. Prints a reminder to `git push && git push --tags`
+
+If changelog generation or later steps fail after files are bumped, the tool prints recovery instructions (`git checkout -- <files>`).
 
 ---
 
@@ -1867,6 +1904,20 @@ cargo xtask bump major    # 0.1.0 → 1.0.0
 
 # Generate/update CHANGELOG.md from conventional commits
 cargo xtask changelog
+
+# --- Releasing ---
+
+# Preview what a release would do (recommended first step)
+cargo xtask release --dry-run
+
+# Cut a release (auto-detects bump level from commits)
+cargo xtask release
+
+# Force a specific bump level
+cargo xtask release --bump major
+
+# After release, push (human only — agents must never push)
+git push && git push --tags
 ```
 
 ---
