@@ -1045,6 +1045,7 @@ copilot-desktop/
 - Follow [Svelte conventions](https://svelte.dev/docs): one component per file, PascalCase filenames
 - Use `.svelte.ts` extension for files that use Svelte runes outside components (stores)
 - **CSS scoping:** use Svelte's built-in `<style>` scoping. Global styles only in `app.css`
+- **Unified Design System:** all panel components (Agents, Skills, MCP, Settings, Projects) must use the shared component classes defined in `app.css`. See **[STYLE-GUIDE.md](STYLE-GUIDE.md)** for the full design system reference — tokens, components, do's/don'ts, and per-panel guides.
 - **Theme:** use CSS custom properties (`--color-bg`, `--color-text`, etc.) defined in `app.css` and toggled via a `data-theme` attribute on `<html>`
 - **No inline styles** — use CSS classes. Exception: dynamic values that must be computed (use `style:` directive)
 - **No `any` type** — every value must be properly typed. Use `unknown` + type guards when dealing with external data
