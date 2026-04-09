@@ -214,8 +214,18 @@
 </script>
 
 <div class="panel">
-  <header class="panel-header">
-    <button class="panel-back" onclick={onBack} aria-label="Go back">← Back</button>
+  <header class="panel-header" data-tauri-drag-region>
+    <button class="panel-back" onclick={onBack} aria-label="Go back">
+      <svg width="18" height="18" viewBox="0 0 16 16" fill="none">
+        <path
+          d="M10 3L5 8l5 5"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+      </svg>
+    </button>
     <h2 class="panel-title">{isEditing ? "Edit Server" : "Add MCP Server"}</h2>
   </header>
 

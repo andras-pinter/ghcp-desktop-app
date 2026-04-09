@@ -598,24 +598,24 @@ body::after {
 .panel-back {
   display: inline-flex;
   align-items: center;
-  gap: var(--spacing-xs);
+  justify-content: center;
   background: none;
   border: none;
   cursor: pointer;
-  color: var(--color-accent-copper);
-  font-family: var(--font-sans);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
-  padding: var(--spacing-xs) var(--spacing-sm);
+  color: var(--color-text-secondary);
+  padding: var(--spacing-xs);
   border-radius: var(--radius-sm);
-  transition: background var(--transition-fast);
+  transition:
+    background var(--transition-fast),
+    color var(--transition-fast);
 }
 .panel-back:hover {
   background: var(--color-bg-hover);
+  color: var(--color-text-primary);
 }
 .panel-back svg {
-  width: 14px;
-  height: 14px;
+  width: 18px;
+  height: 18px;
 }
 
 .panel-title {

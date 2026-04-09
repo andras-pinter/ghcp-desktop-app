@@ -57,18 +57,18 @@ are on `[data-theme="dark"]`. System dark mode mirrors dark via `@media (prefers
 
 ### Token Categories
 
-| Category | Prefix | Example |
-|---|---|---|
-| Surfaces | `--color-bg-*` | `--color-bg-primary`, `--color-bg-secondary`, `--color-bg-hover` |
-| Text | `--color-text-*` | `--color-text-primary`, `--color-text-secondary`, `--color-text-tertiary` |
-| Borders | `--color-border-*` | `--color-border-primary`, `--color-border-focus` |
-| Accent | `--color-accent-*` | `--color-accent-copper`, `--color-accent-copper-hover` |
-| Semantic | `--color-success/warning/error` | `--color-success`, `--color-error-subtle` |
-| Shadows | `--shadow-*` | `--shadow-sm`, `--shadow-md`, `--shadow-lg`, `--shadow-input-focus` |
-| Radii | `--radius-*` | `--radius-sm` (6px), `--radius-md` (10px), `--radius-lg` (16px) |
-| Spacing | `--spacing-*` | `--spacing-xs` (4px) through `--spacing-4xl` (64px) |
-| Typography | `--font-*`, `--font-size-*`, `--font-weight-*` | See Typography section |
-| Motion | `--transition-*` | `--transition-fast` (120ms), `--transition-spring` (400ms) |
+| Category   | Prefix                                         | Example                                                                   |
+| ---------- | ---------------------------------------------- | ------------------------------------------------------------------------- |
+| Surfaces   | `--color-bg-*`                                 | `--color-bg-primary`, `--color-bg-secondary`, `--color-bg-hover`          |
+| Text       | `--color-text-*`                               | `--color-text-primary`, `--color-text-secondary`, `--color-text-tertiary` |
+| Borders    | `--color-border-*`                             | `--color-border-primary`, `--color-border-focus`                          |
+| Accent     | `--color-accent-*`                             | `--color-accent-copper`, `--color-accent-copper-hover`                    |
+| Semantic   | `--color-success/warning/error`                | `--color-success`, `--color-error-subtle`                                 |
+| Shadows    | `--shadow-*`                                   | `--shadow-sm`, `--shadow-md`, `--shadow-lg`, `--shadow-input-focus`       |
+| Radii      | `--radius-*`                                   | `--radius-sm` (6px), `--radius-md` (10px), `--radius-lg` (16px)           |
+| Spacing    | `--spacing-*`                                  | `--spacing-xs` (4px) through `--spacing-4xl` (64px)                       |
+| Typography | `--font-*`, `--font-size-*`, `--font-weight-*` | See Typography section                                                    |
+| Motion     | `--transition-*`                               | `--transition-fast` (120ms), `--transition-spring` (400ms)                |
 
 ---
 
@@ -76,33 +76,33 @@ are on `[data-theme="dark"]`. System dark mode mirrors dark via `@media (prefers
 
 ### Font Stacks
 
-| Token | Font | Usage |
-|---|---|---|
-| `--font-display` | Instrument Serif | Panel titles, welcome headings, editorial text. Always **italic**. |
-| `--font-sans` | Plus Jakarta Sans Variable | All body text, labels, descriptions, buttons |
-| `--font-mono` | JetBrains Mono | Code blocks, device codes, monospaced inputs |
+| Token            | Font                       | Usage                                                              |
+| ---------------- | -------------------------- | ------------------------------------------------------------------ |
+| `--font-display` | Instrument Serif           | Panel titles, welcome headings, editorial text. Always **italic**. |
+| `--font-sans`    | Plus Jakarta Sans Variable | All body text, labels, descriptions, buttons                       |
+| `--font-mono`    | JetBrains Mono             | Code blocks, device codes, monospaced inputs                       |
 
 ### Size Scale
 
-| Token | Size | Usage |
-|---|---|---|
-| `--font-size-2xs` | 10px | Badges, smallest labels |
-| `--font-size-xs` | 11px | Form labels, hints, section headings, card descriptions |
-| `--font-size-sm` | 13px | Body text, card titles, form inputs, buttons |
-| `--font-size-base` | 14.5px | Default body (root-level) |
-| `--font-size-md` | 16px | Empty state titles, medium headings |
-| `--font-size-lg` | 20px | Card icons, large display elements |
-| `--font-size-xl` | 28px | Panel titles (`.panel-title`) |
-| `--font-size-2xl` | 40px | Hero/welcome headings only |
+| Token              | Size   | Usage                                                   |
+| ------------------ | ------ | ------------------------------------------------------- |
+| `--font-size-2xs`  | 10px   | Badges, smallest labels                                 |
+| `--font-size-xs`   | 11px   | Form labels, hints, section headings, card descriptions |
+| `--font-size-sm`   | 13px   | Body text, card titles, form inputs, buttons            |
+| `--font-size-base` | 14.5px | Default body (root-level)                               |
+| `--font-size-md`   | 16px   | Empty state titles, medium headings                     |
+| `--font-size-lg`   | 20px   | Card icons, large display elements                      |
+| `--font-size-xl`   | 28px   | Panel titles (`.panel-title`)                           |
+| `--font-size-2xl`  | 40px   | Hero/welcome headings only                              |
 
 ### Weight Scale
 
-| Token | Weight | Usage |
-|---|---|---|
-| `--font-weight-normal` | 400 | Body text, descriptions |
-| `--font-weight-medium` | 500 | Form labels, card titles, active tabs |
-| `--font-weight-semibold` | 600 | Section headings, emphasis |
-| `--font-weight-bold` | 700 | Reserved (rarely used) |
+| Token                    | Weight | Usage                                 |
+| ------------------------ | ------ | ------------------------------------- |
+| `--font-weight-normal`   | 400    | Body text, descriptions               |
+| `--font-weight-medium`   | 500    | Form labels, card titles, active tabs |
+| `--font-weight-semibold` | 600    | Section headings, emphasis            |
+| `--font-weight-bold`     | 700    | Reserved (rarely used)                |
 
 ---
 
@@ -110,38 +110,38 @@ are on `[data-theme="dark"]`. System dark mode mirrors dark via `@media (prefers
 
 ### Light Theme (`:root`)
 
-| Role | Token | Value | Usage |
-|---|---|---|---|
-| Primary BG | `--color-bg-primary` | `#faf9f7` | Page background, input background fallback |
-| Secondary BG | `--color-bg-secondary` | `#f3f1ed` | Cards, sidebar |
-| Tertiary BG | `--color-bg-tertiary` | `#eae7e1` | Toggle tracks, code blocks |
-| Hover | `--color-bg-hover` | `rgba(28,25,23, 0.04)` | Hover states |
-| Active | `--color-bg-active` | `rgba(28,25,23, 0.08)` | Active/pressed states |
-| Primary Text | `--color-text-primary` | `#1c1917` | Headings, card titles, input text |
-| Secondary Text | `--color-text-secondary` | `#78716c` | Descriptions, form labels |
-| Tertiary Text | `--color-text-tertiary` | `#a8a29e` | Hints, placeholders, muted text |
-| Copper Accent | `--color-accent-copper` | `#b45309` | Focus rings, accent buttons, links, toggles |
-| Primary Border | `--color-border-primary` | `#e7e5e4` | Card borders, dividers |
-| Focus Border | `--color-border-focus` | `#b45309` | Input focus, card hover |
+| Role           | Token                    | Value                  | Usage                                       |
+| -------------- | ------------------------ | ---------------------- | ------------------------------------------- |
+| Primary BG     | `--color-bg-primary`     | `#faf9f7`              | Page background, input background fallback  |
+| Secondary BG   | `--color-bg-secondary`   | `#f3f1ed`              | Cards, sidebar                              |
+| Tertiary BG    | `--color-bg-tertiary`    | `#eae7e1`              | Toggle tracks, code blocks                  |
+| Hover          | `--color-bg-hover`       | `rgba(28,25,23, 0.04)` | Hover states                                |
+| Active         | `--color-bg-active`      | `rgba(28,25,23, 0.08)` | Active/pressed states                       |
+| Primary Text   | `--color-text-primary`   | `#1c1917`              | Headings, card titles, input text           |
+| Secondary Text | `--color-text-secondary` | `#78716c`              | Descriptions, form labels                   |
+| Tertiary Text  | `--color-text-tertiary`  | `#a8a29e`              | Hints, placeholders, muted text             |
+| Copper Accent  | `--color-accent-copper`  | `#b45309`              | Focus rings, accent buttons, links, toggles |
+| Primary Border | `--color-border-primary` | `#e7e5e4`              | Card borders, dividers                      |
+| Focus Border   | `--color-border-focus`   | `#b45309`              | Input focus, card hover                     |
 
 ### Dark Theme (`[data-theme="dark"]`)
 
-| Role | Token | Value |
-|---|---|---|
-| Primary BG | `--color-bg-primary` | `#1e1c1a` |
-| Secondary BG | `--color-bg-secondary` | `#262422` |
-| Tertiary BG | `--color-bg-tertiary` | `#302e2b` |
-| Primary Text | `--color-text-primary` | `#edebe9` |
-| Copper Accent | `--color-accent-copper` | `#e8a030` |
+| Role           | Token                    | Value     |
+| -------------- | ------------------------ | --------- |
+| Primary BG     | `--color-bg-primary`     | `#1e1c1a` |
+| Secondary BG   | `--color-bg-secondary`   | `#262422` |
+| Tertiary BG    | `--color-bg-tertiary`    | `#302e2b` |
+| Primary Text   | `--color-text-primary`   | `#edebe9` |
+| Copper Accent  | `--color-accent-copper`  | `#e8a030` |
 | Primary Border | `--color-border-primary` | `#38352f` |
 
 ### Semantic Colors
 
-| Token | Light | Dark | Usage |
-|---|---|---|---|
-| `--color-success` | `#166534` | `#4ade80` | Connected status, success banners |
-| `--color-warning` | `#92400e` | `#fbbf24` | Warning banners, caution states |
-| `--color-error` | `#b91c1c` | `#f87171` | Error banners, danger buttons, disconnected |
+| Token             | Light     | Dark      | Usage                                       |
+| ----------------- | --------- | --------- | ------------------------------------------- |
+| `--color-success` | `#166534` | `#4ade80` | Connected status, success banners           |
+| `--color-warning` | `#92400e` | `#fbbf24` | Warning banners, caution states             |
+| `--color-error`   | `#b91c1c` | `#f87171` | Error banners, danger buttons, disconnected |
 
 ### Semi-Transparent Backgrounds
 
@@ -166,34 +166,34 @@ background: color-mix(in srgb, var(--color-error) 8%, transparent);
 
 ### Spacing Scale
 
-| Token | Value | Common Usage |
-|---|---|---|
-| `--spacing-xs` | 4px | Inner gaps (badge padding, icon spacing) |
-| `--spacing-sm` | 8px | Card padding, form gaps, button padding |
-| `--spacing-md` | 12px | Panel header padding, card body |
-| `--spacing-lg` | 16px | Panel body padding, section gaps |
-| `--spacing-xl` | 24px | Large section gaps |
-| `--spacing-2xl` | 32px | Search icon offset |
-| `--spacing-3xl` | 48px | Empty state padding |
+| Token           | Value | Common Usage                             |
+| --------------- | ----- | ---------------------------------------- |
+| `--spacing-xs`  | 4px   | Inner gaps (badge padding, icon spacing) |
+| `--spacing-sm`  | 8px   | Card padding, form gaps, button padding  |
+| `--spacing-md`  | 12px  | Panel header padding, card body          |
+| `--spacing-lg`  | 16px  | Panel body padding, section gaps         |
+| `--spacing-xl`  | 24px  | Large section gaps                       |
+| `--spacing-2xl` | 32px  | Search icon offset                       |
+| `--spacing-3xl` | 48px  | Empty state padding                      |
 
 ### Layout Constants
 
-| Token | Value | Purpose |
-|---|---|---|
-| `--sidebar-width` | 260px | Sidebar expanded width |
-| `--sidebar-collapsed-width` | 52px | Sidebar icon-only width |
-| `--titlebar-height` | 38px | Custom title bar height |
-| `--content-max-width` | 680px | Max width for content areas |
+| Token                       | Value | Purpose                     |
+| --------------------------- | ----- | --------------------------- |
+| `--sidebar-width`           | 260px | Sidebar expanded width      |
+| `--sidebar-collapsed-width` | 52px  | Sidebar icon-only width     |
+| `--titlebar-height`         | 38px  | Custom title bar height     |
+| `--content-max-width`       | 680px | Max width for content areas |
 
 ### Radius Scale
 
-| Token | Value | Usage |
-|---|---|---|
-| `--radius-sm` | 6px | Inputs, buttons, badges, cards (inner) |
-| `--radius-md` | 10px | Cards, banners, code blocks |
-| `--radius-lg` | 16px | Large containers, modals |
-| `--radius-xl` | 24px | Reserved |
-| `--radius-full` | 9999px | Pills, toggles, tab pills |
+| Token           | Value  | Usage                                  |
+| --------------- | ------ | -------------------------------------- |
+| `--radius-sm`   | 6px    | Inputs, buttons, badges, cards (inner) |
+| `--radius-md`   | 10px   | Cards, banners, code blocks            |
+| `--radius-lg`   | 16px   | Large containers, modals               |
+| `--radius-xl`   | 24px   | Reserved                               |
+| `--radius-full` | 9999px | Pills, toggles, tab pills              |
 
 ---
 
@@ -201,31 +201,31 @@ background: color-mix(in srgb, var(--color-error) 8%, transparent);
 
 ### Shadows
 
-| Token | Usage |
-|---|---|
-| `--shadow-sm` | Card hover lift, active tab pills |
-| `--shadow-md` | Dropdowns, popovers |
-| `--shadow-lg` | Modals, floating panels |
-| `--shadow-input` | Default input shadow |
-| `--shadow-input-focus` | Input focus ring (copper glow) |
+| Token                  | Usage                             |
+| ---------------------- | --------------------------------- |
+| `--shadow-sm`          | Card hover lift, active tab pills |
+| `--shadow-md`          | Dropdowns, popovers               |
+| `--shadow-lg`          | Modals, floating panels           |
+| `--shadow-input`       | Default input shadow              |
+| `--shadow-input-focus` | Input focus ring (copper glow)    |
 
 ### Transitions
 
-| Token | Duration | Usage |
-|---|---|---|
-| `--transition-fast` | 120ms ease | Hover states, border color, background |
-| `--transition-normal` | 200ms ease | Toggle track, progress bar |
-| `--transition-slow` | 320ms ease | Panel transitions, slide-overs |
-| `--transition-spring` | 400ms cubic-bezier(0.34, 1.56, 0.64, 1) | Sidebar, playful micro-interactions |
+| Token                 | Duration                                | Usage                                  |
+| --------------------- | --------------------------------------- | -------------------------------------- |
+| `--transition-fast`   | 120ms ease                              | Hover states, border color, background |
+| `--transition-normal` | 200ms ease                              | Toggle track, progress bar             |
+| `--transition-slow`   | 320ms ease                              | Panel transitions, slide-overs         |
+| `--transition-spring` | 400ms cubic-bezier(0.34, 1.56, 0.64, 1) | Sidebar, playful micro-interactions    |
 
 ### Animations
 
-| Name | Effect | Usage |
-|---|---|---|
-| `fadeIn` | Opacity 0→1 | Expandable details, overlays |
-| `fadeInUp` | Opacity + translateY(12px→0) | Page entries, list items |
-| `scaleIn` | Opacity + scale(0.96→1) | Modals, dropdown menus |
-| `spin` | rotate(0→360deg) | Spinners |
+| Name       | Effect                       | Usage                        |
+| ---------- | ---------------------------- | ---------------------------- |
+| `fadeIn`   | Opacity 0→1                  | Expandable details, overlays |
+| `fadeInUp` | Opacity + translateY(12px→0) | Page entries, list items     |
+| `scaleIn`  | Opacity + scale(0.96→1)      | Modals, dropdown menus       |
+| `spin`     | rotate(0→360deg)             | Spinners                     |
 
 ---
 
@@ -235,14 +235,14 @@ Every panel page (Agents, Skills, MCP, Settings, Projects) uses the same outer s
 
 ### Classes
 
-| Class | Element | Purpose |
-|---|---|---|
-| `.panel` | `<div>` | Flex column container, full height, hidden overflow |
-| `.panel-header` | `<div>` | Top bar with back button + title. `border-bottom`, flex row |
-| `.panel-back` | `<button>` | "← Back" link in copper accent. Hover: `--color-bg-hover` |
-| `.panel-title` | `<h2>` | Instrument Serif italic, `--font-size-xl` |
-| `.panel-body` | `<div>` | Scrollable content area, `padding: --spacing-lg` |
-| `.panel-body-narrow` | `<div>` | Same as `.panel-body` but `max-width: 640px`, centered |
+| Class                | Element    | Purpose                                                     |
+| -------------------- | ---------- | ----------------------------------------------------------- |
+| `.panel`             | `<div>`    | Flex column container, full height, hidden overflow         |
+| `.panel-header`      | `<div>`    | Top bar with back button + title. `border-bottom`, flex row |
+| `.panel-back`        | `<button>` | "← Back" link in copper accent. Hover: `--color-bg-hover`   |
+| `.panel-title`       | `<h2>`     | Instrument Serif italic, `--font-size-xl`                   |
+| `.panel-body`        | `<div>`    | Scrollable content area, `padding: --spacing-lg`            |
+| `.panel-body-narrow` | `<div>`    | Same as `.panel-body` but `max-width: 640px`, centered      |
 
 ### Usage
 
@@ -274,7 +274,7 @@ Every panel page (Agents, Skills, MCP, Settings, Projects) uses the same outer s
 Uppercase, letter-spaced, tertiary color. Used to group content within a panel body.
 
 ```css
-font-size: var(--font-size-xs);        /* 11px */
+font-size: var(--font-size-xs); /* 11px */
 font-weight: var(--font-weight-semibold);
 text-transform: uppercase;
 letter-spacing: 0.06em;
@@ -296,29 +296,29 @@ The primary content container. Used for agents, skills, MCP servers, project ent
 
 ### Base Card
 
-| Class | Purpose |
-|---|---|
-| `.card` | Base: secondary bg, primary border, `--radius-md`, hover changes border to focus color |
-| `.card + .card` | Auto margin-top: `--spacing-sm` between siblings |
+| Class           | Purpose                                                                                |
+| --------------- | -------------------------------------------------------------------------------------- |
+| `.card`         | Base: secondary bg, primary border, `--radius-md`, hover changes border to focus color |
+| `.card + .card` | Auto margin-top: `--spacing-sm` between siblings                                       |
 
 ### Variants
 
-| Modifier | Effect | When to Use |
-|---|---|---|
-| `.card--featured` | 3px copper left border | Default/built-in items (default agent, built-in skills) |
-| `.card--clickable` | Cursor pointer, hover lift (`translateY(-1px)` + shadow) | Expandable cards, selectable items |
-| `.card--flat` | No hover border change, default cursor | Static display cards (read-only info) |
+| Modifier           | Effect                                                   | When to Use                                             |
+| ------------------ | -------------------------------------------------------- | ------------------------------------------------------- |
+| `.card--featured`  | 3px copper left border                                   | Default/built-in items (default agent, built-in skills) |
+| `.card--clickable` | Cursor pointer, hover lift (`translateY(-1px)` + shadow) | Expandable cards, selectable items                      |
+| `.card--flat`      | No hover border change, default cursor                   | Static display cards (read-only info)                   |
 
 ### Card Anatomy
 
-| Class | Purpose |
-|---|---|
-| `.card-header` | Flex row: icon + title + actions. `min-height: 24px` |
-| `.card-icon` | Emoji or icon. `--font-size-lg`, flex-shrink 0 |
-| `.card-title` | `--font-size-sm`, semibold, ellipsis overflow |
-| `.card-actions` | Right-aligned action buttons (Edit, Delete, etc.) |
-| `.card-desc` | `--font-size-xs`, secondary color, 2-line clamp |
-| `.card-meta` | Flex wrap row of badges below description |
+| Class           | Purpose                                              |
+| --------------- | ---------------------------------------------------- |
+| `.card-header`  | Flex row: icon + title + actions. `min-height: 24px` |
+| `.card-icon`    | Emoji or icon. `--font-size-lg`, flex-shrink 0       |
+| `.card-title`   | `--font-size-sm`, semibold, ellipsis overflow        |
+| `.card-actions` | Right-aligned action buttons (Edit, Delete, etc.)    |
+| `.card-desc`    | `--font-size-xs`, secondary color, 2-line clamp      |
+| `.card-meta`    | Flex wrap row of badges below description            |
 
 ### Example
 
@@ -346,13 +346,13 @@ The primary content container. Used for agents, skills, MCP servers, project ent
 
 Shown inside a card when the user clicks to expand. Used in Agents (agent details), Skills (instructions), and MCP (server details).
 
-| Class | Purpose |
-|---|---|
-| `.card-detail` | Container with secondary bg, subtle border, `fadeIn` animation |
-| `.detail-section` | Padded row with bottom border (last child: no border) |
-| `.detail-label` | `--font-size-xs`, medium weight, secondary color |
-| `.detail-value` | `--font-size-sm`, primary color |
-| `.detail-value--muted` | Tertiary color, italic (for empty/placeholder values) |
+| Class                  | Purpose                                                        |
+| ---------------------- | -------------------------------------------------------------- |
+| `.card-detail`         | Container with secondary bg, subtle border, `fadeIn` animation |
+| `.detail-section`      | Padded row with bottom border (last child: no border)          |
+| `.detail-label`        | `--font-size-xs`, medium weight, secondary color               |
+| `.detail-value`        | `--font-size-sm`, primary color                                |
+| `.detail-value--muted` | Tertiary color, italic (for empty/placeholder values)          |
 
 ```svelte
 <div class="card-detail">
@@ -375,21 +375,21 @@ All interactive buttons use the `.btn` base class plus modifiers.
 
 ### Variants
 
-| Class | Appearance | Usage |
-|---|---|---|
-| `.btn` | Ghost with border, secondary text | Default/neutral actions |
-| `.btn--primary` | Dark bg (ink), inverse text | Primary CTA (Save, Create) |
-| `.btn--accent` | Copper bg, white text | High-emphasis accent actions |
-| `.btn--ghost` | No border, no bg | Subtle actions (toolbar buttons) |
-| `.btn--link` | No border, copper text | Inline links styled as buttons |
-| `.btn--danger` | Red text, red border (30% opacity) | Destructive actions (Delete) |
+| Class           | Appearance                         | Usage                            |
+| --------------- | ---------------------------------- | -------------------------------- |
+| `.btn`          | Ghost with border, secondary text  | Default/neutral actions          |
+| `.btn--primary` | Dark bg (ink), inverse text        | Primary CTA (Save, Create)       |
+| `.btn--accent`  | Copper bg, white text              | High-emphasis accent actions     |
+| `.btn--ghost`   | No border, no bg                   | Subtle actions (toolbar buttons) |
+| `.btn--link`    | No border, copper text             | Inline links styled as buttons   |
+| `.btn--danger`  | Red text, red border (30% opacity) | Destructive actions (Delete)     |
 
 ### Size & Shape Modifiers
 
-| Class | Effect |
-|---|---|
-| `.btn--pill` | Full border-radius (pill shape) |
-| `.btn--sm` | Smaller font + padding (`--font-size-2xs`) |
+| Class        | Effect                                                 |
+| ------------ | ------------------------------------------------------ |
+| `.btn--pill` | Full border-radius (pill shape)                        |
+| `.btn--sm`   | Smaller font + padding (`--font-size-2xs`)             |
 | `.btn--icon` | Square 28×28, no border, tertiary color, centered icon |
 
 ### States
@@ -416,14 +416,14 @@ All interactive buttons use the `.btn` base class plus modifiers.
 
 Inline metadata labels. Always small, never interactive.
 
-| Class | Appearance | Usage |
-|---|---|---|
-| `.badge` | Base: `--font-size-2xs`, `--radius-sm` | — |
-| `.badge--neutral` | Tertiary text on 10% tertiary bg | Source type, category labels |
-| `.badge--copper` | Copper text on 12% copper bg | Counts ("2 skills"), accent metadata |
-| `.badge--success` | Green text on 10% green bg | "Connected", active status |
-| `.badge--error` | Red text on 10% red bg | "Disconnected", error status |
-| `.badge--mono` | Mono font, secondary text, tertiary bg | Technical labels (transport type) |
+| Class             | Appearance                             | Usage                                |
+| ----------------- | -------------------------------------- | ------------------------------------ |
+| `.badge`          | Base: `--font-size-2xs`, `--radius-sm` | —                                    |
+| `.badge--neutral` | Tertiary text on 10% tertiary bg       | Source type, category labels         |
+| `.badge--copper`  | Copper text on 12% copper bg           | Counts ("2 skills"), accent metadata |
+| `.badge--success` | Green text on 10% green bg             | "Connected", active status           |
+| `.badge--error`   | Red text on 10% red bg                 | "Disconnected", error status         |
+| `.badge--mono`    | Mono font, secondary text, tertiary bg | Technical labels (transport type)    |
 
 ```svelte
 <span class="badge badge--copper">3 tools</span>
@@ -437,13 +437,13 @@ Inline metadata labels. Always small, never interactive.
 
 Used for MCP server connection state and similar binary statuses.
 
-| Class | Purpose |
-|---|---|
-| `.status` | Flex row container with gap |
-| `.status-dot` | 6×6px circle indicator |
-| `.status--connected` | Green dot + green text |
-| `.status--disconnected` | Red dot + red text |
-| `.status--warning` | Amber dot + amber text |
+| Class                   | Purpose                     |
+| ----------------------- | --------------------------- |
+| `.status`               | Flex row container with gap |
+| `.status-dot`           | 6×6px circle indicator      |
+| `.status--connected`    | Green dot + green text      |
+| `.status--disconnected` | Red dot + red text          |
+| `.status--warning`      | Amber dot + amber text      |
 
 ```svelte
 <span class="status status--connected">
@@ -494,25 +494,25 @@ Unified 36×20px toggle with copper accent and spring easing.
 
 ### Classes
 
-| Class | Purpose |
-|---|---|
-| `.form-field` | Flex column with `gap: --spacing-xs` |
-| `.form-label` | `--font-size-xs`, medium weight, secondary color |
-| `.form-hint` | `--font-size-xs`, tertiary color, italic |
-| `.form-input` | Full-width text input with copper focus ring |
-| `textarea.form-input` | Min 80px height, vertical resize |
-| `.form-input--mono` | Monospace variant (code editors, JSON) |
-| `.form-select` | Styled `<select>` with hover/focus states |
-| `.form-radio-group` | Flex row of `<label>` + `<input type="radio">` |
-| `.form-error` | Red text on 8% red bg, small rounded container |
+| Class                 | Purpose                                          |
+| --------------------- | ------------------------------------------------ |
+| `.form-field`         | Flex column with `gap: --spacing-xs`             |
+| `.form-label`         | `--font-size-xs`, medium weight, secondary color |
+| `.form-hint`          | `--font-size-xs`, tertiary color, italic         |
+| `.form-input`         | Full-width text input with copper focus ring     |
+| `textarea.form-input` | Min 80px height, vertical resize                 |
+| `.form-input--mono`   | Monospace variant (code editors, JSON)           |
+| `.form-select`        | Styled `<select>` with hover/focus states        |
+| `.form-radio-group`   | Flex row of `<label>` + `<input type="radio">`   |
+| `.form-error`         | Red text on 8% red bg, small rounded container   |
 
 ### Focus State
 
 All form inputs share the same focus treatment:
 
 ```css
-border-color: var(--color-border-focus);    /* copper */
-box-shadow: var(--shadow-input-focus);       /* copper glow ring */
+border-color: var(--color-border-focus); /* copper */
+box-shadow: var(--shadow-input-focus); /* copper glow ring */
 ```
 
 ---
@@ -521,12 +521,12 @@ box-shadow: var(--shadow-input-focus);       /* copper glow ring */
 
 Used in Settings panel for key-value preference rows (label + control).
 
-| Class | Purpose |
-|---|---|
-| `.setting-row` | Flex row, `space-between`, vertical centering |
-| `.setting-info` | Left column: label + description |
-| `.setting-label` | `--font-size-sm`, medium weight |
-| `.setting-desc` | `--font-size-xs`, tertiary color |
+| Class            | Purpose                                       |
+| ---------------- | --------------------------------------------- |
+| `.setting-row`   | Flex row, `space-between`, vertical centering |
+| `.setting-info`  | Left column: label + description              |
+| `.setting-label` | `--font-size-sm`, medium weight               |
+| `.setting-desc`  | `--font-size-xs`, tertiary color              |
 
 ```svelte
 <div class="setting-row">
@@ -544,12 +544,12 @@ Used in Settings panel for key-value preference rows (label + control).
 
 Search field with icon overlay and optional loading spinner.
 
-| Class | Purpose |
-|---|---|
-| `.search-field` | `position: relative` wrapper |
-| `.search-field .form-input` | Extra left + right padding for icon/spinner |
-| `.search-field-icon` | Absolute-positioned search icon (left) |
-| `.search-spinner` | Absolute-positioned spinner (right), 14×14px |
+| Class                       | Purpose                                      |
+| --------------------------- | -------------------------------------------- |
+| `.search-field`             | `position: relative` wrapper                 |
+| `.search-field .form-input` | Extra left + right padding for icon/spinner  |
+| `.search-field-icon`        | Absolute-positioned search icon (left)       |
+| `.search-spinner`           | Absolute-positioned spinner (right), 14×14px |
 
 ```svelte
 <div class="search-field">
@@ -565,21 +565,19 @@ Search field with icon overlay and optional loading spinner.
 
 Centered placeholder shown when a list has no items.
 
-| Class | Purpose |
-|---|---|
-| `.empty-state` | Flex column, centered, large padding |
-| `.empty-state-icon` | `--font-size-xl`, 60% opacity |
-| `.empty-state-title` | `--font-size-md`, medium weight |
-| `.empty-state-desc` | `--font-size-sm`, secondary color, 320px max-width |
+| Class                | Purpose                                            |
+| -------------------- | -------------------------------------------------- |
+| `.empty-state`       | Flex column, centered, large padding               |
+| `.empty-state-icon`  | `--font-size-xl`, 60% opacity                      |
+| `.empty-state-title` | `--font-size-md`, medium weight                    |
+| `.empty-state-desc`  | `--font-size-sm`, secondary color, 320px max-width |
 
 ```svelte
 <div class="empty-state">
   <span class="empty-state-icon">🤖</span>
   <span class="empty-state-title">No agents yet</span>
   <span class="empty-state-desc">Create your first agent to get started.</span>
-  <button class="btn btn--primary" style="margin-top: var(--spacing-md)">
-    + Create Agent
-  </button>
+  <button class="btn btn--primary" style="margin-top: var(--spacing-md)"> + Create Agent </button>
 </div>
 ```
 
@@ -589,12 +587,12 @@ Centered placeholder shown when a list has no items.
 
 Feedback messages for success, warning, error, and info states.
 
-| Class | Appearance |
-|---|---|
-| `.banner--success` | Green text on 8% green bg |
-| `.banner--warning` | Copper text on 8% copper bg |
-| `.banner--error` | Red text on 8% red bg |
-| `.banner--info` | Secondary text, secondary bg, bordered |
+| Class              | Appearance                             |
+| ------------------ | -------------------------------------- |
+| `.banner--success` | Green text on 8% green bg              |
+| `.banner--warning` | Copper text on 8% copper bg            |
+| `.banner--error`   | Red text on 8% red bg                  |
+| `.banner--info`    | Secondary text, secondary bg, bordered |
 
 ```svelte
 <div class="banner banner--success">✓ Connection successful</div>
@@ -607,11 +605,11 @@ Feedback messages for success, warning, error, and info states.
 
 Inline code display with copy button (e.g., MCP server URLs, command snippets).
 
-| Class | Purpose |
-|---|---|
-| `.code-block` | Flex row: code + copy button. Tertiary bg, bordered |
-| `.code-block code` | Monospace text, word-break, padding |
-| `.code-block-copy` | 36px-wide copy button on the right, border-left |
+| Class              | Purpose                                             |
+| ------------------ | --------------------------------------------------- |
+| `.code-block`      | Flex row: code + copy button. Tertiary bg, bordered |
+| `.code-block code` | Monospace text, word-break, padding                 |
+| `.code-block-copy` | 36px-wide copy button on the right, border-left     |
 
 ```svelte
 <div class="code-block">
@@ -628,21 +626,21 @@ Inline code display with copy button (e.g., MCP server URLs, command snippets).
 
 Small inline toggle for mode switching (e.g., HTTP/Stdio transport).
 
-| Class | Purpose |
-|---|---|
-| `.segmented` | Container with border, tiny inner padding |
-| `.segmented-item` | Individual option |
-| `.segmented-item--active` | Secondary bg, primary text, shadow |
+| Class                     | Purpose                                   |
+| ------------------------- | ----------------------------------------- |
+| `.segmented`              | Container with border, tiny inner padding |
+| `.segmented-item`         | Individual option                         |
+| `.segmented-item--active` | Secondary bg, primary text, shadow        |
 
 ### Tab Bar
 
 Pill-shaped navigation tabs (e.g., Settings panel tabs).
 
-| Class | Purpose |
-|---|---|
-| `.tab-bar` | Flex row with bottom border, wrapping |
-| `.tab-pill` | Pill button with border |
-| `.tab-pill--active` | Secondary bg, semibold, shadow |
+| Class               | Purpose                               |
+| ------------------- | ------------------------------------- |
+| `.tab-bar`          | Flex row with bottom border, wrapping |
+| `.tab-pill`         | Pill button with border               |
+| `.tab-pill--active` | Secondary bg, semibold, shadow        |
 
 ---
 
@@ -650,16 +648,16 @@ Pill-shaped navigation tabs (e.g., Settings panel tabs).
 
 ### Spinner
 
-| Class | Size | Usage |
-|---|---|---|
-| `.spinner` | 16×16px | Default loading indicator |
-| `.spinner--sm` | 12×12px | Inline/small loading |
+| Class          | Size    | Usage                     |
+| -------------- | ------- | ------------------------- |
+| `.spinner`     | 16×16px | Default loading indicator |
+| `.spinner--sm` | 12×12px | Inline/small loading      |
 
 ### Progress Bar
 
-| Class | Purpose |
-|---|---|
-| `.progress` | 6px track, tertiary bg, rounded |
+| Class            | Purpose                                |
+| ---------------- | -------------------------------------- |
+| `.progress`      | 6px track, tertiary bg, rounded        |
 | `.progress-fill` | Copper fill, animated width transition |
 
 ```svelte
@@ -674,12 +672,12 @@ Pill-shaped navigation tabs (e.g., Settings panel tabs).
 
 Used for skill/MCP assignment in agent forms.
 
-| Class | Purpose |
-|---|---|
-| `.check-list` | Flex column container |
-| `.check-item` | Flex row: checkbox + label/desc. Hover bg |
-| `.check-item-label` | `--font-size-sm`, primary color |
-| `.check-item-desc` | `--font-size-xs`, tertiary color |
+| Class               | Purpose                                   |
+| ------------------- | ----------------------------------------- |
+| `.check-list`       | Flex column container                     |
+| `.check-item`       | Flex row: checkbox + label/desc. Hover bg |
+| `.check-item-label` | `--font-size-sm`, primary color           |
+| `.check-item-desc`  | `--font-size-xs`, tertiary color          |
 
 ```svelte
 <div class="check-list">
@@ -699,13 +697,13 @@ Used for skill/MCP assignment in agent forms.
 
 File attachment display (projects, chat).
 
-| Class | Purpose |
-|---|---|
-| `.file-item` | Flex row: icon + info + action. Secondary bg, bordered |
-| `.file-item-icon` | Flex-shrink emoji/icon |
-| `.file-item-info` | Flex column, min-width 0 (truncation) |
-| `.file-item-name` | `--font-size-sm`, ellipsis |
-| `.file-item-meta` | `--font-size-xs`, tertiary |
+| Class             | Purpose                                                |
+| ----------------- | ------------------------------------------------------ |
+| `.file-item`      | Flex row: icon + info + action. Secondary bg, bordered |
+| `.file-item-icon` | Flex-shrink emoji/icon                                 |
+| `.file-item-info` | Flex column, min-width 0 (truncation)                  |
+| `.file-item-name` | `--font-size-sm`, ellipsis                             |
+| `.file-item-meta` | `--font-size-xs`, tertiary                             |
 
 ---
 
@@ -752,14 +750,14 @@ These remain in Svelte's `<style>` block (scoped). The global unified classes ha
 
 ### What Stays Scoped
 
-| Component | Scoped Styles | Reason |
-|---|---|---|
-| **AgentsPanel** | Avatar picker (emoji grid dropdown), expand button rotation, agent form fieldsets, catalog collapsible sections, registry/git result cards, progress area | Avatar picker is unique to Agents; collapsible catalog is complex layout |
-| **SkillsPanel** | MCP group headers, skill expand/collapse, registry card hover, create-skill form, install count, git file cards, collapsible sections | Skill grouping by MCP server is unique; registry expand is custom |
-| **McpSettings** | Server error display, tools toggle/list, registry entry layout, detail body/meta/links, setup commands, inline code | MCP detail view has unique multi-column detail layout |
-| **McpServerForm** | Prefill notice, server form layout, split form actions | Minimal — only 6 selectors. Prefill notice is unique to registry pre-fill |
-| **SettingsPanel** | Account card (avatar + details), shortcut rows, cleanup controls, export buttons, settings card variants, tab pill SVG styling | Account display is unique; shortcut key display is custom |
-| **ProjectView** | Project card grid, chevron, inline edit, conversation list, assign modal, danger zone, file list actions | Project card layout and assign modal are unique |
+| Component         | Scoped Styles                                                                                                                                             | Reason                                                                    |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| **AgentsPanel**   | Avatar picker (emoji grid dropdown), expand button rotation, agent form fieldsets, catalog collapsible sections, registry/git result cards, progress area | Avatar picker is unique to Agents; collapsible catalog is complex layout  |
+| **SkillsPanel**   | MCP group headers, skill expand/collapse, registry card hover, create-skill form, install count, git file cards, collapsible sections                     | Skill grouping by MCP server is unique; registry expand is custom         |
+| **McpSettings**   | Server error display, tools toggle/list, registry entry layout, detail body/meta/links, setup commands, inline code                                       | MCP detail view has unique multi-column detail layout                     |
+| **McpServerForm** | Prefill notice, server form layout, split form actions                                                                                                    | Minimal — only 6 selectors. Prefill notice is unique to registry pre-fill |
+| **SettingsPanel** | Account card (avatar + details), shortcut rows, cleanup controls, export buttons, settings card variants, tab pill SVG styling                            | Account display is unique; shortcut key display is custom                 |
+| **ProjectView**   | Project card grid, chevron, inline edit, conversation list, assign modal, danger zone, file list actions                                                  | Project card layout and assign modal are unique                           |
 
 ### Rule of Thumb
 
@@ -805,14 +803,14 @@ If none of these fit, create a scoped style — but name it descriptively and ke
 
 ### Common Mistakes
 
-| Mistake | Correct Approach |
-|---|---|
-| `<div onclick={...}>` | `<button class="btn btn--ghost" onclick={...}>` |
-| `style="color: red"` | `class="banner banner--error"` |
-| `.my-toggle { width: 40px }` | Use `.toggle` (unified 36×20px) |
-| `.my-btn { ... }` (new class) | Compose: `.btn.btn--primary.btn--sm` |
-| `margin-bottom: 8px` on items | `gap: var(--spacing-sm)` on parent flex |
-| `font-size: 11px` | `font-size: var(--font-size-xs)` |
+| Mistake                       | Correct Approach                                |
+| ----------------------------- | ----------------------------------------------- |
+| `<div onclick={...}>`         | `<button class="btn btn--ghost" onclick={...}>` |
+| `style="color: red"`          | `class="banner banner--error"`                  |
+| `.my-toggle { width: 40px }`  | Use `.toggle` (unified 36×20px)                 |
+| `.my-btn { ... }` (new class) | Compose: `.btn.btn--primary.btn--sm`            |
+| `margin-bottom: 8px` on items | `gap: var(--spacing-sm)` on parent flex         |
+| `font-size: 11px`             | `font-size: var(--font-size-xs)`                |
 
 ---
 
@@ -860,18 +858,18 @@ The Agents panel has 3 views sharing one `.panel` container:
 
 ### Scoped Classes (agents-only)
 
-| Class | Purpose |
-|---|---|
-| `.expand-btn` | Arrow chevron that rotates 180° when expanded |
-| `.avatar-picker` | Emoji grid dropdown (trigger + dropdown + grid) |
-| `.avatar-trigger` | Button that shows current emoji + caret |
-| `.avatar-dropdown` | Absolutely-positioned emoji grid |
-| `.avatar-option` | Individual emoji in the grid |
-| `.agent-form` | Form container with `gap: --spacing-lg` |
-| `.form-row` | Inline flex row (avatar + name side by side) |
-| `.form-fieldset` | Styled `<fieldset>` wrapper for skill/MCP sections |
-| `.catalog-section` | Collapsible registry/git import section |
-| `.collapsible-heading` | Clickable section header with arrow toggle |
+| Class                  | Purpose                                            |
+| ---------------------- | -------------------------------------------------- |
+| `.expand-btn`          | Arrow chevron that rotates 180° when expanded      |
+| `.avatar-picker`       | Emoji grid dropdown (trigger + dropdown + grid)    |
+| `.avatar-trigger`      | Button that shows current emoji + caret            |
+| `.avatar-dropdown`     | Absolutely-positioned emoji grid                   |
+| `.avatar-option`       | Individual emoji in the grid                       |
+| `.agent-form`          | Form container with `gap: --spacing-lg`            |
+| `.form-row`            | Inline flex row (avatar + name side by side)       |
+| `.form-fieldset`       | Styled `<fieldset>` wrapper for skill/MCP sections |
+| `.catalog-section`     | Collapsible registry/git import section            |
+| `.collapsible-heading` | Clickable section header with arrow toggle         |
 
 ---
 
@@ -900,16 +898,16 @@ The Agents panel has 3 views sharing one `.panel` container:
 
 ### Scoped Classes (skills-only)
 
-| Class | Purpose |
-|---|---|
-| `.group-heading` | MCP server group name header |
-| `.mcp-group` | Container for skills from one MCP server |
-| `.skill-info` | Inline flex for toggle + title |
-| `.skill-expand-btn` | Expand/collapse chevron |
-| `.skill-instructions` | Rendered instruction content |
-| `.registry-card` | Registry result with hover + expand |
-| `.install-count` | Download count display |
-| `.create-skill-form` | Bottom form section for manual skill creation |
+| Class                 | Purpose                                       |
+| --------------------- | --------------------------------------------- |
+| `.group-heading`      | MCP server group name header                  |
+| `.mcp-group`          | Container for skills from one MCP server      |
+| `.skill-info`         | Inline flex for toggle + title                |
+| `.skill-expand-btn`   | Expand/collapse chevron                       |
+| `.skill-instructions` | Rendered instruction content                  |
+| `.registry-card`      | Registry result with hover + expand           |
+| `.install-count`      | Download count display                        |
+| `.create-skill-form`  | Bottom form section for manual skill creation |
 
 ---
 
@@ -939,31 +937,31 @@ The Agents panel has 3 views sharing one `.panel` container:
 
 This is the **canonical reference implementation** for how to use global classes in a form view:
 
-| Old Scoped Class | New Global Class |
-|---|---|
-| `.form-page` | `.panel` |
-| `.form-header` | `.panel-header` |
-| `.back-btn` | `.panel-back` |
-| `.form-title` | `.panel-title` |
-| `.form-content` | `.panel-body-narrow` |
-| `.field-label` | `.form-label` |
-| `.field-hint` | `.form-hint` |
-| `.radio-group` | `.form-radio-group` |
-| `.action-btn` | `.btn` |
-| `.action-btn.primary` | `.btn.btn--primary` |
+| Old Scoped Class       | New Global Class          |
+| ---------------------- | ------------------------- |
+| `.form-page`           | `.panel`                  |
+| `.form-header`         | `.panel-header`           |
+| `.back-btn`            | `.panel-back`             |
+| `.form-title`          | `.panel-title`            |
+| `.form-content`        | `.panel-body-narrow`      |
+| `.field-label`         | `.form-label`             |
+| `.field-hint`          | `.form-hint`              |
+| `.radio-group`         | `.form-radio-group`       |
+| `.action-btn`          | `.btn`                    |
+| `.action-btn.primary`  | `.btn.btn--primary`       |
 | `.test-result.success` | `.banner.banner--success` |
-| `.test-result.failure` | `.banner.banner--error` |
+| `.test-result.failure` | `.banner.banner--error`   |
 
 ### Scoped Classes (MCP-only)
 
-| Class | Purpose |
-|---|---|
-| `.tools-toggle` | Toggle to show/hide discovered tools list |
-| `.tools-list` / `.tool-item` | Discovered MCP tools display |
-| `.registry-entry` | MCP Registry search result row |
-| `.detail-body` | Expanded registry detail view |
-| `.setup-commands` | Command display for server setup |
-| `.prefill-notice` | Banner when form is pre-filled from registry |
+| Class                        | Purpose                                      |
+| ---------------------------- | -------------------------------------------- |
+| `.tools-toggle`              | Toggle to show/hide discovered tools list    |
+| `.tools-list` / `.tool-item` | Discovered MCP tools display                 |
+| `.registry-entry`            | MCP Registry search result row               |
+| `.detail-body`               | Expanded registry detail view                |
+| `.setup-commands`            | Command display for server setup             |
+| `.prefill-notice`            | Banner when form is pre-filled from registry |
 
 ---
 
@@ -1006,16 +1004,16 @@ Each settings section uses `.section-heading` + repeated `.setting-row` entries:
 
 ### Scoped Classes (settings-only)
 
-| Class | Purpose |
-|---|---|
-| `.account-card` | Account info display (avatar + username + plan) |
-| `.account-header` | Flex row for avatar + details |
-| `.account-avatar` | User avatar image/placeholder |
-| `.shortcuts-list` | Keyboard shortcuts grid |
-| `.shortcut-row` | Action label + `.kbd` key display |
-| `.cleanup-controls` | DB cleanup date selector + button |
-| `.export-buttons` | Export format button group |
-| `.settings-card` | Wrapper card for grouped settings |
+| Class               | Purpose                                         |
+| ------------------- | ----------------------------------------------- |
+| `.account-card`     | Account info display (avatar + username + plan) |
+| `.account-header`   | Flex row for avatar + details                   |
+| `.account-avatar`   | User avatar image/placeholder                   |
+| `.shortcuts-list`   | Keyboard shortcuts grid                         |
+| `.shortcut-row`     | Action label + `.kbd` key display               |
+| `.cleanup-controls` | DB cleanup date selector + button               |
+| `.export-buttons`   | Export format button group                      |
+| `.settings-card`    | Wrapper card for grouped settings               |
 
 ---
 
@@ -1038,6 +1036,7 @@ Each settings section uses `.section-heading` + repeated `.setting-row` entries:
 ### Project Detail
 
 Uses `.panel-body-narrow` with `.detail-section` blocks:
+
 - Instructions (editable textarea)
 - Files (`.file-item` list with add/remove)
 - Conversations (linked conversation list)
@@ -1045,15 +1044,15 @@ Uses `.panel-body-narrow` with `.detail-section` blocks:
 
 ### Scoped Classes (projects-only)
 
-| Class | Purpose |
-|---|---|
-| `.project-card` | Card variant with full-width click + chevron |
-| `.project-card-chevron` | Right-aligned › arrow |
-| `.inline-edit` | Inline text editing wrapper |
-| `.conversation-list` | Linked conversations display |
-| `.conv-item` / `.conv-item-link` | Conversation row with hover |
-| `.assign-list` / `.assign-item` | Modal for assigning conversations to project |
-| `.danger-zone` | Red-bordered delete section |
+| Class                            | Purpose                                      |
+| -------------------------------- | -------------------------------------------- |
+| `.project-card`                  | Card variant with full-width click + chevron |
+| `.project-card-chevron`          | Right-aligned › arrow                        |
+| `.inline-edit`                   | Inline text editing wrapper                  |
+| `.conversation-list`             | Linked conversations display                 |
+| `.conv-item` / `.conv-item-link` | Conversation row with hover                  |
+| `.assign-list` / `.assign-item`  | Modal for assigning conversations to project |
+| `.danger-zone`                   | Red-bordered delete section                  |
 
 ---
 

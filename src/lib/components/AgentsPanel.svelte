@@ -349,13 +349,23 @@
 
 <div class="panel">
   <!-- ── Header ──────────────────────────────────────────── -->
-  <header class="panel-header">
+  <header class="panel-header" data-tauri-drag-region>
     <button
       class="panel-back"
       onclick={view.kind === "form" ? () => (view = { kind: "list" }) : onBack}
-      aria-label="Go back">← Back</button
+      aria-label="Go back"
     >
-    <h1 class="panel-title">
+      <svg width="18" height="18" viewBox="0 0 16 16" fill="none">
+        <path
+          d="M10 3L5 8l5 5"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+      </svg>
+    </button>
+    <h2 class="panel-title">
       {#if view.kind === "form" && view.editing}
         Edit {view.editing.name}
       {:else if view.kind === "form"}
@@ -363,9 +373,9 @@
       {:else}
         Agents
       {/if}
-    </h1>
+    </h2>
     {#if view.kind === "list"}
-      <button class="btn header-add-btn" onclick={openCreateForm}>+ New Agent</button>
+      <button class="btn" onclick={openCreateForm}>+ New Agent</button>
     {/if}
   </header>
 
@@ -826,11 +836,6 @@
 
 <style>
   /* ── Component-specific overrides ── */
-
-  .header-add-btn:hover {
-    color: var(--color-accent-copper);
-    border-color: var(--color-accent-copper);
-  }
 
   .panel-loading {
     text-align: center;
