@@ -26,6 +26,10 @@ pub fn run() -> Result<(), String> {
         return Err(format!("{} file(s) could not be read", errors.len()));
     }
 
+    if versions.is_empty() {
+        return Err("No version files configured".to_string());
+    }
+
     // Check all versions match the first (workspace Cargo.toml)
     let (source, expected) = &versions[0];
     let mut mismatches = Vec::new();

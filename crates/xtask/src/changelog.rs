@@ -7,7 +7,10 @@ use crate::version::{project_root, read_version, VERSION_FILES};
 /// Generate or update CHANGELOG.md from conventional commits.
 pub fn run() -> Result<(), String> {
     let root = project_root()?;
-    let current_version = read_version(&root, &VERSION_FILES[0])?;
+    let current_version = read_version(
+        &root,
+        VERSION_FILES.first().ok_or("VERSION_FILES is empty")?,
+    )?;
 
     // Find the latest tag to use as the range start
     let latest_tag = get_latest_tag()?;
@@ -181,40 +184,26 @@ fn format_changelog_section(version: &str, commits: &[ConventionalCommit]) -> St
 }
 
 fn insert_after_header(existing: &str, section: &str) -> String {
-    // Find the end of the header block (first blank line after "# Changelog" + description)
-    // We look for the pattern: header lines, then a blank line, then content
     let lines: Vec<&str> = existing.lines().collect();
 
-    // Find the first line that starts a version section (## [...]) or end of header
-    let mut insert_pos = 0;
-    let mut found_header = false;
+    // Find insertion point: right after the header block, before the first ## version section.
+    // Header block = "# Changelog" line + any description lines + blank line(s).
+    let mut insert_pos = lines.len();
+    let mut past_title = false;
+
     for (i, line) in lines.iter().enumerate() {
         if line.starts_with("# ") {
-            found_header = true;
+            past_title = true;
             continue;
         }
-        if found_header
-            && (line.starts_with("## ")
-                || (line.is_empty() && i + 1 < lines.len() && lines[i + 1].starts_with("## ")))
-        {
+        if !past_title {
+            continue;
+        }
+        // First existing version section — insert right before it
+        if line.starts_with("## ") {
             insert_pos = i;
-            if line.is_empty() {
-                insert_pos = i; // Insert at the blank line before the next ##
-            }
             break;
         }
-        if found_header
-            && line.is_empty()
-            && (i + 1 >= lines.len() || !lines[i + 1].starts_with('#'))
-        {
-            // Empty line after header, and no ## follows — insert here
-            insert_pos = i + 1;
-        }
-    }
-
-    // If we never found a good spot, insert at the end
-    if insert_pos == 0 {
-        insert_pos = lines.len();
     }
 
     let mut out = String::new();

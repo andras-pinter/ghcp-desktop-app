@@ -7,7 +7,8 @@ pub fn run(level: &str) -> Result<(), String> {
     let root = project_root()?;
 
     // Read current version from the workspace Cargo.toml (source of truth)
-    let current = read_version(&root, &VERSION_FILES[0])?;
+    let source = VERSION_FILES.first().ok_or("VERSION_FILES is empty")?;
+    let current = read_version(&root, source)?;
     let next = bump_version(&current, level)?;
 
     println!("Bumping version: {current} → {next}");
