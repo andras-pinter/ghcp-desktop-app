@@ -1000,13 +1000,24 @@ copilot-desktop/
 │   │   │   ├── registry.rs       # Official MCP Registry client (search, pagination, package info)
 │   │   │   └── types.rs          # MCP protocol types (tools, resources, prompts)
 │   │   └── Cargo.toml
-│   └── web-research/             # Web search + URL content extraction (zero Tauri dependency)
+│   ├── web-research/             # Web search + URL content extraction (zero Tauri dependency)
+│   │   ├── src/
+│   │   │   ├── lib.rs            # Public API
+│   │   │   ├── search.rs         # Web search API client (Bing/Google/etc.)
+│   │   │   ├── fetcher.rs        # URL fetcher + HTML-to-text extraction
+│   │   │   └── types.rs          # Search results, extracted content types
+│   │   └── Cargo.toml
+│   └── xtask/                    # Version management CLI (cargo xtask)
 │       ├── src/
-│       │   ├── lib.rs            # Public API
-│       │   ├── search.rs         # Web search API client (Bing/Google/etc.)
-│       │   ├── fetcher.rs        # URL fetcher + HTML-to-text extraction
-│       │   └── types.rs          # Search results, extracted content types
+│       │   ├── main.rs           # CLI entry: bump, check-version, changelog subcommands
+│       │   ├── version.rs        # Shared: project_root(), read/write version across files
+│       │   ├── bump.rs           # Bump version in Cargo.toml + package.json + tauri.conf.json
+│       │   ├── check.rs          # Verify all version files are in sync
+│       │   └── changelog.rs      # Generate CHANGELOG.md from conventional commits
 │       └── Cargo.toml
+├── .cargo/
+│   └── config.toml               # Cargo aliases (xtask)
+├── CHANGELOG.md                   # Auto-generated from conventional commits (cargo xtask changelog)
 ├── AGENTS.md
 └── README.md
 ```
@@ -1700,6 +1711,12 @@ INSERT INTO config (key, value) VALUES ('schema_version', '3');
 ### Versioning
 
 - Follow [Semantic Versioning](https://semver.org/) (`MAJOR.MINOR.PATCH`)
+- **Lockstep versioning:** all Rust crates share a single version via `[workspace.package]` in the root `Cargo.toml`
+- **Single source of truth:** root `Cargo.toml` → all crates use `version.workspace = true`
+- **Three files kept in sync:** `Cargo.toml` (workspace), `package.json`, `src-tauri/tauri.conf.json`
+- **`cargo xtask bump <patch|minor|major>`** updates all three files atomically
+- **`cargo xtask check-version`** verifies consistency (suitable for CI pre-commit hook)
+- **`cargo xtask changelog`** generates `CHANGELOG.md` from conventional commits since the last git tag
 - Git tags for releases use the format `vX.Y.Z` (e.g., `v1.2.3`)
 - `tauri-plugin-updater` compares the app version against the latest GitHub Release tag
 - Pre-release versions (e.g., `v1.0.0-beta.1`) should be excluded from auto-update by default
@@ -1837,6 +1854,19 @@ pnpm audit
 
 # Update dependencies
 cargo update && pnpm update
+
+# --- Version management (cargo xtask) ---
+
+# Check all version files are in sync
+cargo xtask check-version
+
+# Bump version (patch / minor / major)
+cargo xtask bump patch    # 0.1.0 → 0.1.1
+cargo xtask bump minor    # 0.1.0 → 0.2.0
+cargo xtask bump major    # 0.1.0 → 1.0.0
+
+# Generate/update CHANGELOG.md from conventional commits
+cargo xtask changelog
 ```
 
 ---
