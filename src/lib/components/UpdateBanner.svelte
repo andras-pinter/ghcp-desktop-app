@@ -2,6 +2,7 @@
   import { check, type Update, type DownloadEvent } from "@tauri-apps/plugin-updater";
   import { relaunch } from "@tauri-apps/plugin-process";
   import { getSettings, updateSetting, SETTING_KEYS } from "$lib/stores/settings.svelte";
+  import { renderMarkdown } from "$lib/utils/markdown";
   import { onMount } from "svelte";
 
   const settings = getSettings();
@@ -206,7 +207,8 @@
       {#if updateState.body}
         <details class="changelog">
           <summary class="changelog-toggle">View changes</summary>
-          <div class="changelog-body">{updateState.body}</div>
+          <!-- eslint-disable-next-line svelte/no-at-html-tags -- sanitized by renderMarkdown/DOMPurify -->
+          <div class="changelog-body">{@html renderMarkdown(updateState.body)}</div>
         </details>
       {/if}
     {:else if updateState.kind === "downloading"}
@@ -415,7 +417,27 @@
     border: 1px solid var(--color-border-secondary);
     max-height: 160px;
     overflow-y: auto;
-    white-space: pre-wrap;
+  }
+
+  .changelog-body :global(h2),
+  .changelog-body :global(h3) {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-semibold);
+    margin: var(--spacing-sm) 0 var(--spacing-xs);
+  }
+
+  .changelog-body :global(h2:first-child),
+  .changelog-body :global(h3:first-child) {
+    margin-top: 0;
+  }
+
+  .changelog-body :global(ul) {
+    margin: var(--spacing-xs) 0;
+    padding-left: var(--spacing-lg);
+  }
+
+  .changelog-body :global(li) {
+    margin-bottom: 2px;
   }
 
   /* ── Progress bar ── */
