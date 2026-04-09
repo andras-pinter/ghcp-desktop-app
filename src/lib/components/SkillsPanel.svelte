@@ -18,6 +18,7 @@
   import type { RegistryItem, GitSkillFile } from "$lib/types/registry";
   import { onMount, onDestroy } from "svelte";
   import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+  import ConfirmDialog from "./ConfirmDialog.svelte";
 
   interface Props {
     onBack: () => void;
@@ -940,27 +941,14 @@
     {/if}
   </div>
 
-  {#if confirmDelete}
-    <div
-      class="confirm-overlay"
-      role="alertdialog"
-      aria-modal="true"
-      aria-label="Confirm skill deletion"
-    >
-      <div class="confirm-dialog">
-        <p class="confirm-message">
-          Delete skill <strong>'{confirmDelete.name}'</strong>?
-        </p>
-        <p class="confirm-detail">This cannot be undone.</p>
-        <div class="confirm-actions">
-          <button class="action-btn" onclick={cancelDelete} disabled={deleting}>Cancel</button>
-          <button class="action-btn danger-fill" disabled={deleting} onclick={confirmDeleteSkill}>
-            {deleting ? "Deleting…" : "Delete"}
-          </button>
-        </div>
-      </div>
-    </div>
-  {/if}
+  <ConfirmDialog
+    open={confirmDelete !== null}
+    title="Delete skill '{confirmDelete?.name ?? ''}'?"
+    detail="This cannot be undone."
+    loading={deleting}
+    onconfirm={confirmDeleteSkill}
+    oncancel={cancelDelete}
+  />
 </div>
 
 <style>
@@ -1329,16 +1317,6 @@
   .action-btn.primary:hover:not(:disabled) {
     opacity: 0.9;
     color: var(--color-bg-primary);
-  }
-  .action-btn.danger-fill {
-    background: var(--color-error);
-    color: #fff;
-    border-color: var(--color-error);
-    font-weight: var(--font-weight-medium);
-  }
-  .action-btn.danger-fill:hover:not(:disabled) {
-    opacity: 0.9;
-    color: #fff;
   }
 
   /* ── Collapsible Sections ── */
@@ -1764,49 +1742,6 @@
     .git-row {
       flex-direction: column;
     }
-  }
-
-  /* ── Delete Confirmation ── */
-
-  .confirm-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.4);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 100;
-    animation: fadeIn 120ms ease;
-  }
-
-  .confirm-dialog {
-    background: var(--color-bg-primary);
-    border: 1px solid var(--color-border-primary);
-    border-radius: var(--radius-lg);
-    padding: var(--spacing-xl);
-    max-width: 400px;
-    width: 90%;
-    box-shadow: var(--shadow-lg);
-    animation: scaleIn 160ms ease;
-  }
-
-  .confirm-message {
-    font-size: var(--font-size-sm);
-    color: var(--color-text-primary);
-    margin: 0 0 var(--spacing-sm) 0;
-  }
-
-  .confirm-detail {
-    font-size: var(--font-size-xs);
-    color: var(--color-text-secondary);
-    margin: 0 0 var(--spacing-lg) 0;
-    line-height: var(--line-height-normal);
-  }
-
-  .confirm-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: var(--spacing-sm);
   }
 
   /* ── Keyframes ── */
