@@ -31,7 +31,7 @@ pub fn run(level: &str) -> Result<(), String> {
     Ok(())
 }
 
-fn bump_version(current: &Version, level: &str) -> Result<Version, String> {
+pub(crate) fn bump_version(current: &Version, level: &str) -> Result<Version, String> {
     let mut next = current.clone();
     match level {
         "major" => {

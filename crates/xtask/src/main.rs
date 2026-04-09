@@ -48,7 +48,20 @@ fn main() {
                     "--dry-run" => dry_run = true,
                     "--bump" => {
                         i += 1;
-                        force_level = args.get(i).map(String::as_str);
+                        match args.get(i).map(String::as_str) {
+                            Some("major") | Some("minor") | Some("patch") => {
+                                force_level = args.get(i).map(String::as_str);
+                            }
+                            Some(other) => {
+                                eprintln!("Invalid bump level: {other}");
+                                eprintln!("Expected: major, minor, or patch");
+                                process::exit(1);
+                            }
+                            None => {
+                                eprintln!("--bump requires a value: major, minor, or patch");
+                                process::exit(1);
+                            }
+                        }
                     }
                     other => {
                         eprintln!("Unknown option for release: {other}");

@@ -4,7 +4,6 @@ use crate::bump;
 use crate::changelog::{self, get_conventional_commits, get_latest_tag};
 use crate::check;
 use crate::version::{project_root, read_version, VERSION_FILES};
-
 /// Automated release: detect bump level → bump → changelog → commit → tag.
 pub fn run(force_level: Option<&str>, dry_run: bool) -> Result<(), String> {
     let root = project_root()?;
@@ -47,12 +46,7 @@ pub fn run(force_level: Option<&str>, dry_run: bool) -> Result<(), String> {
     println!();
 
     if dry_run {
-        let next = semver::Version::parse(&format!(
-            "{}.{}.{}",
-            current.major, current.minor, current.patch
-        ))
-        .map_err(|e| e.to_string())?;
-        let preview = preview_bump(&next, &level)?;
+        let preview = bump::bump_version(&current, &level)?;
         println!("[dry-run] Would bump: {current} → {preview}");
         println!("[dry-run] Would update CHANGELOG.md, commit, and tag v{preview}");
         return Ok(());
@@ -65,8 +59,16 @@ pub fn run(force_level: Option<&str>, dry_run: bool) -> Result<(), String> {
     // Re-read the new version after bump
     let new_version = read_version(&root, source)?;
 
-    // 2. Generate changelog
-    changelog::run()?;
+    // 2. Generate changelog (if this fails, print recovery help)
+    if let Err(e) = changelog::run() {
+        eprintln!();
+        eprintln!("Changelog generation failed: {e}");
+        eprintln!();
+        eprintln!("Version files have already been bumped to v{new_version}.");
+        eprintln!("To recover, run:");
+        eprintln!("  git checkout -- Cargo.toml package.json src-tauri/tauri.conf.json Cargo.lock");
+        return Err(e);
+    }
     println!();
 
     // 3. Verify consistency
@@ -105,24 +107,6 @@ fn detect_bump_level(commits: &[changelog::ConventionalCommit]) -> String {
         return "minor".to_string();
     }
     "patch".to_string()
-}
-
-fn preview_bump(current: &semver::Version, level: &str) -> Result<semver::Version, String> {
-    let mut next = current.clone();
-    match level {
-        "major" => {
-            next.major += 1;
-            next.minor = 0;
-            next.patch = 0;
-        }
-        "minor" => {
-            next.minor += 1;
-            next.patch = 0;
-        }
-        "patch" => next.patch += 1,
-        other => return Err(format!("Unknown level: {other}")),
-    }
-    Ok(next)
 }
 
 fn ensure_clean_worktree() -> Result<(), String> {
@@ -184,11 +168,5 @@ mod tests {
     fn detect_major_from_breaking() {
         let commits = vec![commit("feat", false), commit("fix", true)];
         assert_eq!(detect_bump_level(&commits), "major");
-    }
-
-    #[test]
-    fn preview_bump_minor() {
-        let v = semver::Version::parse("1.2.3").unwrap();
-        assert_eq!(preview_bump(&v, "minor").unwrap().to_string(), "1.3.0");
     }
 }
