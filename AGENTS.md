@@ -429,14 +429,17 @@ Slides over from the right or opens as a modal. Tabbed navigation.
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
-│  ← Back                    Settings                              │
+│  ‹                         Settings                              │
 ├──────────────────────────────────────────────────────────────────┤
 │                                                                  │
-│  ┌──────────┬──────────┬──────────┬──────────┬──────────┐       │
-│  │ General  │ Account  │  MCP     │ Shortcuts│  Data    │       │
-│  └──────────┴──────────┴──────────┴──────────┴──────────┘       │
+│  ── Account ──────────────────────────────────────────────────   │
 │                                                                  │
-│  ── General ──────────────────────────────────────────────────   │
+│  Signed in as                   @octocat                         │
+│  Copilot Plan                   Copilot Pro                      │
+│                                                                  │
+│  [ Sign Out ]                                                    │
+│                                                                  │
+│  ── Appearance ───────────────────────────────────────────────   │
 │                                                                  │
 │  Theme                          [ System ▾ ]                     │
 │                                  System / Light / Dark           │
@@ -444,12 +447,15 @@ Slides over from the right or opens as a modal. Tabbed navigation.
 │  Font Size                      [ 14px  ▾ ]                      │
 │                                  12 / 13 / 14 / 15 / 16         │
 │                                                                  │
-│  Default Model                  [ GPT-4o ▾ ]                     │
-│                                                                  │
-│  Default Agent                  [ Default ▾ ]                    │
+│  ── Input ────────────────────────────────────────────────────   │
 │                                                                  │
 │  Send Message With              ( ● ) Enter                      │
 │                                 (   ) Cmd+Enter (Ctrl+Enter)     │
+│                                                                  │
+│  ── Defaults ─────────────────────────────────────────────────   │
+│                                                                  │
+│  Default Model                  [ GPT-4o ▾ ]                     │
+│  Default Agent                  [ Default ▾ ]                    │
 │                                                                  │
 │  ── Auto-Update ──────────────────────────────────────────────   │
 │                                                                  │
@@ -457,47 +463,42 @@ Slides over from the right or opens as a modal. Tabbed navigation.
 │  Check frequency                [ On startup ▾ ]                 │
 │                                  On startup / Daily / Weekly     │
 │                                                                  │
+│  ── Keyboard Shortcuts ───────────────────────────────────────   │
+│                                                                  │
+│  New Chat                        ⌘ N                              │
+│  Search Conversations            ⌘ K                              │
+│  Search in Conversation          ⌘ F                              │
+│  Toggle Sidebar                  ⌘ ⇧ S                           │
+│  Settings                        ⌘ ,                              │
+│                                                                  │
 │  ── Global Hotkey ────────────────────────────────────────────   │
 │                                                                  │
 │  Summon Chuck                    [ Cmd+Shift+Space ]              │
 │                                  (click to rebind)               │
 │                                                                  │
-│  ── Web Research ─────────────────────────────────────────────   │
-│                                                                  │
-│  Search API                     [ Bing ▾ ]                       │
-│  API Key                        [ ••••••••••  👁 ]   [Change]    │
-│                                  (stored in OS keychain)         │
-│                                                                  │
-└──────────────────────────────────────────────────────────────────┘
-```
-
-```
-│  ── Account Tab ──────────────────────────────────────────────   │
-│                                                                  │
-│  Signed in as                   @octocat                         │
-│  Copilot Plan                   Copilot Pro                      │
-│                                                                  │
-│  [ Sign Out ]                                                    │
-│                                                                  │
-│  ── Data Tab ─────────────────────────────────────────────────   │
+│  ── Storage ──────────────────────────────────────────────────   │
 │                                                                  │
 │  Database Size                  12.3 MB                          │
+│                                                                  │
+│  ── Cleanup ──────────────────────────────────────────────────   │
 │                                                                  │
 │  Delete old conversations       [ Older than 90 days ▾ ]         │
 │                                 [ Delete Now ]                   │
 │                                                                  │
-│  Export All Conversations       [ JSON ] [ Markdown ]            │
-│                                                                  │
 │  ⚠️ Database is 487 MB — consider cleaning up old conversations  │
 │                                 (shown when > 400MB)             │
+│                                                                  │
+│  ── Export ───────────────────────────────────────────────────   │
+│                                                                  │
+│  Export All Conversations       [ JSON ] [ Markdown ]            │
+│                                                                  │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
 **Key behaviors:**
-- Tab navigation via keyboard (arrow keys) + click
+- Single scrollable page with section headings (no tabs)
 - Changes apply immediately (no save button); persisted to SQLite `config` table
 - Hotkey rebind: click field → "Press new shortcut..." → capture next key combo
-- API key field masked by default; 👁 toggles visibility
 - Sign Out clears keychain + redirects to auth screen
 - Delete confirmation dialog before destructive actions
 - Export opens native save dialog (`tauri-plugin-dialog`)
@@ -508,7 +509,7 @@ Accessed from sidebar "Agents" section or Settings.
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
-│  ← Back                     Agents                               │
+│  ‹                          Agents                               │
 ├──────────────────────────────────────────────────────────────────┤
 │                                                                  │
 │  ┌────────────────────────────────────────────────────────────┐  │
@@ -581,7 +582,7 @@ Browse and manage all available skills (built-in + MCP tools + registry-imported
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
-│  ← Back                     Skills                               │
+│  ‹                          Skills                               │
 ├──────────────────────────────────────────────────────────────────┤
 │                                                                  │
 │  🔍 Filter skills...                                             │
@@ -1045,6 +1046,7 @@ copilot-desktop/
 - Follow [Svelte conventions](https://svelte.dev/docs): one component per file, PascalCase filenames
 - Use `.svelte.ts` extension for files that use Svelte runes outside components (stores)
 - **CSS scoping:** use Svelte's built-in `<style>` scoping. Global styles only in `app.css`
+- **Unified Design System:** all panel components (Agents, Skills, MCP, Settings, Projects) must use the shared component classes defined in `app.css`. See **[STYLE-GUIDE.md](STYLE-GUIDE.md)** for the full design system reference — tokens, components, do's/don'ts, and per-panel guides.
 - **Theme:** use CSS custom properties (`--color-bg`, `--color-text`, etc.) defined in `app.css` and toggled via a `data-theme` attribute on `<html>`
 - **No inline styles** — use CSS classes. Exception: dynamic values that must be computed (use `style:` directive)
 - **No `any` type** — every value must be properly typed. Use `unknown` + type guards when dealing with external data
