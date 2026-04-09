@@ -781,7 +781,7 @@ Manage MCP server connections. Accessed from Settings > MCP tab.
 **Key behaviors:**
 - Collapsed by default; shows elapsed thinking time
 - Thinking section styled distinctly: muted text, dashed border, indented
-- During streaming: shows "Thinking..." with animated dots until first content token
+- During streaming: shows a pulsing copper orb with a random aviation-themed catchphrase until streaming completes
 - After completion: shows "Thinking (Xs)" with final elapsed time
 - User preference in settings to default-expand (for power users)
 
@@ -1786,7 +1786,7 @@ If changelog generation or later steps fail after files are bumped, the tool pri
 12. ✅ **sidebar** — `Sidebar.svelte` (444 lines): conversation list grouped by date, new chat, favourites with star icon, context menu (rename, favourite toggle, delete), inline rename editing, real data binding via conversation store. *(Search button exists but handler not yet wired.)*
 13. ✅ **chat-view** — `ChatView.svelte`: message list with streaming, welcome screen with random greetings, draft loading/saving, auto-title generation, persisted default model selection, edit/regenerate handlers, Cmd+F search overlay integration, global keyboard shortcut handler.
 14. ✅ **input-area** — `InputArea.svelte` (1041 lines): multi-line textarea with auto-height, custom popover model dropdown (replaces native `<select>`) with fade animation, shift+click to set default model (persisted to SQLite via settings), default model marked with copper star (★), agent dropdown selector, send/stop buttons, Enter-to-send, loading spinner while models are fetched. *(File drop zone and attachment pills not yet implemented.)*
-15. ✅ **streaming-display** — Token-by-token rendering via Tauri events (`streaming-token`, `streaming-complete`, `streaming-error`), blinking cursor animation, stop button. Event-driven architecture with proper cleanup on unmount. Messages saved on stream complete.
+15. ✅ **streaming-display** — Token-by-token rendering via Tauri events (`streaming-token`, `streaming-complete`, `streaming-error`), pulsing copper orb indicator with random aviation catchphrases, stop button. Event-driven architecture with proper cleanup on unmount. Messages saved on stream complete.
 16. ✅ **message-actions** — Hover action buttons on messages: ✏️ edit user messages (discards subsequent messages, loads content back to input), ⟳ regenerate last assistant response (deletes + re-sends), 📋 copy message content (with 2s check animation). Actions appear on hover with smooth opacity transition. User actions positioned left of bubble; assistant actions below content.
 17. ✅ **in-conversation-search** — `SearchOverlay.svelte`: Cmd+F / Ctrl+F opens floating search bar. Real-time text highlighting via DOM TreeWalker, match count display, ↑/↓ arrow navigation with active match scrollIntoView, Enter/Shift+Enter to navigate, Escape to dismiss. Highlights use `.search-highlight` / `.search-highlight-active` classes with copper accent.
 

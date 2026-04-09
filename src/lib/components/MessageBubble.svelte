@@ -33,6 +33,23 @@
   let copyTimeout: ReturnType<typeof setTimeout> | undefined;
   let renderTimer: ReturnType<typeof setTimeout> | undefined;
 
+  const streamingPhrases = [
+    "Pushing the throttle…",
+    "Breaking through…",
+    "Climbing to altitude…",
+    "Gaining speed…",
+    "Going supersonic…",
+    "Punching through the clouds…",
+    "Full afterburner…",
+    "Reading the instruments…",
+    "Locking in the vector…",
+    "Cleared for approach…",
+    "Riding the shockwave…",
+    "Eyes on the horizon…",
+  ];
+
+  const streamingPhrase = streamingPhrases[Math.floor(Math.random() * streamingPhrases.length)];
+
   /** Track mounted CodeBlock instances for cleanup. */
   let mountedBlocks: Record<string, ReturnType<typeof mount>> = {};
 
@@ -187,11 +204,12 @@
         {/if}
         {#if message.content}
           <div class="markdown-prose" bind:this={contentEl}></div>
-          {#if isStreaming}<span class="cursor" aria-hidden="true">▊</span>{/if}
-        {:else if isStreaming}
-          {#if !message.thinkingContent}
-            <span class="thinking-placeholder">Thinking<span class="dots">...</span></span>
-          {/if}
+        {/if}
+        {#if isStreaming}
+          <div class="streaming-indicator" aria-hidden="true">
+            <span class="streaming-orb"></span>
+            <span class="streaming-phrase">{streamingPhrase}</span>
+          </div>
         {/if}
         {#if webResults.length > 0}
           <nav class="web-results" aria-label="Web sources">
@@ -307,39 +325,42 @@
     color: var(--color-text-primary);
   }
 
-  .cursor {
-    animation: blink 600ms steps(1) infinite;
-    color: var(--color-accent-copper);
-    font-weight: 100;
+  .streaming-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+    min-height: 24px;
   }
 
-  @keyframes blink {
+  .streaming-orb {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--color-accent-copper);
+    flex-shrink: 0;
+    animation: orb-breathe 2s ease-in-out infinite;
+    box-shadow: 0 0 6px rgba(180, 83, 9, 0.35);
+  }
+
+  @keyframes orb-breathe {
+    0%,
+    100% {
+      transform: scale(1);
+      box-shadow: 0 0 4px rgba(180, 83, 9, 0.25);
+      opacity: 0.6;
+    }
     50% {
-      opacity: 0;
+      transform: scale(1.4);
+      box-shadow: 0 0 12px rgba(180, 83, 9, 0.5);
+      opacity: 1;
     }
   }
 
-  .thinking-placeholder {
+  .streaming-phrase {
+    font-size: 0.78rem;
     color: var(--color-text-tertiary);
     font-style: italic;
-  }
-
-  .dots {
-    animation: dots 1.5s steps(4) infinite;
-    display: inline-block;
-    width: 1.5em;
-    text-align: left;
-    overflow: hidden;
-    vertical-align: bottom;
-  }
-
-  @keyframes dots {
-    0% {
-      width: 0;
-    }
-    100% {
-      width: 1.5em;
-    }
   }
 
   /* ── Message actions ── */
