@@ -97,8 +97,34 @@ export function getDefaultAgent(): Agent | undefined {
 
 // ── Registry ────────────────────────────────────────────────────
 
+/** Cached browse results so clearing search restores instantly. */
+let browseCache: RegistryItem[] = [];
+
+/** Prefetch popular agents from registries (browse mode with empty query). */
+export async function prefetchAgentRegistry(): Promise<void> {
+  // If we have cached browse results, restore them instantly
+  if (browseCache.length > 0) {
+    registryQuery = "";
+    registryResults = browseCache;
+    return;
+  }
+  if (registrySearching) return;
+  registrySearching = true;
+  try {
+    const result: RegistrySearchResult = await searchRegistryCmd("", 200);
+    browseCache = result.items.filter((i) => i.kind === "agent");
+    registryQuery = "";
+    registryResults = browseCache;
+  } catch (e) {
+    logFrontend("warn", `Agent registry prefetch failed: ${e}`);
+  } finally {
+    registrySearching = false;
+  }
+}
+
 /** Search registries for agents and update results. */
 export async function searchAgentRegistries(query: string): Promise<void> {
+  if (registrySearching) return;
   registryQuery = query;
   registrySearching = true;
   try {
@@ -130,12 +156,6 @@ export async function installAgentFromRegistry(item: RegistryItem): Promise<Agen
     logFrontend("error", `Agent registry install failed: ${e}`);
     return null;
   }
-}
-
-/** Clear registry search state. */
-export function clearAgentRegistrySearch(): void {
-  registryQuery = "";
-  registryResults = [];
 }
 
 // ── Git Import ──────────────────────────────────────────────────

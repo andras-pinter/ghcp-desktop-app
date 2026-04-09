@@ -10,7 +10,7 @@
     assignAgentMcp,
     searchAgentRegistries,
     installAgentFromRegistry,
-    clearAgentRegistrySearch,
+    prefetchAgentRegistry,
     discoverGitAgents,
     importAgentFromGit,
     updateAgentGitProgress,
@@ -156,7 +156,8 @@
     registrySearchInput = query;
     if (registrySearchDebounce) clearTimeout(registrySearchDebounce);
     if (!query.trim()) {
-      clearAgentRegistrySearch();
+      // Restore prefetched browse results instead of clearing
+      prefetchAgentRegistry();
       return;
     }
     registrySearchDebounce = setTimeout(() => {
@@ -527,7 +528,11 @@
               {/if}
             </div>
 
-            {#if agentStore.registryResults.length > 0 && registrySearchInput.trim()}
+            {#if agentStore.registrySearching && agentStore.registryResults.length === 0}
+              <div class="registry-loading">
+                <span class="spinner"></span> Searching registries…
+              </div>
+            {:else if agentStore.registryResults.length > 0}
               <div class="registry-results" role="list">
                 {#each agentStore.registryResults as item (item.id + item.source + item.kind)}
                   <article

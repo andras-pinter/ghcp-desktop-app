@@ -55,14 +55,43 @@ export async function removeSkill(id: string): Promise<void> {
 
 // ── Registry ────────────────────────────────────────────────────
 
+/** Cached browse results so clearing search restores instantly. */
+let browseCache: RegistryItem[] = [];
+
+/** Prefetch popular skills from registries (browse mode with empty query). */
+export async function prefetchRegistry(): Promise<void> {
+  // If we have cached browse results, restore them instantly
+  if (browseCache.length > 0) {
+    registryQuery = "";
+    registryResults = browseCache;
+    registryTotal = browseCache.length;
+    return;
+  }
+  if (registrySearching) return;
+  registrySearching = true;
+  try {
+    const result: RegistrySearchResult = await searchRegistryCmd("", 200);
+    browseCache = result.items.filter((i) => i.kind === "skill");
+    registryQuery = "";
+    registryResults = browseCache;
+    registryTotal = browseCache.length;
+  } catch (e) {
+    logFrontend("warn", `Skills registry prefetch failed: ${e}`);
+  } finally {
+    registrySearching = false;
+  }
+}
+
 /** Search registries and update results. */
 export async function searchRegistries(query: string): Promise<void> {
+  if (registrySearching) return;
   registryQuery = query;
   registrySearching = true;
   try {
     const result: RegistrySearchResult = await searchRegistryCmd(query);
-    registryResults = result.items;
-    registryTotal = result.total;
+    const filtered = result.items.filter((i) => i.kind === "skill");
+    registryResults = filtered;
+    registryTotal = filtered.length;
   } catch (e) {
     logFrontend("error", `Registry search failed: ${e}`);
     registryResults = [];
@@ -90,13 +119,6 @@ export async function installFromRegistry(item: RegistryItem): Promise<Skill | n
     logFrontend("error", `Registry install failed: ${e}`);
     return null;
   }
-}
-
-/** Clear registry search state. */
-export function clearRegistrySearch(): void {
-  registryQuery = "";
-  registryResults = [];
-  registryTotal = null;
 }
 
 // ── Git Import ──────────────────────────────────────────────────

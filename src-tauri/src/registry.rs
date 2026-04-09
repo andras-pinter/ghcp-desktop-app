@@ -133,12 +133,17 @@ pub async fn search_aitmpl(
 
     let query_lower = query.to_lowercase();
     let query_words: Vec<&str> = query_lower.split_whitespace().collect();
+    let browse_all = query_words.is_empty();
 
     // Collect all items with a relevance score
     let mut scored: Vec<(RegistryItem, u32)> = Vec::new();
 
     for item in &data.agents {
-        let score = match_score(&item.name, item.category.as_deref(), &query_words);
+        let score = if browse_all {
+            1
+        } else {
+            match_score(&item.name, item.category.as_deref(), &query_words)
+        };
         if score > 0 {
             scored.push((
                 aitmpl_to_registry_item(item, RegistryItemKind::Agent),
@@ -147,7 +152,11 @@ pub async fn search_aitmpl(
         }
     }
     for item in &data.skills {
-        let score = match_score(&item.name, item.category.as_deref(), &query_words);
+        let score = if browse_all {
+            1
+        } else {
+            match_score(&item.name, item.category.as_deref(), &query_words)
+        };
         if score > 0 {
             scored.push((
                 aitmpl_to_registry_item(item, RegistryItemKind::Skill),
@@ -156,8 +165,19 @@ pub async fn search_aitmpl(
         }
     }
 
-    // Sort by score descending, then by name
-    scored.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.name.cmp(&b.0.name)));
+    if browse_all {
+        // Browse mode: sort by popularity (installs descending)
+        scored.sort_by(|a, b| {
+            b.0.installs
+                .unwrap_or(0)
+                .cmp(&a.0.installs.unwrap_or(0))
+                .then_with(|| a.0.name.cmp(&b.0.name))
+        });
+    } else {
+        // Search mode: sort by relevance score descending, then by name
+        scored.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.name.cmp(&b.0.name)));
+    }
+
     let results: Vec<RegistryItem> = scored
         .into_iter()
         .take(limit as usize)

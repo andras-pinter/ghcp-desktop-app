@@ -11,9 +11,9 @@
   import { initAuth, getAuth } from "$lib/stores/auth.svelte";
   import { initModels, getModelStore } from "$lib/stores/models.svelte";
   import { initConversations, newConversation } from "$lib/stores/conversations.svelte";
-  import { initMcp } from "$lib/stores/mcp.svelte";
-  import { initAgents } from "$lib/stores/agents.svelte";
-  import { initSkills } from "$lib/stores/skills.svelte";
+  import { initMcp, loadRegistry as prefetchMcpRegistry } from "$lib/stores/mcp.svelte";
+  import { initAgents, prefetchAgentRegistry } from "$lib/stores/agents.svelte";
+  import { initSkills, prefetchRegistry as prefetchSkillRegistry } from "$lib/stores/skills.svelte";
   import { initProjects } from "$lib/stores/projects.svelte";
   import { initSettings, getSettings } from "$lib/stores/settings.svelte";
   import { initNetwork } from "$lib/stores/network.svelte";
@@ -122,7 +122,12 @@
         initAgents(),
         initSkills(),
         initProjects(),
-      ]);
+      ]).then(() => {
+        // Prefetch registries in the background after core data is loaded
+        prefetchMcpRegistry();
+        prefetchSkillRegistry();
+        prefetchAgentRegistry();
+      });
     } else if (!auth.authenticated) {
       dataLoaded = false;
     }
