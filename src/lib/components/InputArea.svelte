@@ -66,6 +66,12 @@
   let agentDropdownOpen = $state(false);
   let agentDropdownEl: HTMLDivElement | undefined = $state();
 
+  /** Local override for the send shortcut — does not persist to settings. */
+  let localSendShortcut: "enter" | "cmd-enter" | null = $state(null);
+  let activeSendShortcut = $derived(localSendShortcut ?? settings.sendShortcut ?? "enter");
+  const isMac = navigator.userAgent.includes("Mac");
+  const modLabel = $derived(isMac ? "⌘" : "Ctrl");
+
   // URL input state
   let urlInputVisible = $state(false);
   let urlInputText = $state("");
@@ -147,7 +153,7 @@
 
   function handleKeydown(event: KeyboardEvent) {
     const mod = event.metaKey || event.ctrlKey;
-    if (settings.sendShortcut === "cmd-enter") {
+    if (activeSendShortcut === "cmd-enter") {
       // Cmd/Ctrl+Enter sends; Enter inserts newline
       if (event.key === "Enter" && mod) {
         event.preventDefault();
@@ -867,29 +873,45 @@
           </span>
         {/if}
       </div>
-      {#if streaming}
-        <button class="stop-btn" onclick={() => onStop?.()} aria-label="Stop streaming">
-          <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
-            <rect x="3" y="3" width="10" height="10" rx="1.5" />
-          </svg>
-        </button>
-      {:else if extractingFiles}
-        <button class="send-btn extracting" disabled aria-label="Processing files">
-          <span class="extract-spinner"></span>
-        </button>
-      {:else}
+      <div class="send-group">
         <button
-          class="send-btn"
-          class:active={!!inputText.trim() && network.isOnline}
-          onclick={handleSend}
-          disabled={!inputText.trim() || !network.isOnline}
-          aria-label={network.isOnline ? "Send message" : "Offline — sending disabled"}
+          class="send-mode-label"
+          onclick={() => {
+            localSendShortcut = activeSendShortcut === "enter" ? "cmd-enter" : "enter";
+          }}
+          title={activeSendShortcut === "enter"
+            ? `Switch to ${modLabel}+Enter to send`
+            : "Switch to Enter to send"}
+          aria-label={activeSendShortcut === "enter"
+            ? `Send with Enter. Click to switch to ${modLabel}+Enter`
+            : `Send with ${modLabel}+Enter. Click to switch to Enter`}
         >
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-            <path d="M8 2.5l-4.5 4.5h3V13h3V7h3L8 2.5z" />
-          </svg>
+          {activeSendShortcut === "enter" ? "↵ send" : `${modLabel}↵ send`}
         </button>
-      {/if}
+        {#if streaming}
+          <button class="stop-btn" onclick={() => onStop?.()} aria-label="Stop streaming">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+              <rect x="3" y="3" width="10" height="10" rx="1.5" />
+            </svg>
+          </button>
+        {:else if extractingFiles}
+          <button class="send-btn extracting" disabled aria-label="Processing files">
+            <span class="extract-spinner"></span>
+          </button>
+        {:else}
+          <button
+            class="send-btn"
+            class:active={!!inputText.trim() && network.isOnline}
+            onclick={handleSend}
+            disabled={!inputText.trim() || !network.isOnline}
+            aria-label={network.isOnline ? "Send message" : "Offline — sending disabled"}
+          >
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M8 2.5l-4.5 4.5h3V13h3V7h3L8 2.5z" />
+            </svg>
+          </button>
+        {/if}
+      </div>
     </div>
   </div>
 </div>
@@ -1130,6 +1152,40 @@
     to {
       transform: rotate(360deg);
     }
+  }
+
+  /* ── Send group (toggle + send button) ───────────── */
+
+  .send-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .send-mode-label {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 0.65rem;
+    font-family: var(--font-body);
+    color: var(--color-text-tertiary);
+    white-space: nowrap;
+    letter-spacing: 0.02em;
+    padding: 2px 0;
+    user-select: none;
+    width: 4.8em;
+    text-align: right;
+    transition: color var(--transition-fast);
+  }
+
+  .send-mode-label:hover {
+    color: var(--color-text-secondary);
+  }
+
+  .send-mode-label:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
   }
 
   /* ── Send / Stop buttons ────────────────────────── */
