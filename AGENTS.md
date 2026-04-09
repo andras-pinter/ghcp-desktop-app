@@ -1508,6 +1508,8 @@ Chuck can browse, search, and install skills/agents from the aitmpl.com public r
 | **[aitmpl.com](https://www.aitmpl.com)** | AI Templates marketplace. 1000+ agents, skills, commands, and MCP integrations. Backed by a catalog of SKILL.md / agent.md files hosted on GitHub. | Web API (agents + skills catalogs) |
 | **Git URL** | Any git repository containing SKILL.md or *.agent.md files. Supports GitHub shorthand (`owner/repo`), full URLs, and direct paths to specific files. | GitHub Tree + Contents API (authenticated via Copilot token) |
 
+**Prefetch on startup:** All three registries (MCP, Skills, Agents) are prefetched after authentication completes, so popular items are immediately visible when the user opens any catalog panel — no search required. The aitmpl.com catalog is fetched once (browse-all mode with empty query, sorted by installs descending, top 200) and cached client-side; clearing a search restores the cached browse results instantly.
+
 **Installation flow:**
 1. User searches or browses the aitmpl.com catalog → sees results sorted by download count
 2. Clicks to expand → sees full description and content

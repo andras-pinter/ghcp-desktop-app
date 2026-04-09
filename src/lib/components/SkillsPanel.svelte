@@ -6,7 +6,7 @@
     removeSkill,
     searchRegistries,
     installFromRegistry,
-    clearRegistrySearch,
+    prefetchRegistry,
     discoverGitSkills,
     importFromGit,
     clearGitImport,
@@ -98,7 +98,8 @@
         if (value.trim()) {
           searchRegistries(value.trim());
         } else {
-          clearRegistrySearch();
+          // Restore prefetched browse results instead of clearing
+          prefetchRegistry();
         }
       },
       value.trim() ? 400 : 0,
@@ -698,8 +699,8 @@
               <div class="registry-loading">
                 <span class="spinner"></span> Searching registries…
               </div>
-            {:else if store.registryResults.length > 0 && searchQuery.trim()}
-              {#if store.registryTotal !== null}
+            {:else if store.registryResults.length > 0}
+              {#if store.registryTotal !== null && searchQuery.trim()}
                 <p class="result-count">
                   {store.registryTotal} result{store.registryTotal !== 1 ? "s" : ""} found
                 </p>
@@ -771,10 +772,6 @@
               </div>
             {:else if searchQuery.trim() && !store.registrySearching}
               <p class="section-empty">No skills match "{searchQuery}"</p>
-            {:else if !searchQuery.trim()}
-              <p class="section-empty section-hint-text">
-                Enter a search term to find skills from registries.
-              </p>
             {/if}
           </div>
         {/if}
@@ -1017,10 +1014,6 @@
     font-size: var(--font-size-sm);
     font-style: italic;
     padding: var(--spacing-md) 0;
-  }
-
-  .section-hint-text {
-    margin-top: var(--spacing-sm);
   }
 
   .section-hint {
