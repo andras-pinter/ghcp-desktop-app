@@ -1775,8 +1775,8 @@ INSERT INTO config (key, value) VALUES ('schema_version', '3');
 44. ✅ **offline-mode** — Detect network status. Full read access when offline, sending disabled with clear indicator. Auto-reconnect with "Back online" toast.
 45. ✅ **accessibility** — Semantic HTML, ARIA roles/labels, keyboard navigation, focus management, visible focus indicators, screen reader testing
 
-### Phase 11: Auto-Update
-46. ⬚ **auto-update** — Configure `tauri-plugin-updater` with GitHub Releases endpoint. `UpdateBanner.svelte` for notifications. Show changelog/release notes. Allow "skip this version" and "remind me later". Settings toggle to disable auto-update. Ed25519 signature verification.
+### Phase 11: Auto-Update ✅
+46. ✅ **auto-update** — Configure `tauri-plugin-updater` with GitHub Releases endpoint (placeholder pubkey for Phase 12). `UpdateBanner.svelte` with full lifecycle: check → available (with changelog) → downloading (progress bar) → ready (restart). Skip version (persisted), remind later (24h snooze), dismiss. Auto-Update settings in SettingsPanel (toggle, frequency, skip management). `tauri-plugin-process` for app relaunch. Ed25519 signature verification (keys generated at build time in Phase 12).
 
 ### Phase 12: Distribution
 47. ⬚ **app-packaging** — `cargo tauri build` for all platforms. `.dmg` (macOS with code signing + App Sandbox + notarization), `.AppImage`/`.deb` (Linux), `.msi`/`.nsis` (Windows). GitHub Actions CI/CD for automated builds. Publish releases to GitHub Releases for auto-update consumption.
