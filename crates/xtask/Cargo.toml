@@ -1,0 +1,16 @@
+[package]
+name = "xtask"
+version.workspace = true
+description = "Build automation tasks — version bumping, changelog, consistency checks"
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[[bin]]
+name = "xtask"
+path = "src/main.rs"
+
+[dependencies]
+semver = "1"
+toml_edit = "0.22"
+serde_json.workspace = true

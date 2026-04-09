@@ -1,6 +1,6 @@
 [package]
 name = "mcp-client"
-version = "0.1.0"
+version.workspace = true
 description = "MCP protocol client — tool discovery and invocation"
 edition.workspace = true
 license.workspace = true
