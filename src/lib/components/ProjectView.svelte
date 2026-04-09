@@ -201,10 +201,10 @@
   let unassignedConversations = $derived(convStore.conversations.filter((c) => !c.projectId));
 </script>
 
-<div class="projects-panel">
+<div class="panel">
   <!-- Header -->
   <div class="panel-header">
-    <button class="back-btn" onclick={onBack} aria-label="Back">
+    <button class="panel-back" onclick={onBack} aria-label="Back">
       <svg
         width="16"
         height="16"
@@ -233,14 +233,14 @@
       <div class="project-list" role="list">
         {#if store.projects.length === 0 && !store.loading}
           <div class="empty-state">
-            <div class="empty-icon">📁</div>
-            <p class="empty-title">No projects yet</p>
-            <p class="empty-desc">
+            <div class="empty-state-icon">📁</div>
+            <p class="empty-state-title">No projects yet</p>
+            <p class="empty-state-desc">
               Projects let you group conversations and attach reference files with custom
               instructions.
             </p>
             <button
-              class="btn btn-primary"
+              class="btn btn--primary"
               onclick={() => {
                 resetForm();
                 view = { kind: "form" };
@@ -251,11 +251,11 @@
           </div>
         {:else}
           {#each store.projects as project (project.id)}
-            <button class="project-card" onclick={() => openDetail(project.id)}>
-              <div class="project-card-icon">📁</div>
+            <button class="card card--clickable project-card" onclick={() => openDetail(project.id)}>
+              <div class="card-icon">📁</div>
               <div class="project-card-body">
-                <span class="project-card-name">{project.name}</span>
-                <span class="project-card-meta">
+                <span class="card-title">{project.name}</span>
+                <span class="card-meta">
                   {project.fileCount} file{project.fileCount !== 1 ? "s" : ""}
                   {#if project.instructions}
                     · has instructions
@@ -281,7 +281,7 @@
       {#if store.projects.length > 0}
         <div class="list-footer">
           <button
-            class="btn btn-secondary"
+            class="btn"
             onclick={() => {
               resetForm();
               view = { kind: "form" };
@@ -294,7 +294,7 @@
 
       <!-- ═══════════════════ CREATE FORM ═══════════════════ -->
     {:else if view.kind === "form"}
-      <div class="form-section">
+      <div class="form-field">
         <label class="form-label" for="project-name">Name</label>
         <input
           id="project-name"
@@ -308,14 +308,14 @@
         />
       </div>
 
-      <div class="form-section">
+      <div class="form-field">
         <label class="form-label" for="project-instructions">
           Custom Instructions
           <span class="form-hint">Optional — added to every chat in this project</span>
         </label>
         <textarea
           id="project-instructions"
-          class="form-textarea"
+          class="form-input"
           placeholder="e.g., Use TypeScript strict mode. Follow the project's existing patterns..."
           rows="5"
           bind:value={formInstructions}
@@ -328,7 +328,7 @@
 
       <div class="form-actions">
         <button
-          class="btn btn-ghost"
+          class="btn btn--ghost"
           onclick={() => {
             resetForm();
             view = { kind: "list" };
@@ -337,7 +337,7 @@
           Cancel
         </button>
         <button
-          class="btn btn-primary"
+          class="btn btn--primary"
           disabled={!formName.trim() || formSaving}
           onclick={handleCreateProject}
         >
@@ -374,8 +374,8 @@
                 if (e.key === "Escape") editingName = false;
               }}
             />
-            <button class="btn btn-sm" onclick={handleRename}>Save</button>
-            <button class="btn btn-sm btn-ghost" onclick={() => (editingName = false)}
+            <button class="btn btn--sm btn--primary" onclick={handleRename}>Save</button>
+            <button class="btn btn--sm btn--ghost" onclick={() => (editingName = false)}
               >Cancel</button
             >
           </div>
@@ -402,16 +402,16 @@
         </div>
         {#if editingInstructions}
           <textarea
-            class="form-textarea"
+            class="form-input"
             rows="5"
             placeholder="Instructions that apply to all conversations in this project…"
             bind:value={editInstructionsText}
           ></textarea>
           <div class="form-actions">
-            <button class="btn btn-sm btn-ghost" onclick={() => (editingInstructions = false)}
+            <button class="btn btn--sm btn--ghost" onclick={() => (editingInstructions = false)}
               >Cancel</button
             >
-            <button class="btn btn-sm" onclick={handleSaveInstructions}>Save</button>
+            <button class="btn btn--sm btn--primary" onclick={handleSaveInstructions}>Save</button>
           </div>
         {:else if store.activeProject.instructions}
           <p class="detail-value instructions-text">{store.activeProject.instructions}</p>
@@ -425,7 +425,7 @@
         <div class="detail-section-header">
           <h3 class="detail-section-title">
             Files
-            <span class="badge">{store.files.length}</span>
+            <span class="badge badge--neutral">{store.files.length}</span>
           </h3>
           <button class="btn-inline" onclick={handleFileUpload} disabled={uploading}>
             {uploading ? "Uploading…" : "+ Add File"}
@@ -451,10 +451,10 @@
           <div class="file-list" role="list">
             {#each store.files as file (file.id)}
               <div class="file-item" role="listitem">
-                <span class="file-icon">{fileIcon(file.contentType)}</span>
-                <div class="file-info">
-                  <span class="file-name">{truncate(file.name, 40)}</span>
-                  <span class="file-meta">{formatBytes(file.size)} · {file.contentType}</span>
+                <span class="file-item-icon">{fileIcon(file.contentType)}</span>
+                <div class="file-item-info">
+                  <span class="file-item-name">{truncate(file.name, 40)}</span>
+                  <span class="file-item-meta">{formatBytes(file.size)} · {file.contentType}</span>
                 </div>
                 <button
                   class="btn-icon-remove"
@@ -475,7 +475,7 @@
         <div class="detail-section-header">
           <h3 class="detail-section-title">
             Conversations
-            <span class="badge">{store.conversations.length}</span>
+            <span class="badge badge--neutral">{store.conversations.length}</span>
           </h3>
           <button
             class="btn-inline"
@@ -527,7 +527,7 @@
 
       <!-- Danger zone -->
       <div class="detail-section danger-zone">
-        <button class="btn btn-danger-outline" onclick={() => (confirmingDelete = true)}>
+        <button class="btn btn--danger" onclick={() => (confirmingDelete = true)}>
           Delete Project
         </button>
       </div>
@@ -545,94 +545,6 @@
 />
 
 <style>
-  .projects-panel {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    overflow: hidden;
-  }
-
-  /* ── Header ── */
-
-  .panel-header {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-sm);
-    padding: var(--spacing-md) var(--spacing-lg);
-    border-bottom: 1px solid var(--color-border-secondary);
-    flex-shrink: 0;
-    min-height: 52px;
-  }
-
-  .back-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 28px;
-    height: 28px;
-    background: none;
-    border: none;
-    cursor: pointer;
-    color: var(--color-text-secondary);
-    border-radius: var(--radius-sm);
-    transition: all var(--transition-fast);
-    flex-shrink: 0;
-  }
-
-  .back-btn:hover {
-    background: var(--color-bg-hover);
-    color: var(--color-text-primary);
-  }
-
-  .panel-title {
-    font-family: var(--font-display);
-    font-style: italic;
-    font-size: var(--font-size-lg);
-    font-weight: var(--font-weight-normal);
-    color: var(--color-text-primary);
-    margin: 0;
-  }
-
-  /* ── Body ── */
-
-  .panel-body {
-    flex: 1;
-    overflow-y: auto;
-    padding: var(--spacing-lg);
-  }
-
-  /* ── Empty state ── */
-
-  .empty-state {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: var(--spacing-sm);
-    padding: var(--spacing-3xl) var(--spacing-lg);
-    text-align: center;
-  }
-
-  .empty-icon {
-    font-size: 2.5rem;
-    opacity: 0.7;
-  }
-
-  .empty-title {
-    font-family: var(--font-display);
-    font-style: italic;
-    font-size: var(--font-size-lg);
-    color: var(--color-text-primary);
-    margin: 0;
-  }
-
-  .empty-desc {
-    font-size: var(--font-size-sm);
-    color: var(--color-text-secondary);
-    margin: 0;
-    max-width: 320px;
-    line-height: 1.5;
-  }
-
   /* ── Project list ── */
 
   .project-list {
@@ -645,25 +557,12 @@
     display: flex;
     align-items: center;
     gap: var(--spacing-sm);
-    padding: var(--spacing-sm) var(--spacing-md);
-    background: var(--color-bg-secondary);
-    border: 1px solid var(--color-border-secondary);
-    border-radius: var(--radius-md);
-    cursor: pointer;
-    transition: all var(--transition-fast);
-    text-align: left;
     width: 100%;
+    text-align: left;
   }
 
   .project-card:hover {
-    border-color: var(--color-border-primary);
-    background: var(--color-bg-hover);
     transform: translateX(2px);
-  }
-
-  .project-card-icon {
-    font-size: 1.25rem;
-    flex-shrink: 0;
   }
 
   .project-card-body {
@@ -671,17 +570,12 @@
     min-width: 0;
   }
 
-  .project-card-name {
+  .project-card :global(.card-title) {
     display: block;
-    font-size: var(--font-size-sm);
-    font-weight: var(--font-weight-medium);
-    color: var(--color-text-primary);
   }
 
-  .project-card-meta {
+  .project-card :global(.card-meta) {
     display: block;
-    font-size: var(--font-size-xs);
-    color: var(--color-text-tertiary);
     margin-top: 2px;
   }
 
@@ -698,159 +592,13 @@
 
   /* ── Form ── */
 
-  .form-section {
-    margin-bottom: var(--spacing-lg);
-  }
-
-  .form-label {
-    display: block;
-    font-size: var(--font-size-sm);
-    font-weight: var(--font-weight-medium);
-    color: var(--color-text-primary);
-    margin-bottom: var(--spacing-xs);
-  }
-
-  .form-hint {
-    font-weight: var(--font-weight-normal);
-    color: var(--color-text-tertiary);
-    font-size: var(--font-size-xs);
-    display: block;
-    margin-top: 2px;
-  }
-
-  .form-input {
-    width: 100%;
-    padding: var(--spacing-sm) var(--spacing-md);
-    font-size: var(--font-size-sm);
-    font-family: var(--font-body);
-    color: var(--color-text-primary);
-    background: var(--color-bg-primary);
-    border: 1px solid var(--color-border-primary);
-    border-radius: var(--radius-md);
-    outline: none;
-    transition: all var(--transition-fast);
-    box-sizing: border-box;
-  }
-
-  .form-input:focus {
-    border-color: var(--color-accent-copper);
-    box-shadow: var(--shadow-input-focus);
-  }
-
-  .form-textarea {
-    width: 100%;
-    padding: var(--spacing-sm) var(--spacing-md);
-    font-size: var(--font-size-sm);
-    font-family: var(--font-body);
-    color: var(--color-text-primary);
-    background: var(--color-bg-primary);
-    border: 1px solid var(--color-border-primary);
-    border-radius: var(--radius-md);
-    outline: none;
-    resize: vertical;
-    min-height: 80px;
-    transition: all var(--transition-fast);
-    box-sizing: border-box;
-  }
-
-  .form-textarea:focus {
-    border-color: var(--color-accent-copper);
-    box-shadow: var(--shadow-input-focus);
-  }
-
   .form-error {
     font-size: var(--font-size-xs);
     color: var(--color-error);
     padding: var(--spacing-xs) 0;
   }
 
-  .form-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: var(--spacing-sm);
-    margin-top: var(--spacing-md);
-  }
-
-  /* ── Buttons ── */
-
-  .btn {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--spacing-xs);
-    padding: var(--spacing-sm) var(--spacing-md);
-    font-size: var(--font-size-sm);
-    font-family: var(--font-body);
-    font-weight: var(--font-weight-medium);
-    border-radius: var(--radius-md);
-    cursor: pointer;
-    transition: all var(--transition-fast);
-    border: 1px solid transparent;
-  }
-
-  .btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  .btn-primary {
-    background: var(--color-text-primary);
-    color: var(--color-bg-primary);
-    border-color: var(--color-text-primary);
-  }
-
-  .btn-primary:hover:not(:disabled) {
-    opacity: 0.85;
-  }
-
-  .btn-secondary {
-    background: var(--color-bg-secondary);
-    color: var(--color-text-primary);
-    border-color: var(--color-border-primary);
-  }
-
-  .btn-secondary:hover:not(:disabled) {
-    background: var(--color-bg-hover);
-  }
-
-  .btn-ghost {
-    background: none;
-    color: var(--color-text-secondary);
-    border: none;
-    padding: var(--spacing-xs) var(--spacing-sm);
-  }
-
-  .btn-ghost:hover {
-    color: var(--color-text-primary);
-  }
-
-  .btn-sm {
-    padding: var(--spacing-xs) var(--spacing-sm);
-    font-size: var(--font-size-xs);
-    background: var(--color-text-primary);
-    color: var(--color-bg-primary);
-  }
-
-  .btn-sm:hover:not(:disabled) {
-    opacity: 0.85;
-  }
-
-  .btn-danger-outline {
-    background: none;
-    color: var(--color-error);
-    border: 1px solid var(--color-error);
-    padding: var(--spacing-xs) var(--spacing-md);
-    font-size: var(--font-size-sm);
-    font-family: var(--font-body);
-    font-weight: var(--font-weight-medium);
-    border-radius: var(--radius-md);
-    cursor: pointer;
-    transition: all var(--transition-fast);
-  }
-
-  .btn-danger-outline:hover {
-    background: var(--color-error);
-    color: white;
-  }
+  /* ── Inline action button ── */
 
   .btn-inline {
     background: none;
@@ -928,22 +676,8 @@
     align-items: center;
   }
 
-  .inline-edit .form-input {
+  .inline-edit :global(.form-input) {
     flex: 1;
-  }
-
-  .badge {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 20px;
-    height: 20px;
-    padding: 0 6px;
-    font-size: 11px;
-    font-weight: var(--font-weight-semibold);
-    color: var(--color-text-tertiary);
-    background: var(--color-bg-hover);
-    border-radius: 10px;
   }
 
   /* ── File list ── */
@@ -952,41 +686,6 @@
     display: flex;
     flex-direction: column;
     gap: var(--spacing-xs);
-  }
-
-  .file-item {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-sm);
-    padding: var(--spacing-xs) var(--spacing-sm);
-    background: var(--color-bg-secondary);
-    border: 1px solid var(--color-border-secondary);
-    border-radius: var(--radius-sm);
-  }
-
-  .file-icon {
-    font-size: 1rem;
-    flex-shrink: 0;
-  }
-
-  .file-info {
-    flex: 1;
-    min-width: 0;
-  }
-
-  .file-name {
-    display: block;
-    font-size: var(--font-size-sm);
-    color: var(--color-text-primary);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .file-meta {
-    display: block;
-    font-size: var(--font-size-xs);
-    color: var(--color-text-tertiary);
   }
 
   .btn-icon-remove {
