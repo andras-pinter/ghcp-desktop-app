@@ -13,6 +13,7 @@
     extractFileText,
     readDroppedFiles,
     generateConversationTitle,
+    logFrontend,
   } from "$lib/utils/commands";
   import {
     onStreamingToken,
@@ -214,7 +215,9 @@
           if (store.activeConversationId) {
             const conv = store.conversations.find((c) => c.id === store.activeConversationId);
             if (!conv?.title) {
-              generateTitle(store.activeConversationId, store.messages).catch(() => {});
+              generateTitle(store.activeConversationId, store.messages).catch((e) =>
+                logFrontend("warn", `Title generation failed: ${e}`),
+              );
             }
           }
         }

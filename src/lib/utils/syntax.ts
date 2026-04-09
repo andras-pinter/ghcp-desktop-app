@@ -105,5 +105,5 @@ export async function highlightCode(code: string, lang?: string): Promise<string
  * Non-blocking — silently ignores errors.
  */
 export function preloadHighlighter(): void {
-  getHighlighter().catch(() => {});
+  getHighlighter().catch((e) => console.warn("Highlighter preload failed:", e));
 }

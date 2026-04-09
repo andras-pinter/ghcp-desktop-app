@@ -119,8 +119,9 @@ export async function addServer(config: McpServerConfig): Promise<McpConnectionI
     // Auto-connect the newly added server
     try {
       await connectServer(info.config.id);
-    } catch {
+    } catch (connectErr) {
       // Connection failure is non-fatal — server is still added
+      logFrontend("warn", `Auto-connect failed for new server: ${connectErr}`);
     }
     return info;
   } catch (e) {

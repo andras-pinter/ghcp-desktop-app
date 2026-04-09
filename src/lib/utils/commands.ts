@@ -21,7 +21,9 @@ import type {
 
 /** Log a message from the frontend to the Rust console. Best-effort — IPC failures are ignored. */
 export function logFrontend(level: "info" | "warn" | "error" | "debug", message: string): void {
-  invoke("log_frontend", { level, message }).catch(() => {});
+  invoke("log_frontend", { level, message }).catch((e) =>
+    console.warn("logFrontend IPC failed:", e),
+  );
 }
 
 // ── Auth ────────────────────────────────────────────────────────

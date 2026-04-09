@@ -643,7 +643,8 @@ pub fn create_agent(
          VALUES (?1, ?2, ?3, ?4, 0, ?5, ?6, datetime('now'), datetime('now'))",
         params![id, name, avatar, system_prompt, source_url, source_type],
     )?;
-    get_agent(conn, id).map(|a| a.expect("just inserted"))
+    get_agent(conn, id)?
+        .ok_or_else(|| rusqlite::Error::QueryReturnedNoRows)
 }
 
 /// Update an existing agent (name, avatar, system_prompt, source fields).
@@ -838,7 +839,8 @@ pub fn create_skill(
             source_type
         ],
     )?;
-    get_skill(conn, id).map(|s| s.expect("just inserted"))
+    get_skill(conn, id)?
+        .ok_or_else(|| rusqlite::Error::QueryReturnedNoRows)
 }
 
 /// Update an existing skill.
