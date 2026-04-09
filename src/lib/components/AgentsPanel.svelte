@@ -347,11 +347,11 @@
   }
 </script>
 
-<div class="agents-panel">
+<div class="panel">
   <!-- ── Header ──────────────────────────────────────────── -->
   <header class="panel-header">
     <button
-      class="back-btn"
+      class="panel-back"
       onclick={view.kind === "form" ? () => (view = { kind: "list" }) : onBack}
       aria-label="Go back">← Back</button
     >
@@ -365,16 +365,16 @@
       {/if}
     </h1>
     {#if view.kind === "list"}
-      <button class="header-add-btn" onclick={openCreateForm}>+ New Agent</button>
+      <button class="btn header-add-btn" onclick={openCreateForm}>+ New Agent</button>
     {/if}
   </header>
 
   <!-- ── Content ─────────────────────────────────────────── -->
-  <div class="panel-content">
+  <div class="panel-body">
     {#if !agentStore.loaded}
       <!-- Loading -->
       <div class="panel-loading">
-        <span class="loading-spinner"></span>
+        <span class="spinner"></span>
         Loading agents…
       </div>
     {:else if view.kind === "list"}
@@ -383,14 +383,14 @@
         <!-- Default agent -->
         {#if defaultAgent}
           <div
-            class="agent-card default-card"
+            class="card card--featured"
             role="listitem"
             ondblclick={() => toggleExpandAgent(defaultAgent.id)}
             title="Double-click to expand"
           >
-            <div class="agent-header">
+            <div class="card-header">
               <button
-                class="agent-expand-btn"
+                class="expand-btn"
                 class:expanded={expandedAgentId === defaultAgent.id}
                 onclick={(e: MouseEvent) => {
                   e.stopPropagation();
@@ -400,22 +400,22 @@
                   ? "Collapse details"
                   : "Expand details"}>▶</button
               >
-              <span class="agent-avatar">{defaultAgent.avatar ?? "🤖"}</span>
-              <span class="agent-name">{defaultAgent.name}</span>
-              <span class="badge built-in-badge">built-in</span>
+              <span class="card-icon">{defaultAgent.avatar ?? "🤖"}</span>
+              <span class="card-title">{defaultAgent.name}</span>
+              <span class="badge badge--copper">built-in</span>
             </div>
             {#if expandedAgentId !== defaultAgent.id}
-              <p class="agent-desc">{truncatePrompt(defaultAgent.systemPrompt)}</p>
+              <p class="card-desc">{truncatePrompt(defaultAgent.systemPrompt)}</p>
             {/if}
             {#if expandedAgentId === defaultAgent.id}
-              <div class="agent-details">
+              <div class="card-detail">
                 <div class="agent-prompt-full markdown-prose">
                   {@html renderMarkdown(defaultAgent.systemPrompt)}
                 </div>
               </div>
             {/if}
-            <div class="agent-meta">
-              <span class="meta-tag">Default for new conversations</span>
+            <div class="card-meta">
+              <span class="badge badge--neutral">Default for new conversations</span>
             </div>
           </div>
         {/if}
@@ -425,14 +425,14 @@
           <h2 class="section-heading">Custom Agents</h2>
           {#each customAgents as agent (agent.id)}
             <div
-              class="agent-card"
+              class="card"
               role="listitem"
               ondblclick={() => toggleExpandAgent(agent.id)}
               title="Double-click to expand"
             >
-              <div class="agent-header">
+              <div class="card-header">
                 <button
-                  class="agent-expand-btn"
+                  class="expand-btn"
                   class:expanded={expandedAgentId === agent.id}
                   onclick={(e: MouseEvent) => {
                     e.stopPropagation();
@@ -441,21 +441,21 @@
                   aria-label={expandedAgentId === agent.id ? "Collapse details" : "Expand details"}
                   >▶</button
                 >
-                <span class="agent-avatar">{agent.avatar ?? "🤖"}</span>
-                <span class="agent-name">{agent.name}</span>
+                <span class="card-icon">{agent.avatar ?? "🤖"}</span>
+                <span class="card-title">{agent.name}</span>
                 {#if sourceLabel(agent)}
-                  <span class="badge source-badge">{sourceLabel(agent)}</span>
+                  <span class="badge badge--neutral">{sourceLabel(agent)}</span>
                 {/if}
-                <div class="agent-actions">
+                <div class="card-actions">
                   <button
-                    class="action-btn"
+                    class="btn btn--sm"
                     onclick={() => openEditForm(agent)}
                     aria-label="Edit agent {agent.name}"
                   >
                     Edit
                   </button>
                   <button
-                    class="action-btn danger"
+                    class="btn btn--sm btn--danger"
                     onclick={() => requestDelete(agent)}
                     aria-label="Delete agent {agent.name}"
                   >
@@ -464,21 +464,21 @@
                 </div>
               </div>
               {#if expandedAgentId !== agent.id}
-                <p class="agent-desc">{truncatePrompt(agent.systemPrompt)}</p>
+                <p class="card-desc">{truncatePrompt(agent.systemPrompt)}</p>
               {/if}
               {#if expandedAgentId === agent.id}
-                <div class="agent-details">
+                <div class="card-detail">
                   <div class="agent-prompt-full markdown-prose">
                     {@html renderMarkdown(agent.systemPrompt)}
                   </div>
                   {#if agent.sourceUrl}
-                    <div class="agent-detail-row">
-                      <span>Source:</span>
+                    <div class="detail-row">
+                      <span class="detail-label">Source:</span>
                       <a
                         href={agent.sourceUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        class="agent-detail-link">{agent.sourceUrl}</a
+                        class="detail-link">{agent.sourceUrl}</a
                       >
                     </div>
                   {/if}
@@ -506,14 +506,14 @@
           <div class="section-content">
             <div class="search-row">
               <input
-                class="search-input"
+                class="form-input"
                 type="search"
                 placeholder="Search agents on aitmpl.com…"
                 value={registrySearchInput}
                 oninput={(e) => handleRegistrySearch(e.currentTarget.value)}
               />
               {#if agentStore.registrySearching}
-                <span class="search-spinner">⟳</span>
+                <span class="search-spinner-inline">⟳</span>
               {/if}
             </div>
 
@@ -521,14 +521,14 @@
               <div class="registry-results" role="list">
                 {#each agentStore.registryResults as item (item.id + item.source + item.kind)}
                   <article
-                    class="registry-card"
+                    class="card card--flat"
                     role="listitem"
                     ondblclick={() => toggleExpandRegistry(item)}
                     title="Double-click to expand"
                   >
-                    <div class="registry-info">
+                    <div class="card-header">
                       <button
-                        class="agent-expand-btn"
+                        class="expand-btn"
                         class:expanded={expandedRegistryKey === registryKey(item)}
                         onclick={(e: MouseEvent) => {
                           e.stopPropagation();
@@ -538,8 +538,8 @@
                           ? "Collapse"
                           : "Expand"}>▶</button
                       >
-                      <strong class="registry-name">{item.name}</strong>
-                      <span class="source-badge">{registrySourceLabel()}</span>
+                      <strong class="card-title">{item.name}</strong>
+                      <span class="badge badge--neutral">{registrySourceLabel()}</span>
                       {#if item.url}
                         <a
                           href={item.url}
@@ -553,23 +553,23 @@
                       {/if}
                     </div>
                     {#if expandedRegistryKey !== registryKey(item) && item.description}
-                      <p class="registry-desc">{item.description}</p>
+                      <p class="card-desc">{item.description}</p>
                     {/if}
                     {#if expandedRegistryKey === registryKey(item)}
-                      <div class="registry-expanded markdown-prose">
+                      <div class="card-detail registry-expanded markdown-prose">
                         {@html renderMarkdown(
                           stripFrontmatter(item.content ?? item.description ?? ""),
                         )}
                       </div>
                     {/if}
-                    <div class="registry-actions">
+                    <div class="card-actions registry-actions">
                       {#if isAgentAlreadyInstalled(item)}
-                        <span class="installed-badge">✓ Installed</span>
+                        <span class="badge badge--success">✓ Installed</span>
                       {:else if installedId === item.id}
-                        <span class="installed-badge">✓ Installed</span>
+                        <span class="badge badge--success">✓ Installed</span>
                       {:else}
                         <button
-                          class="action-btn primary"
+                          class="btn btn--primary"
                           onclick={() => handleRegistryInstall(item)}
                           disabled={installingId === item.id}
                         >
@@ -605,13 +605,13 @@
             </p>
             <div class="git-row">
               <input
-                class="search-input"
+                class="form-input"
                 type="url"
                 placeholder="https://github.com/user/repo"
                 bind:value={gitUrl}
               />
               <button
-                class="action-btn primary"
+                class="btn btn--primary"
                 onclick={handleGitDiscover}
                 disabled={agentStore.gitImporting || !gitUrl.trim()}
               >
@@ -620,7 +620,7 @@
             </div>
 
             {#if gitError}
-              <div class="git-error" role="alert">{gitError}</div>
+              <div class="banner banner--error" role="alert">{gitError}</div>
             {/if}
 
             {#if agentStore.gitImporting}
@@ -628,16 +628,16 @@
                 {#if agentStore.gitProgress}
                   <div class="git-progress-info">
                     {#if agentStore.gitProgress.phase === "tree"}
-                      <span class="loading-spinner"></span> Scanning repository structure…
+                      <span class="spinner"></span> Scanning repository structure…
                     {:else}
-                      <span class="loading-spinner"></span> Fetching files… {agentStore.gitProgress
+                      <span class="spinner"></span> Fetching files… {agentStore.gitProgress
                         .fetched}/{agentStore.gitProgress.total}
                     {/if}
                   </div>
                   {#if agentStore.gitProgress.phase === "fetch" && agentStore.gitProgress.total > 0}
-                    <div class="git-progress-bar">
+                    <div class="progress">
                       <div
-                        class="git-progress-fill"
+                        class="progress-fill"
                         style="width: {Math.round(
                           (agentStore.gitProgress.fetched / agentStore.gitProgress.total) * 100,
                         )}%"
@@ -646,23 +646,23 @@
                   {/if}
                 {:else}
                   <div class="registry-loading">
-                    <span class="loading-spinner"></span> Discovering agent files…
+                    <span class="spinner"></span> Discovering agent files…
                   </div>
                 {/if}
               </div>
             {:else if agentStore.gitDiscoveredFiles.length > 0}
               <div class="git-results" role="list">
                 {#each agentStore.gitDiscoveredFiles as file (file.path)}
-                  <article class="git-file-card" role="listitem">
+                  <article class="card card--flat git-file-card" role="listitem">
                     <div class="git-file-info">
                       <span class="git-file-path">{file.path}</span>
                     </div>
-                    <div class="git-file-actions">
+                    <div class="card-actions">
                       {#if importedPath === file.path}
-                        <span class="installed-badge">✓ Imported</span>
+                        <span class="badge badge--success">✓ Imported</span>
                       {:else}
                         <button
-                          class="action-btn primary"
+                          class="btn btn--primary"
                           onclick={() => handleGitImport(file)}
                           disabled={importingPath === file.path}
                         >
@@ -699,7 +699,7 @@
         <!-- Avatar + Name row -->
         <div class="form-row">
           <div class="form-field avatar-field">
-            <label class="form-label" for="agent-avatar">Avatar</label>
+            <label class="form-label form-label--caps" for="agent-avatar">Avatar</label>
             <div class="avatar-picker">
               <button
                 id="agent-avatar"
@@ -734,7 +734,7 @@
             </div>
           </div>
           <div class="form-field name-field">
-            <label class="form-label" for="agent-name">Name</label>
+            <label class="form-label form-label--caps" for="agent-name">Name</label>
             <input
               id="agent-name"
               class="form-input"
@@ -747,13 +747,13 @@
 
         <!-- System Prompt -->
         <div class="form-field">
-          <label class="form-label" for="agent-prompt">
+          <label class="form-label form-label--caps" for="agent-prompt">
             System Prompt
             <span class="form-hint">Markdown supported</span>
           </label>
           <textarea
             id="agent-prompt"
-            class="form-textarea"
+            class="form-input form-input--mono agent-prompt-textarea"
             rows={8}
             bind:value={formPrompt}
             onkeydown={handlePromptKeydown}
@@ -765,17 +765,17 @@
         {#if enabledSkills.length > 0}
           <fieldset class="form-fieldset">
             <legend class="form-legend">Assigned Skills</legend>
-            <div class="checkbox-list" role="group" aria-label="Skills">
+            <div class="check-list" role="group" aria-label="Skills">
               {#each enabledSkills as skill (skill.id)}
-                <label class="checkbox-item">
+                <label class="check-item">
                   <input
                     type="checkbox"
                     checked={formSkillIds.has(skill.id)}
                     onchange={() => toggleSkill(skill.id)}
                   />
-                  <span class="checkbox-label">
-                    <span class="checkbox-name">{skill.name}</span>
-                    <span class="badge source-badge">{skill.source}</span>
+                  <span class="check-item-content">
+                    <span class="check-item-label">{skill.name}</span>
+                    <span class="badge badge--neutral">{skill.source}</span>
                   </span>
                 </label>
               {/each}
@@ -787,20 +787,20 @@
         {#if mcpState.servers.length > 0}
           <fieldset class="form-fieldset">
             <legend class="form-legend">MCP Connections</legend>
-            <div class="checkbox-list" role="group" aria-label="MCP servers">
+            <div class="check-list" role="group" aria-label="MCP servers">
               {#each mcpState.servers as server (server.config.id)}
-                <label class="checkbox-item">
+                <label class="check-item">
                   <input
                     type="checkbox"
                     checked={formMcpIds.has(server.config.id)}
                     onchange={() => toggleMcp(server.config.id)}
                   />
-                  <span class="checkbox-label">
-                    <span class="checkbox-status" title={server.status}>
+                  <span class="check-item-content">
+                    <span class="check-item-status" title={server.status}>
                       {statusIcon(server.status)}
                     </span>
-                    <span class="checkbox-name">{server.config.name}</span>
-                    <span class="badge source-badge">{server.config.transport}</span>
+                    <span class="check-item-label">{server.config.name}</span>
+                    <span class="badge badge--neutral">{server.config.transport}</span>
                   </span>
                 </label>
               {/each}
@@ -810,10 +810,10 @@
 
         <!-- Form actions -->
         <div class="form-actions">
-          <button class="action-btn" onclick={cancelForm} disabled={formSaving}>Cancel</button>
-          <button class="action-btn primary" onclick={handleSave} disabled={formSaving}>
+          <button class="btn" onclick={cancelForm} disabled={formSaving}>Cancel</button>
+          <button class="btn btn--primary" onclick={handleSave} disabled={formSaving}>
             {#if formSaving}
-              <span class="loading-spinner small"></span> Saving…
+              <span class="spinner spinner--sm"></span> Saving…
             {:else}
               {view.editing ? "Save Changes" : "Create Agent"}
             {/if}
@@ -825,71 +825,11 @@
 </div>
 
 <style>
-  /* ── Panel Layout ── */
+  /* ── Component-specific overrides ── */
 
-  .agents-panel {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    overflow: hidden;
-    animation: fadeIn 180ms ease;
-  }
-
-  .panel-header {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-md);
-    padding: var(--spacing-md) var(--spacing-lg);
-    border-bottom: 1px solid var(--color-border-primary);
-    flex-shrink: 0;
-  }
-
-  .back-btn {
-    background: none;
-    border: none;
-    color: var(--color-accent-copper);
-    cursor: pointer;
-    font-size: var(--font-size-sm);
-    font-weight: var(--font-weight-medium);
-    padding: var(--spacing-xs) var(--spacing-sm);
-    border-radius: var(--radius-sm);
-    transition: background var(--transition-fast);
-  }
-  .back-btn:hover {
-    background: var(--color-bg-hover);
-  }
-
-  .panel-title {
-    font-family: var(--font-display);
-    font-style: italic;
-    font-size: var(--font-size-xl);
-    color: var(--color-text-primary);
-    margin: 0;
-    flex: 1;
-  }
-
-  .header-add-btn {
-    font-size: var(--font-size-xs);
-    font-weight: var(--font-weight-medium);
-    padding: var(--spacing-xs) var(--spacing-sm);
-    border: 1px solid var(--color-border-primary);
-    border-radius: var(--radius-sm);
-    background: var(--color-bg-primary);
-    color: var(--color-text-secondary);
-    cursor: pointer;
-    transition: all var(--transition-fast);
-    white-space: nowrap;
-  }
   .header-add-btn:hover {
-    background: var(--color-bg-hover);
     color: var(--color-accent-copper);
     border-color: var(--color-accent-copper);
-  }
-
-  .panel-content {
-    flex: 1;
-    overflow-y: auto;
-    padding: var(--spacing-lg);
   }
 
   .panel-loading {
@@ -904,21 +844,12 @@
     font-style: italic;
   }
 
-  /* ── Agent Cards ── */
+  /* ── Agent list layout ── */
 
   .agents-list {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-sm);
-  }
-
-  .section-heading {
-    font-size: var(--font-size-xs);
-    font-weight: var(--font-weight-semibold);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--color-text-tertiary);
-    margin: var(--spacing-md) 0 var(--spacing-sm) 0;
   }
 
   .section-empty {
@@ -928,57 +859,9 @@
     padding: var(--spacing-md) 0;
   }
 
-  .agent-card {
-    background: var(--color-bg-secondary);
-    border: 1px solid var(--color-border-primary);
-    border-radius: var(--radius-md);
-    padding: var(--spacing-md);
-    animation: fadeInUp 200ms ease both;
-    transition: border-color var(--transition-fast);
-  }
-  .agent-card:hover {
-    border-color: var(--color-border-focus);
-  }
+  /* ── Expand / Collapse toggle ── */
 
-  .default-card {
-    border-left: 3px solid var(--color-accent-copper);
-  }
-
-  .agent-header {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-sm);
-    flex-wrap: wrap;
-  }
-
-  .agent-avatar {
-    font-size: var(--font-size-lg);
-    line-height: 1;
-    flex-shrink: 0;
-  }
-
-  .agent-name {
-    font-size: var(--font-size-sm);
-    font-weight: var(--font-weight-semibold);
-    color: var(--color-text-primary);
-    flex: 1;
-    min-width: 0;
-  }
-
-  .agent-actions {
-    display: flex;
-    gap: var(--spacing-xs);
-    flex-shrink: 0;
-  }
-
-  .agent-desc {
-    font-size: var(--font-size-xs);
-    color: var(--color-text-secondary);
-    margin: var(--spacing-xs) 0 0;
-    line-height: var(--line-height-normal);
-  }
-
-  .agent-expand-btn {
+  .expand-btn {
     all: unset;
     font-size: 10px;
     color: var(--color-text-tertiary);
@@ -995,23 +878,16 @@
     align-items: center;
     justify-content: center;
   }
-  .agent-expand-btn:hover {
+  .expand-btn:hover {
     color: var(--color-text-secondary);
     background: var(--color-bg-tertiary, rgba(0, 0, 0, 0.05));
   }
-  .agent-expand-btn.expanded {
+  .expand-btn.expanded {
     transform: rotate(90deg);
     color: var(--color-accent-copper);
   }
 
-  .agent-details {
-    margin-top: var(--spacing-sm);
-    padding: var(--spacing-sm);
-    background: var(--color-bg-primary);
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--color-border-primary);
-    animation: fadeIn 150ms ease both;
-  }
+  /* ── Expanded detail content ── */
 
   .agent-prompt-full {
     font-size: var(--font-size-xs);
@@ -1023,7 +899,7 @@
     margin: 0;
   }
 
-  .agent-detail-row {
+  .detail-row {
     display: flex;
     gap: var(--spacing-xs);
     font-size: var(--font-size-xs);
@@ -1031,111 +907,22 @@
     margin-top: var(--spacing-xs);
   }
 
-  .agent-detail-link {
+  .detail-link {
     color: var(--color-accent-copper);
     text-decoration: none;
     word-break: break-all;
   }
-  .agent-detail-link:hover {
+  .detail-link:hover {
     text-decoration: underline;
   }
 
-  .agent-meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--spacing-xs);
-    margin-top: var(--spacing-xs);
-  }
-
-  /* ── Badges ── */
-
-  .badge {
-    font-size: var(--font-size-2xs);
-    padding: 1px var(--spacing-xs);
-    border-radius: var(--radius-sm);
-    white-space: nowrap;
-  }
-
-  .built-in-badge {
-    color: var(--color-accent-copper);
-    background: color-mix(in srgb, var(--color-accent-copper) 12%, transparent);
-    font-weight: var(--font-weight-medium);
-  }
-
-  .source-badge {
-    color: var(--color-text-tertiary);
-    background: var(--color-bg-tertiary);
-    font-weight: var(--font-weight-medium);
-  }
-
-  .meta-tag {
-    font-size: var(--font-size-xs);
-    color: var(--color-text-secondary);
-    background: var(--color-bg-tertiary);
-    padding: 2px var(--spacing-xs);
-    border-radius: var(--radius-sm);
-  }
-
-  /* ── Action Buttons ── */
-
-  .action-btn {
-    font-size: var(--font-size-xs);
-    padding: var(--spacing-xs) var(--spacing-sm);
-    border: 1px solid var(--color-border-primary);
-    border-radius: var(--radius-sm);
-    background: var(--color-bg-primary);
-    color: var(--color-text-secondary);
-    cursor: pointer;
-    transition: all var(--transition-fast);
-    font-family: var(--font-body);
-  }
-  .action-btn:hover:not(:disabled) {
-    background: var(--color-bg-hover);
-    color: var(--color-text-primary);
-  }
-  .action-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-  .action-btn.danger {
-    color: var(--color-error);
-    border-color: color-mix(in srgb, var(--color-error) 30%, transparent);
-  }
-  .action-btn.danger:hover:not(:disabled) {
-    color: var(--color-error);
-    border-color: var(--color-error);
-    background: color-mix(in srgb, var(--color-error) 8%, transparent);
-  }
-  .action-btn.primary {
-    background: var(--color-text-primary);
-    color: var(--color-bg-primary);
-    border-color: var(--color-text-primary);
-    font-weight: var(--font-weight-medium);
-    display: inline-flex;
-    align-items: center;
-    gap: var(--spacing-xs);
-  }
-  .action-btn.primary:hover:not(:disabled) {
-    opacity: 0.9;
-    color: var(--color-bg-primary);
-  }
-
-  /* ── Form ── */
+  /* ── Form layout ── */
 
   .agent-form {
     width: 100%;
     max-width: 640px;
     margin: 0 auto;
     animation: fadeInUp 200ms ease;
-  }
-
-  .form-error {
-    font-size: var(--font-size-xs);
-    color: var(--color-error);
-    padding: var(--spacing-sm);
-    background: color-mix(in srgb, var(--color-error) 8%, transparent);
-    border-radius: var(--radius-sm);
-    margin-bottom: var(--spacing-md);
   }
 
   .form-row {
@@ -1151,11 +938,10 @@
     }
   }
 
-  .form-field {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-xs);
-    margin-bottom: var(--spacing-md);
+  .form-label--caps {
+    font-weight: var(--font-weight-semibold);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
   }
 
   .avatar-field {
@@ -1165,36 +951,6 @@
   .name-field {
     flex: 1;
     min-width: 0;
-    margin-bottom: 0;
-  }
-
-  .avatar-field {
-    margin-bottom: 0;
-  }
-
-  .form-label {
-    font-size: var(--font-size-xs);
-    font-weight: var(--font-weight-semibold);
-    color: var(--color-text-secondary);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-  }
-
-  .form-input {
-    padding: var(--spacing-sm);
-    border: 1px solid var(--color-border-primary);
-    border-radius: var(--radius-sm);
-    background: var(--color-bg-primary);
-    color: var(--color-text-primary);
-    font-size: var(--font-size-sm);
-    font-family: var(--font-body);
-    box-sizing: border-box;
-    width: 100%;
-  }
-  .form-input:focus {
-    outline: none;
-    border-color: var(--color-accent-copper);
-    box-shadow: var(--shadow-input-focus);
   }
 
   .avatar-picker {
@@ -1270,34 +1026,8 @@
     outline: 2px solid var(--color-accent-copper);
   }
 
-  .form-hint {
-    font-weight: var(--font-weight-normal);
-    color: var(--color-text-tertiary);
-    text-transform: none;
-    letter-spacing: 0;
-    margin-left: var(--spacing-xs);
-    font-size: var(--font-size-xxs, 0.65rem);
-  }
-
-  .form-textarea {
-    padding: var(--spacing-sm) var(--spacing-md);
-    border: 1px solid var(--color-border-primary);
-    border-radius: var(--radius-sm);
-    background: var(--color-bg-primary);
-    color: var(--color-text-primary);
-    font-size: var(--font-size-sm);
-    font-family: var(--font-mono);
-    box-sizing: border-box;
-    width: 100%;
-    resize: vertical;
-    line-height: 1.6;
+  .agent-prompt-textarea {
     min-height: 180px;
-    tab-size: 2;
-  }
-  .form-textarea:focus {
-    outline: none;
-    border-color: var(--color-accent-copper);
-    box-shadow: var(--shadow-input-focus);
   }
 
   /* ── Fieldsets (Skills / MCP) ── */
@@ -1318,36 +1048,7 @@
     padding: 0 var(--spacing-xs);
   }
 
-  .checkbox-list {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-xs);
-    max-height: 200px;
-    overflow-y: auto;
-  }
-
-  .checkbox-item {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-sm);
-    padding: var(--spacing-xs) var(--spacing-sm);
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    transition: background var(--transition-fast);
-  }
-  .checkbox-item:hover {
-    background: var(--color-bg-hover);
-  }
-
-  .checkbox-item input[type="checkbox"] {
-    accent-color: var(--color-accent-copper);
-    flex-shrink: 0;
-    width: 14px;
-    height: 14px;
-    cursor: pointer;
-  }
-
-  .checkbox-label {
+  .check-item-content {
     display: flex;
     align-items: center;
     gap: var(--spacing-xs);
@@ -1355,53 +1056,9 @@
     flex: 1;
   }
 
-  .checkbox-name {
-    font-size: var(--font-size-xs);
-    color: var(--color-text-primary);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .checkbox-status {
+  .check-item-status {
     font-size: var(--font-size-2xs);
     flex-shrink: 0;
-  }
-
-  /* ── Form Actions ── */
-
-  .form-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: var(--spacing-sm);
-    padding-top: var(--spacing-md);
-    border-top: 1px solid var(--color-border-primary);
-    margin-top: var(--spacing-md);
-  }
-
-  /* ── Loading Spinner ── */
-
-  .loading-spinner {
-    display: inline-block;
-    width: 16px;
-    height: 16px;
-    border: 2px solid var(--color-border-primary);
-    border-top-color: var(--color-accent-copper);
-    border-radius: 50%;
-    animation: spin 0.6s linear infinite;
-    flex-shrink: 0;
-  }
-
-  .loading-spinner.small {
-    width: 12px;
-    height: 12px;
-    border-width: 1.5px;
-  }
-
-  @keyframes spin {
-    to {
-      transform: rotate(360deg);
-    }
   }
 
   /* ── Catalog Sections (Registry + Git) ── */
@@ -1422,7 +1079,6 @@
     text-align: left;
     color: var(--color-text-primary);
   }
-
   .collapsible-heading:hover {
     color: var(--color-accent-copper, var(--color-accent));
   }
@@ -1432,7 +1088,6 @@
     transition: transform 0.2s ease;
     color: var(--color-text-tertiary);
   }
-
   .collapse-arrow.expanded {
     transform: rotate(90deg);
   }
@@ -1457,12 +1112,6 @@
     line-height: var(--leading-relaxed, 1.6);
   }
 
-  .section-empty {
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-sm);
-    font-style: italic;
-  }
-
   .search-row {
     display: flex;
     align-items: center;
@@ -1470,27 +1119,11 @@
     margin-bottom: var(--spacing-sm);
   }
 
-  .search-input {
+  .search-row .form-input {
     flex: 1;
-    padding: var(--spacing-xs) var(--spacing-sm);
-    font-size: var(--font-size-sm);
-    font-family: var(--font-body);
-    border: 1px solid var(--color-border-primary);
-    border-radius: var(--radius-sm);
-    background: var(--color-bg-primary);
-    color: var(--color-text-primary);
-    transition:
-      border-color 0.15s,
-      box-shadow 0.15s;
   }
 
-  .search-input:focus {
-    outline: none;
-    border-color: var(--color-accent);
-    box-shadow: var(--shadow-input-focus, 0 0 0 2px rgba(180, 83, 9, 0.15));
-  }
-
-  .search-spinner {
+  .search-spinner-inline {
     animation: spin 0.8s linear infinite;
     color: var(--color-text-tertiary);
   }
@@ -1501,13 +1134,8 @@
     margin-bottom: var(--spacing-sm);
   }
 
-  .git-error {
-    font-size: var(--font-size-sm);
-    color: var(--color-error, #dc2626);
-    background: color-mix(in srgb, var(--color-error, #dc2626) 8%, transparent);
-    padding: var(--spacing-xs) var(--spacing-sm);
-    border-radius: var(--radius-sm);
-    margin-bottom: var(--spacing-sm);
+  .git-row .form-input {
+    flex: 1;
   }
 
   .registry-results,
@@ -1517,82 +1145,27 @@
     gap: var(--spacing-sm);
   }
 
-  .registry-card,
-  .git-file-card {
-    padding: var(--spacing-sm);
-    border: 1px solid var(--color-border-primary);
-    border-radius: var(--radius-md, var(--radius-sm));
-    background: var(--color-bg-primary);
-  }
-
-  .registry-info {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-sm);
-    margin-bottom: var(--spacing-xxs, 4px);
-  }
-
-  .registry-name {
-    font-size: var(--font-size-sm);
-    font-weight: var(--font-weight-medium);
-    color: var(--color-text-primary);
-  }
-
-  .source-badge {
-    font-size: var(--font-size-xs);
-    padding: 1px 6px;
-    border-radius: var(--radius-sm);
-    background: var(--color-bg-tertiary, var(--color-bg-secondary));
-    color: var(--color-text-tertiary);
-  }
-
   .source-link {
     font-size: var(--font-size-xs);
     color: var(--color-accent);
     text-decoration: none;
     margin-left: auto;
   }
-
   .source-link:hover {
     text-decoration: underline;
-  }
-
-  .registry-desc {
-    font-size: var(--font-size-xs);
-    color: var(--color-text-secondary);
-    margin: 0 0 var(--spacing-xs);
-    line-height: var(--leading-relaxed, 1.6);
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
   }
 
   .registry-expanded {
     font-size: var(--font-size-xs);
     color: var(--color-text-secondary);
-    margin: var(--spacing-sm) 0 0 0;
-    padding: var(--spacing-sm);
-    background: var(--color-bg-primary);
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--color-border-primary);
     line-height: var(--line-height-relaxed);
     max-height: 300px;
     overflow-y: auto;
-    animation: fadeIn 150ms ease both;
   }
 
-  .registry-actions,
-  .git-file-actions {
-    display: flex;
+  .registry-actions {
     justify-content: flex-end;
-  }
-
-  .installed-badge {
-    font-size: var(--font-size-xs);
-    color: var(--color-success, #16a34a);
-    font-weight: var(--font-weight-medium);
+    margin-top: var(--spacing-xs);
   }
 
   .git-file-card {
@@ -1630,18 +1203,12 @@
     color: var(--color-text-secondary);
   }
 
-  .git-progress-bar {
-    width: 100%;
-    height: 6px;
-    background: var(--color-bg-tertiary);
-    border-radius: 3px;
-    overflow: hidden;
-  }
-
-  .git-progress-fill {
-    height: 100%;
-    background: var(--color-accent);
-    border-radius: 3px;
-    transition: width 0.2s ease;
+  .registry-loading {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    font-style: italic;
   }
 </style>
