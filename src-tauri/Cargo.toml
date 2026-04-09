@@ -1,6 +1,6 @@
 [package]
 name = "chuck"
-version = "0.1.0"
+version.workspace = true
 description = "A native desktop chat client for GitHub Copilot"
 edition.workspace = true
 license.workspace = true

@@ -1,6 +1,6 @@
 [package]
 name = "web-research"
-version = "0.1.0"
+version.workspace = true
 description = "Web search API client + URL content extraction"
 edition.workspace = true
 license.workspace = true

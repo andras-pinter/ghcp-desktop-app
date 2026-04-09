@@ -1,8 +1,9 @@
 [workspace]
-members = ["src-tauri", "crates/copilot-api", "crates/mcp-client", "crates/web-research"]
+members = ["src-tauri", "crates/copilot-api", "crates/mcp-client", "crates/web-research", "crates/xtask"]
 resolver = "2"
 
 [workspace.package]
+version = "0.1.0"
 edition = "2021"
 license = "Unlicense"
 repository = "https://github.com/pinter-copilot/ghcp-desktop-app"
