@@ -16,6 +16,8 @@ export const SETTING_KEYS = {
   globalHotkey: "global_hotkey",
   autoUpdateEnabled: "auto_update_enabled",
   autoUpdateFrequency: "auto_update_frequency",
+  skippedVersion: "skipped_version",
+  updateSnoozedUntil: "update_snoozed_until",
 } as const;
 
 // ── Reactive state ──────────────────────────────────────────────
@@ -26,6 +28,8 @@ let sendShortcut = $state<SendShortcut>("enter");
 let globalHotkey = $state("CommandOrControl+Shift+Space");
 let autoUpdateEnabled = $state(true);
 let autoUpdateFrequency = $state<UpdateFrequency>("startup");
+let skippedVersion = $state<string | null>(null);
+let updateSnoozedUntil = $state<string | null>(null);
 let loaded = $state(false);
 
 // ── Theme application ───────────────────────────────────────────
@@ -45,13 +49,24 @@ function applyFontSize(size: number): void {
 
 /** Load all settings from the backend. Call once on app startup. */
 export async function initSettings(): Promise<void> {
-  const [themeVal, fontVal, sendVal, hotkeyVal, autoUpdateVal, autoFreqVal] = await Promise.all([
+  const [
+    themeVal,
+    fontVal,
+    sendVal,
+    hotkeyVal,
+    autoUpdateVal,
+    autoFreqVal,
+    skippedVal,
+    snoozedVal,
+  ] = await Promise.all([
     getSetting(SETTING_KEYS.theme),
     getSetting(SETTING_KEYS.fontSize),
     getSetting(SETTING_KEYS.sendShortcut),
     getSetting(SETTING_KEYS.globalHotkey),
     getSetting(SETTING_KEYS.autoUpdateEnabled),
     getSetting(SETTING_KEYS.autoUpdateFrequency),
+    getSetting(SETTING_KEYS.skippedVersion),
+    getSetting(SETTING_KEYS.updateSnoozedUntil),
   ]);
 
   if (themeVal) theme = themeVal as ThemeMode;
@@ -60,6 +75,8 @@ export async function initSettings(): Promise<void> {
   if (hotkeyVal) globalHotkey = hotkeyVal;
   if (autoUpdateVal) autoUpdateEnabled = autoUpdateVal === "true";
   if (autoFreqVal) autoUpdateFrequency = autoFreqVal as UpdateFrequency;
+  skippedVersion = skippedVal ?? null;
+  updateSnoozedUntil = snoozedVal ?? null;
 
   applyTheme(theme);
   applyFontSize(fontSize);
@@ -91,6 +108,12 @@ export async function updateSetting(key: string, value: string): Promise<void> {
     case SETTING_KEYS.autoUpdateFrequency:
       autoUpdateFrequency = value as UpdateFrequency;
       break;
+    case SETTING_KEYS.skippedVersion:
+      skippedVersion = value || null;
+      break;
+    case SETTING_KEYS.updateSnoozedUntil:
+      updateSnoozedUntil = value || null;
+      break;
   }
 }
 
@@ -114,6 +137,12 @@ export function getSettings() {
     },
     get autoUpdateFrequency() {
       return autoUpdateFrequency;
+    },
+    get skippedVersion() {
+      return skippedVersion;
+    },
+    get updateSnoozedUntil() {
+      return updateSnoozedUntil;
     },
     get loaded() {
       return loaded;

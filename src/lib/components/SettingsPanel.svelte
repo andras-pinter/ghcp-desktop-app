@@ -241,6 +241,63 @@
           </div>
         {/if}
       </section>
+
+      <section class="settings-section">
+        <h2 class="section-title">Auto-Update</h2>
+
+        <div class="setting-row">
+          <label class="setting-label" for="auto-update-toggle">Check for updates</label>
+          <label class="toggle-label">
+            <input
+              id="auto-update-toggle"
+              type="checkbox"
+              class="toggle-input"
+              checked={settings.autoUpdateEnabled}
+              onchange={(e) =>
+                updateSetting(
+                  SETTING_KEYS.autoUpdateEnabled,
+                  String((e.target as HTMLInputElement).checked),
+                )}
+            />
+            <span class="toggle-switch"></span>
+            <span class="toggle-text">{settings.autoUpdateEnabled ? "Enabled" : "Disabled"}</span>
+          </label>
+        </div>
+
+        {#if settings.autoUpdateEnabled}
+          <div class="setting-row">
+            <label class="setting-label" for="update-frequency">Check frequency</label>
+            <select
+              id="update-frequency"
+              class="setting-select"
+              value={settings.autoUpdateFrequency}
+              onchange={(e) =>
+                updateSetting(
+                  SETTING_KEYS.autoUpdateFrequency,
+                  (e.target as HTMLSelectElement).value,
+                )}
+            >
+              <option value="startup">On startup</option>
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+            </select>
+          </div>
+
+          {#if settings.skippedVersion}
+            <div class="setting-row">
+              <span class="setting-label">
+                Skipping version <strong>{settings.skippedVersion}</strong>
+              </span>
+              <button
+                class="btn-secondary btn-sm"
+                onclick={() => updateSetting(SETTING_KEYS.skippedVersion, "")}
+              >
+                Clear
+              </button>
+            </div>
+          {/if}
+        {/if}
+      </section>
     {:else if activeTab === "account"}
       <section class="settings-section">
         <h2 class="section-title">Account</h2>
@@ -636,6 +693,11 @@
     cursor: not-allowed;
   }
 
+  .btn-sm {
+    padding: 2px var(--spacing-sm);
+    font-size: var(--font-size-xs);
+  }
+
   .btn-danger {
     padding: var(--spacing-xs) var(--spacing-lg);
     border: 1px solid var(--color-error, #dc2626);
@@ -652,5 +714,60 @@
       --color-error-subtle,
       color-mix(in srgb, var(--color-error, #dc2626) 10%, transparent)
     );
+  }
+
+  /* ── Toggle switch ── */
+
+  .toggle-label {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    cursor: pointer;
+  }
+
+  .toggle-input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+
+  .toggle-switch {
+    position: relative;
+    width: 36px;
+    height: 20px;
+    background: var(--color-border-primary);
+    border-radius: 10px;
+    transition: background var(--transition-fast);
+    flex-shrink: 0;
+  }
+
+  .toggle-switch::after {
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    background: white;
+    border-radius: 50%;
+    transition: transform var(--transition-fast);
+  }
+
+  .toggle-input:checked + .toggle-switch {
+    background: var(--color-accent-copper);
+  }
+
+  .toggle-input:checked + .toggle-switch::after {
+    transform: translateX(16px);
+  }
+
+  .toggle-input:focus-visible + .toggle-switch {
+    box-shadow: var(--shadow-input-focus);
+  }
+
+  .toggle-text {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
   }
 </style>
