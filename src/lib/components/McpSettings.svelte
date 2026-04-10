@@ -42,7 +42,7 @@
 
   let testingServer = $state<string | null>(null);
   let testResult = $state<{ serverId: string; success: boolean; message: string } | null>(null);
-  let expandedTools = $state<string | null>(null);
+  let expandedServerId = $state<string | null>(null);
   let expandedRegistryName = $state<string | null>(null);
   let registrySearch = $state("");
   let searchDebounce: ReturnType<typeof setTimeout> | null = null;
@@ -255,12 +255,12 @@
     pendingRemoveId = null;
   }
 
-  async function toggleTools(serverId: string) {
-    if (expandedTools === serverId) {
-      expandedTools = null;
+  async function toggleExpandServer(serverId: string) {
+    if (expandedServerId === serverId) {
+      expandedServerId = null;
     } else {
       await loadTools(serverId);
-      expandedTools = serverId;
+      expandedServerId = serverId;
     }
   }
 
@@ -270,6 +270,14 @@
         s.config.name === entry.name ||
         (entry.remotes[0]?.url && s.config.url === entry.remotes[0].url),
     );
+  }
+
+  function transportDesc(info: McpConnectionInfo): string {
+    const t = info.config.transport.toUpperCase();
+    if (info.config.transport === "http" && info.config.url) return `${t} · ${info.config.url}`;
+    if (info.config.transport === "stdio" && info.config.binaryPath)
+      return `${t} · ${info.config.binaryPath}`;
+    return t;
   }
 
   onDestroy(() => {
@@ -317,8 +325,24 @@
           {/if}
 
           {#each mcp.servers as info (info.config.id)}
-            <div class="card">
+            <article
+              class="card"
+              role="listitem"
+              ondblclick={() => toggleExpandServer(info.config.id)}
+              title="Double-click to expand"
+            >
               <div class="card-header">
+                <button
+                  class="expand-btn"
+                  class:expanded={expandedServerId === info.config.id}
+                  onclick={(e: MouseEvent) => {
+                    e.stopPropagation();
+                    toggleExpandServer(info.config.id);
+                  }}
+                  aria-label={expandedServerId === info.config.id
+                    ? "Collapse details"
+                    : "Expand details"}>▶</button
+                >
                 <span
                   class="status {info.status === 'connected'
                     ? 'status--connected'
@@ -330,58 +354,25 @@
                   aria-label={`Server ${info.status}`}><span class="status-dot"></span></span
                 >
                 <strong class="card-title">{info.config.name}</strong>
+                <span class="badge badge--neutral">{info.config.transport.toUpperCase()}</span>
                 <div class="card-actions">
                   {#if info.status === "connected"}
-                    <button class="btn" onclick={() => handleDisconnect(info.config.id)}>
+                    <button class="btn btn--sm" onclick={() => handleDisconnect(info.config.id)}>
                       Disconnect
                     </button>
                   {:else if info.status === "connecting"}
-                    <button class="btn" disabled>Connecting...</button>
+                    <button class="btn btn--sm" disabled>Connecting…</button>
                   {:else}
-                    <button class="btn" onclick={() => handleConnect(info.config.id)}>
+                    <button class="btn btn--sm" onclick={() => handleConnect(info.config.id)}>
                       Connect
                     </button>
                   {/if}
-                  <button
-                    class="btn"
-                    onclick={() => handleTest(info)}
-                    disabled={testingServer === info.config.id}
-                  >
-                    {testingServer === info.config.id ? "Testing..." : "Test"}
-                  </button>
-                  <button class="btn" onclick={() => openEditForm(info)}>Edit</button>
-                  <button class="btn btn--danger" onclick={() => handleRemove(info.config.id)}>
-                    Remove
-                  </button>
                 </div>
               </div>
 
-              <div class="card-meta">
-                <span class="badge badge--neutral"
-                  >Transport: {info.config.transport.toUpperCase()}</span
-                >
-                {#if info.config.transport === "http" && info.config.url}
-                  <span class="badge badge--neutral url-tag" title={info.config.url}>
-                    {info.config.url}
-                  </span>
-                {/if}
-                {#if info.config.transport === "stdio" && info.config.binaryPath}
-                  <span class="badge badge--neutral">Binary: {info.config.binaryPath}</span>
-                {/if}
-                <span class="badge badge--neutral">
-                  Tools: {info.toolCount}
-                  {#if info.status === "connected" && info.toolCount > 0}
-                    <button
-                      class="tools-toggle"
-                      onclick={() => toggleTools(info.config.id)}
-                      aria-label="Toggle tools list"
-                      aria-expanded={expandedTools === info.config.id}
-                    >
-                      {expandedTools === info.config.id ? "▼" : "▶"}
-                    </button>
-                  {/if}
-                </span>
-              </div>
+              {#if expandedServerId !== info.config.id}
+                <p class="card-desc">{transportDesc(info)}</p>
+              {/if}
 
               {#if info.error}
                 <div class="banner banner--error server-error">⚠ {info.error}</div>
@@ -398,19 +389,57 @@
                 </div>
               {/if}
 
-              {#if expandedTools === info.config.id && info.tools}
-                <div class="tools-list">
-                  {#each info.tools as tool (tool.name)}
-                    <div class="tool-item">
-                      <span class="tool-name">{tool.name}</span>
-                      {#if tool.description}
-                        <span class="tool-desc">{tool.description}</span>
-                      {/if}
+              {#if expandedServerId === info.config.id}
+                <div class="card-detail">
+                  <div class="card-meta">
+                    <span class="badge badge--neutral"
+                      >Transport: {info.config.transport.toUpperCase()}</span
+                    >
+                    {#if info.config.transport === "http" && info.config.url}
+                      <span class="badge badge--neutral url-tag" title={info.config.url}>
+                        {info.config.url}
+                      </span>
+                    {/if}
+                    {#if info.config.transport === "stdio" && info.config.binaryPath}
+                      <span class="badge badge--neutral">Binary: {info.config.binaryPath}</span>
+                    {/if}
+                    <span class="badge badge--neutral">
+                      Tools: {info.toolCount}
+                    </span>
+                  </div>
+
+                  {#if info.status === "connected" && info.tools && info.tools.length > 0}
+                    <div class="tools-list">
+                      {#each info.tools as tool (tool.name)}
+                        <div class="tool-item">
+                          <span class="tool-name">{tool.name}</span>
+                          {#if tool.description}
+                            <span class="tool-desc">{tool.description}</span>
+                          {/if}
+                        </div>
+                      {/each}
                     </div>
-                  {/each}
+                  {/if}
+
+                  <div class="card-actions" style="margin-top: var(--spacing-sm)">
+                    <button
+                      class="btn btn--sm"
+                      onclick={() => handleTest(info)}
+                      disabled={testingServer === info.config.id}
+                    >
+                      {testingServer === info.config.id ? "Testing…" : "Test"}
+                    </button>
+                    <button class="btn btn--sm" onclick={() => openEditForm(info)}>Edit</button>
+                    <button
+                      class="btn btn--sm btn--danger"
+                      onclick={() => handleRemove(info.config.id)}
+                    >
+                      Remove
+                    </button>
+                  </div>
                 </div>
               {/if}
-            </div>
+            </article>
           {/each}
         </section>
 
@@ -689,16 +718,6 @@
     max-width: 300px;
     overflow: hidden;
     text-overflow: ellipsis;
-  }
-
-  .tools-toggle {
-    background: none;
-    border: none;
-    color: var(--color-accent-copper);
-    cursor: pointer;
-    font-size: var(--font-size-xs);
-    padding: 0;
-    margin-left: var(--spacing-xs);
   }
 
   .tools-list {
