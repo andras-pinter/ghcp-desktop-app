@@ -814,9 +814,20 @@ async fn fetch_github_file(
         return Err(format!("File not found: {path} (HTTP {})", resp.status()));
     }
 
-    resp.text()
+    let content = resp
+        .text()
         .await
-        .map_err(|e| format!("Failed to read file content: {e}"))
+        .map_err(|e| format!("Failed to read file content: {e}"))?;
+
+    // Reject files larger than 512 KB to prevent memory exhaustion
+    if content.len() > 512 * 1024 {
+        return Err(format!(
+            "File too large: {path} ({} KB, max 512 KB)",
+            content.len() / 1024
+        ));
+    }
+
+    Ok(content)
 }
 
 #[cfg(test)]

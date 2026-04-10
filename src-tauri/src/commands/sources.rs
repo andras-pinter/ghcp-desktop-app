@@ -274,28 +274,25 @@ pub async fn search_catalog(
     }
 
     // 2) Fetch git source catalog items from enabled sources
-    let git_items = {
+    // Merge both DB queries into a single lock scope to reduce mutex contention
+    let (git_items, source_names) = {
         let db = state.db.lock().map_err(|e| e.to_string())?;
         let q = if query.trim().is_empty() {
             None
         } else {
             Some(query.as_str())
         };
-        queries::get_catalog_entries(&db, kind.as_deref(), q)
-            .map_err(|e| format!("Catalog query failed: {e}"))?
-    };
-
-    // Get source names for display
-    let source_names: std::collections::HashMap<String, String> = {
-        let db = state.db.lock().map_err(|e| e.to_string())?;
-        queries::list_git_sources(&db)
+        let catalog = queries::get_catalog_entries(&db, kind.as_deref(), q)
+            .map_err(|e| format!("Catalog query failed: {e}"))?;
+        let names: std::collections::HashMap<String, String> = queries::list_git_sources(&db)
             .map_err(|e| e.to_string())?
             .into_iter()
             .map(|s| (s.id.clone(), s.name.clone()))
-            .collect()
+            .collect();
+        (catalog, names)
     };
 
-    // Convert git catalog items to RegistryItem
+    // Convert git catalog items to RegistryItem (omit content to reduce IPC payload)
     for gi in git_items {
         let item_kind = match gi.kind.as_str() {
             "agent" => crate::registry::RegistryItemKind::Agent,
@@ -312,7 +309,7 @@ pub async fn search_catalog(
             installs: None,
             kind: item_kind,
             source_repo: None,
-            content: Some(gi.content),
+            content: None,
         });
     }
 
@@ -342,17 +339,18 @@ pub fn install_catalog_item(app: AppHandle, item_id: String) -> Result<String, S
     let state = app.state::<AppState>();
     let db = state.db.lock().map_err(|e| e.to_string())?;
 
-    // Look up the catalog item
-    let items = queries::get_catalog_entries(&db, None, None).map_err(|e| e.to_string())?;
-    let catalog_item = items
-        .into_iter()
-        .find(|i| i.id == item_id)
+    // Look up the catalog item by ID directly
+    let catalog_item = queries::get_catalog_entry_by_id(&db, &item_id)
+        .map_err(|e| e.to_string())?
         .ok_or_else(|| format!("Catalog item '{item_id}' not found"))?;
 
     let source = queries::get_git_source(&db, &catalog_item.git_source_id)
         .map_err(|e| e.to_string())?
         .ok_or("Git source not found")?;
 
+    // TODO: source_url uses hardcoded `blob/main` — may be wrong for repos with
+    // a different default branch (e.g. `master`). Cosmetic issue only; does not
+    // affect functionality since items are fetched via API, not these URLs.
     let source_url = format!("{}/blob/main/{}", source.url, catalog_item.path);
 
     match catalog_item.kind.as_str() {
@@ -375,7 +373,6 @@ pub fn install_catalog_item(app: AppHandle, item_id: String) -> Result<String, S
             )
             .map_err(|e| format!("Failed to save skill: {e}"))?;
 
-            // Refresh item count
             queries::refresh_git_source_item_count(&db, &source.id)
                 .map_err(|e| format!("Failed to refresh count: {e}"))?;
 
@@ -384,6 +381,19 @@ pub fn install_catalog_item(app: AppHandle, item_id: String) -> Result<String, S
         "agent" => {
             let parsed = crate::skillmd::parse(&catalog_item.content)
                 .map_err(|e| format!("Parse error: {e}"))?;
+
+            // Check for existing agent with same source_url to prevent duplicates
+            let existing = queries::list_agents(&db).map_err(|e| e.to_string())?;
+            if let Some(a) = existing
+                .iter()
+                .find(|a| a.source_url.as_deref() == Some(source_url.as_str()))
+            {
+                return Err(format!(
+                    "Agent '{}' is already installed from this source",
+                    a.name
+                ));
+            }
+
             let id = uuid::Uuid::new_v4().to_string();
             queries::create_agent(
                 &db,
@@ -397,7 +407,6 @@ pub fn install_catalog_item(app: AppHandle, item_id: String) -> Result<String, S
             )
             .map_err(|e| format!("Failed to save agent: {e}"))?;
 
-            // Refresh item count
             queries::refresh_git_source_item_count(&db, &source.id)
                 .map_err(|e| format!("Failed to refresh count: {e}"))?;
 
@@ -433,6 +442,7 @@ fn import_skill_item(
     let parsed = crate::skillmd::parse(&item.content).map_err(|e| format!("Parse error: {e}"))?;
 
     let db_id = format!("git-{}", parsed.name);
+    // TODO: `blob/main` assumes default branch — cosmetic only, see install_catalog_item
     let source_url = format!("{}/blob/main/{}", source.url, item.path);
 
     queries::create_skill(
@@ -462,6 +472,7 @@ fn import_agent_item(
     let parsed = crate::skillmd::parse(&item.content).map_err(|e| format!("Parse error: {e}"))?;
 
     let id = uuid::Uuid::new_v4().to_string();
+    // TODO: `blob/main` assumes default branch — cosmetic only, see install_catalog_item
     let source_url = format!("{}/blob/main/{}", source.url, item.path);
 
     queries::create_agent(
@@ -586,11 +597,7 @@ fn persist_catalog_items(
             }
         };
 
-        let id = format!(
-            "gsi-{}-{}",
-            source_id.chars().take(8).collect::<String>(),
-            file.path
-        );
+        let id = format!("gsi-{}-{}", source_id, file.path);
 
         queries::upsert_git_source_item(
             &db,

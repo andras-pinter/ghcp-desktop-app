@@ -222,6 +222,13 @@
   }
 
   function isAlreadyInstalled(item: RegistryItem): boolean {
+    // For git catalog items, also match by file path in source_url
+    if (item.source === "git" && item.id.startsWith("gsi-")) {
+      const path = item.id.substring(41);
+      if (path && store.skills.some((s) => s.sourceUrl?.endsWith(path))) {
+        return true;
+      }
+    }
     return store.skills.some(
       (s) =>
         s.id === item.id ||

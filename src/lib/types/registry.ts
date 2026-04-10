@@ -9,8 +9,8 @@ export interface RegistryItem {
   name: string;
   description: string | null;
   source: RegistrySource;
-  /** Display name of the source (e.g. "aitmpl.com" or git source name). */
-  sourceName: string | null;
+  /** Display name of the source (e.g. "aitmpl.com" or git source name). Absent when not set. */
+  sourceName?: string | null;
   url: string | null;
   installs: number | null;
   kind: RegistryItemKind;

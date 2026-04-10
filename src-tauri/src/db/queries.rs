@@ -1095,7 +1095,6 @@ pub fn get_source_items(
 }
 
 /// Recalculate and update the item count for a git source.
-#[allow(dead_code)]
 pub fn refresh_git_source_item_count(
     conn: &Connection,
     source_id: &str,
@@ -1132,7 +1131,6 @@ pub struct GitSourceCatalogItem {
 
 /// Upsert a catalog item from a git source scan.
 /// On conflict (same source + path), update content/name/description.
-#[allow(dead_code)]
 #[allow(clippy::too_many_arguments)]
 pub fn upsert_git_source_item(
     conn: &Connection,
@@ -1160,7 +1158,6 @@ pub fn upsert_git_source_item(
 
 /// Remove catalog items for a source that are no longer present in the repo.
 /// `current_paths` is the set of paths found in the latest scan.
-#[allow(dead_code)]
 pub fn delete_stale_source_items(
     conn: &Connection,
     git_source_id: &str,
@@ -1195,7 +1192,6 @@ pub fn delete_stale_source_items(
 }
 
 /// Get all catalog items from enabled git sources, optionally filtered by kind and search query.
-#[allow(dead_code)]
 pub fn get_catalog_entries(
     conn: &Connection,
     kind: Option<&str>,
@@ -1218,9 +1214,14 @@ pub fn get_catalog_entries(
 
     if let Some(q) = query {
         if !q.trim().is_empty() {
-            let pattern = format!("%{}%", q.trim());
+            let escaped = q
+                .trim()
+                .replace('\\', "\\\\")
+                .replace('%', "\\%")
+                .replace('_', "\\_");
+            let pattern = format!("%{escaped}%");
             sql.push_str(&format!(
-                " AND (i.name LIKE ?{param_idx} OR i.description LIKE ?{})",
+                " AND (i.name LIKE ?{param_idx} ESCAPE '\\' OR i.description LIKE ?{} ESCAPE '\\')",
                 param_idx + 1
             ));
             param_values.push(Box::new(pattern.clone()));
@@ -1254,6 +1255,37 @@ pub fn get_catalog_entries(
         items.push(row?);
     }
     Ok(items)
+}
+
+/// Get a single catalog item by its ID.
+pub fn get_catalog_entry_by_id(
+    conn: &Connection,
+    id: &str,
+) -> Result<Option<GitSourceCatalogItem>, rusqlite::Error> {
+    let mut stmt = conn.prepare(
+        "SELECT i.id, i.git_source_id, i.path, i.kind, i.name, i.description, i.content, i.created_at, i.updated_at
+         FROM git_source_items i
+         JOIN git_sources s ON i.git_source_id = s.id
+         WHERE i.id = ?1",
+    )?;
+    let mut rows = stmt.query_map(params![id], |row| {
+        Ok(GitSourceCatalogItem {
+            id: row.get(0)?,
+            git_source_id: row.get(1)?,
+            path: row.get(2)?,
+            kind: row.get(3)?,
+            name: row.get(4)?,
+            description: row.get(5)?,
+            content: row.get(6)?,
+            created_at: row.get(7)?,
+            updated_at: row.get(8)?,
+        })
+    })?;
+    match rows.next() {
+        Some(Ok(item)) => Ok(Some(item)),
+        Some(Err(e)) => Err(e),
+        None => Ok(None),
+    }
 }
 
 // ── Projects ────────────────────────────────────────────────────

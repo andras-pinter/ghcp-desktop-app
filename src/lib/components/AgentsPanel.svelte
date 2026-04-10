@@ -161,6 +161,14 @@
   }
 
   function isAgentAlreadyInstalled(item: RegistryItem): boolean {
+    if (item.source === "git" && item.id.startsWith("gsi-")) {
+      // Extract file path from catalog ID: "gsi-{uuid}-{path}" → "{path}"
+      // UUID is 36 chars, so path starts at index 4 + 36 + 1 = 41
+      const path = item.id.substring(41);
+      if (path) {
+        return agentStore.agents.some((a) => a.sourceUrl?.endsWith(path) || a.name === item.name);
+      }
+    }
     return agentStore.agents.some((a) => a.sourceUrl?.includes(item.id) || a.name === item.name);
   }
 
