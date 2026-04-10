@@ -21,4 +21,6 @@ export interface Agent {
   createdAt: string;
   /** ISO 8601 last-update timestamp. */
   updatedAt: string;
+  /** ID of the git source this agent was imported from, or null. */
+  gitSourceId: string | null;
 }

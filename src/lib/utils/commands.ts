@@ -9,6 +9,7 @@ import type { Agent } from "$lib/types/agent";
 import type { Skill } from "$lib/types/skill";
 import type { Project, ProjectFile, FileUpload, ChatFileData } from "$lib/types/project";
 import type { RegistrySearchResult, GitSkillFile, RegistryItem } from "$lib/types/registry";
+import type { GitSource, SourceItem, ImportItem, SourceScanResult } from "$lib/types/source";
 import type {
   McpConnectionInfo,
   McpServerConfig,
@@ -528,6 +529,64 @@ export async function importGitSkill(
   path: string,
 ): Promise<Skill> {
   return invoke<Skill>("import_git_skill", { content, repoUrl, path });
+}
+
+// ── Git Sources ─────────────────────────────────────────────────
+
+/** List all git sources. */
+export async function getGitSources(): Promise<GitSource[]> {
+  return invoke<GitSource[]>("get_git_sources");
+}
+
+/** Get a single git source by ID. */
+export async function getGitSource(id: string): Promise<GitSource | null> {
+  return invoke<GitSource | null>("get_git_source", { id });
+}
+
+/** Create a new git source and scan the repository for skills/agents. */
+export async function createGitSource(
+  url: string,
+  name?: string | null,
+): Promise<SourceScanResult> {
+  return invoke<SourceScanResult>("create_git_source", { url, name: name ?? null });
+}
+
+/** Update a git source's name and/or enabled state. */
+export async function updateGitSource(
+  id: string,
+  name?: string | null,
+  enabled?: boolean | null,
+): Promise<GitSource> {
+  return invoke<GitSource>("update_git_source", {
+    id,
+    name: name ?? null,
+    enabled: enabled ?? null,
+  });
+}
+
+/** Delete a git source. Imported items are kept as local copies. */
+export async function deleteGitSource(id: string): Promise<void> {
+  return invoke<void>("delete_git_source", { id });
+}
+
+/** Re-sync a git source: re-fetch the repo and return discovered files. */
+export async function syncGitSource(id: string): Promise<SourceScanResult> {
+  return invoke<SourceScanResult>("sync_git_source", { id });
+}
+
+/** Import selected items from a source scan. */
+export async function importSourceItems(sourceId: string, items: ImportItem[]): Promise<void> {
+  return invoke<void>("import_source_items", { sourceId, items });
+}
+
+/** Auto-sync all enabled sources (called on app launch). */
+export async function syncAllSources(): Promise<void> {
+  return invoke<void>("sync_all_sources");
+}
+
+/** List skills and agents linked to a specific source. */
+export async function getSourceItems(sourceId: string): Promise<SourceItem[]> {
+  return invoke<SourceItem[]>("get_source_items", { sourceId });
 }
 
 // ── Projects ────────────────────────────────────────────────────

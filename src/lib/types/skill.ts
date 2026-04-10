@@ -30,4 +30,6 @@ export interface Skill {
   createdAt: string;
   /** ISO 8601 last-update timestamp. */
   updatedAt: string | null;
+  /** ID of the git source this skill was imported from, or null. */
+  gitSourceId: string | null;
 }
