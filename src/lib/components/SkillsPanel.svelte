@@ -536,17 +536,6 @@
                 >
                 <strong class="card-title">{skill.name}</strong>
                 <span class="badge badge--neutral">{sourceBadge(skill)}</span>
-                {#if skill.sourceUrl}
-                  <a
-                    href={skill.sourceUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    class="source-link"
-                    aria-label="View on {sourceBadge(skill)}"
-                  >
-                    ↗
-                  </a>
-                {/if}
                 <div class="card-actions">
                   <button
                     class="btn btn--danger"
@@ -614,17 +603,6 @@
                 >
                 <strong class="card-title">{skill.name}</strong>
                 <span class="badge badge--neutral">{sourceBadge(skill)}</span>
-                {#if skill.sourceUrl}
-                  <a
-                    href={skill.sourceUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    class="source-link"
-                    aria-label="View repository"
-                  >
-                    ↗
-                  </a>
-                {/if}
                 <div class="card-actions">
                   <button
                     class="btn btn--danger"
