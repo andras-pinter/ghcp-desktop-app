@@ -1690,7 +1690,17 @@ mod tests {
         let conn = setup_db();
 
         // Create agent and skills
-        create_agent(&conn, "a1", "Test Agent", None, "prompt", None, "local", None).unwrap();
+        create_agent(
+            &conn,
+            "a1",
+            "Test Agent",
+            None,
+            "prompt",
+            None,
+            "local",
+            None,
+        )
+        .unwrap();
         create_skill(
             &conn,
             "s1",
@@ -1748,7 +1758,17 @@ mod tests {
     fn test_agent_mcp_connections() {
         let conn = setup_db();
 
-        create_agent(&conn, "a1", "Test Agent", None, "prompt", None, "local", None).unwrap();
+        create_agent(
+            &conn,
+            "a1",
+            "Test Agent",
+            None,
+            "prompt",
+            None,
+            "local",
+            None,
+        )
+        .unwrap();
 
         // No connections initially
         assert!(get_agent_mcp_ids(&conn, "a1").unwrap().is_empty());

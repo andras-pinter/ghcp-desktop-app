@@ -356,11 +356,7 @@ fn backfill_git_sources(conn: &Connection) -> Result<(), Box<dyn std::error::Err
             "UPDATE git_sources SET item_count = ?1 WHERE id = ?2",
             rusqlite::params![count, source_id],
         )?;
-        log::info!(
-            "Back-filled git source '{}' with {} items",
-            repo_url,
-            count
-        );
+        log::info!("Back-filled git source '{}' with {} items", repo_url, count);
     }
 
     Ok(())

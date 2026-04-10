@@ -124,10 +124,7 @@ pub fn delete_git_source(app: AppHandle, id: String) -> Result<bool, String> {
 /// Re-scan a source's repository and return discovered files.
 /// Also updates already-imported items if their content has changed.
 #[tauri::command]
-pub async fn sync_git_source(
-    app: AppHandle,
-    id: String,
-) -> Result<SourceScanResult, String> {
+pub async fn sync_git_source(app: AppHandle, id: String) -> Result<SourceScanResult, String> {
     // Get the source to find the URL
     let (url, enabled) = {
         let state = app.state::<AppState>();
@@ -267,8 +264,7 @@ fn import_skill_item(
     source: &queries::GitSource,
     item: &ImportItem,
 ) -> Result<(), String> {
-    let parsed =
-        crate::skillmd::parse(&item.content).map_err(|e| format!("Parse error: {e}"))?;
+    let parsed = crate::skillmd::parse(&item.content).map_err(|e| format!("Parse error: {e}"))?;
 
     let db_id = format!("git-{}", parsed.name);
     let source_url = format!("{}/blob/main/{}", source.url, item.path);
@@ -297,8 +293,7 @@ fn import_agent_item(
     source: &queries::GitSource,
     item: &ImportItem,
 ) -> Result<(), String> {
-    let parsed =
-        crate::skillmd::parse(&item.content).map_err(|e| format!("Parse error: {e}"))?;
+    let parsed = crate::skillmd::parse(&item.content).map_err(|e| format!("Parse error: {e}"))?;
 
     let id = uuid::Uuid::new_v4().to_string();
     let source_url = format!("{}/blob/main/{}", source.url, item.path);
@@ -327,8 +322,7 @@ fn update_existing_items(
     let state = app.state::<AppState>();
     let db = state.db.lock().map_err(|e| e.to_string())?;
 
-    let existing_items =
-        queries::get_source_items(&db, source_id).map_err(|e| e.to_string())?;
+    let existing_items = queries::get_source_items(&db, source_id).map_err(|e| e.to_string())?;
 
     for item in &existing_items {
         let source_url = item.source_url.as_deref().unwrap_or_default();
@@ -377,14 +371,9 @@ async fn scan_and_update_source(
     let token = copilot_api::DeviceFlowAuth::load_github_token().ok();
 
     // Scan without emitting progress (silent sync)
-    let files = crate::registry::fetch_git_definitions(
-        client,
-        &source.url,
-        None,
-        token.as_deref(),
-        |_| {},
-    )
-    .await?;
+    let files =
+        crate::registry::fetch_git_definitions(client, &source.url, None, token.as_deref(), |_| {})
+            .await?;
 
     // Update existing imported items if their content changed
     update_existing_items(app, &source.id, &files)?;
