@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { formatDateGroup, truncate, formatBytes } from "$lib/utils/format";
+import {
+  formatDateGroup,
+  truncate,
+  formatBytes,
+  stripMarkdown,
+  truncateMarkdown,
+} from "$lib/utils/format";
 
 describe("formatDateGroup", () => {
   it("returns 'Today' for today's date", () => {
@@ -34,5 +40,55 @@ describe("formatBytes", () => {
     expect(formatBytes(0)).toBe("0 B");
     expect(formatBytes(1024)).toBe("1.0 KB");
     expect(formatBytes(1024 * 1024 * 12.3)).toBe("12.3 MB");
+  });
+});
+
+describe("stripMarkdown", () => {
+  it("strips bold formatting", () => {
+    expect(stripMarkdown("**Role**: Architect")).toBe("Role: Architect");
+  });
+
+  it("strips italic formatting", () => {
+    expect(stripMarkdown("*emphasis* here")).toBe("emphasis here");
+  });
+
+  it("strips headings", () => {
+    expect(stripMarkdown("# Title\nBody text")).toBe("Title Body text");
+  });
+
+  it("strips inline code", () => {
+    expect(stripMarkdown("Use `serde` for JSON")).toBe("Use serde for JSON");
+  });
+
+  it("strips links", () => {
+    expect(stripMarkdown("See [docs](https://example.com)")).toBe("See docs");
+  });
+
+  it("converts list items", () => {
+    expect(stripMarkdown("- item one\n- item two")).toBe("• item one • item two");
+  });
+
+  it("collapses whitespace and paragraph breaks", () => {
+    expect(stripMarkdown("First paragraph\n\nSecond paragraph")).toBe(
+      "First paragraph · Second paragraph",
+    );
+  });
+
+  it("handles combined markdown", () => {
+    const input = "# **Role**: 3D Web Experience Architect\n\nDesigns *immersive* web apps.";
+    expect(stripMarkdown(input)).toBe(
+      "Role: 3D Web Experience Architect · Designs immersive web apps.",
+    );
+  });
+});
+
+describe("truncateMarkdown", () => {
+  it("strips markdown and truncates", () => {
+    const input = "**Bold text** that goes on and on and on";
+    expect(truncateMarkdown(input, 20)).toBe("Bold text that goes…");
+  });
+
+  it("returns full text if short enough", () => {
+    expect(truncateMarkdown("**Hello**", 20)).toBe("Hello");
   });
 });

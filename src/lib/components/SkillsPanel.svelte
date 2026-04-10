@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { stripMarkdown } from "$lib/utils/format";
   import {
     getSkillStore,
     initSkills,
@@ -361,7 +362,7 @@
                 </div>
               </div>
               {#if skill.description}
-                <p class="card-desc">{skill.description}</p>
+                <p class="card-desc">{stripMarkdown(skill.description)}</p>
               {/if}
               {#if expandedSkillId === skill.id}
                 <div class="card-detail">
@@ -421,7 +422,7 @@
                 </div>
               </div>
               {#if skill.description}
-                <p class="card-desc">{skill.description}</p>
+                <p class="card-desc">{stripMarkdown(skill.description)}</p>
               {/if}
               {#if expandedSkillId === skill.id}
                 <div class="card-detail">
@@ -485,7 +486,7 @@
                     </div>
                   </div>
                   {#if skill.description}
-                    <p class="card-desc">{skill.description}</p>
+                    <p class="card-desc">{stripMarkdown(skill.description)}</p>
                   {/if}
                   {#if expandedSkillId === skill.id}
                     <div class="card-detail">
@@ -565,7 +566,7 @@
                 </div>
               </div>
               {#if skill.description}
-                <p class="card-desc">{skill.description}</p>
+                <p class="card-desc">{stripMarkdown(skill.description)}</p>
               {/if}
               {#if expandedSkillId === skill.id}
                 <div class="card-detail">
@@ -643,7 +644,7 @@
                 </div>
               </div>
               {#if skill.description}
-                <p class="card-desc">{skill.description}</p>
+                <p class="card-desc">{stripMarkdown(skill.description)}</p>
               {/if}
               {#if expandedSkillId === skill.id}
                 <div class="card-detail">
@@ -745,7 +746,7 @@
                       {/if}
                     </div>
                     {#if expandedRegistryKey !== registryKey(item) && item.description}
-                      <p class="card-desc">{item.description}</p>
+                      <p class="card-desc">{stripMarkdown(item.description)}</p>
                     {/if}
                     {#if expandedRegistryKey === registryKey(item)}
                       <div class="card-detail markdown-prose">

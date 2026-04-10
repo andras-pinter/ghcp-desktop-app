@@ -1,5 +1,6 @@
 <script lang="ts">
   import { SvelteSet } from "svelte/reactivity";
+  import { stripMarkdown, truncateMarkdown } from "$lib/utils/format";
   import {
     getAgentStore,
     initAgents,
@@ -324,22 +325,7 @@
     }
   }
 
-  function truncatePrompt(text: string, max: number = 100): string {
-    // Strip markdown formatting for plain-text preview
-    const plain = text
-      .replace(/^#{1,6}\s+/gm, "") // headings
-      .replace(/\*\*(.+?)\*\*/g, "$1") // bold
-      .replace(/\*(.+?)\*/g, "$1") // italic
-      .replace(/`(.+?)`/g, "$1") // inline code
-      .replace(/\[(.+?)\]\(.+?\)/g, "$1") // links
-      .replace(/^[-*]\s+/gm, "• ") // list items
-      .replace(/\n{2,}/g, " · ") // paragraph breaks → separator
-      .replace(/\n/g, " ") // remaining newlines
-      .replace(/\s{2,}/g, " ") // collapse whitespace
-      .trim();
-    if (plain.length <= max) return plain;
-    return plain.slice(0, max).trimEnd() + "…";
-  }
+  const truncatePrompt = (text: string, max: number = 100) => truncateMarkdown(text, max);
 
   function sourceLabel(agent: Agent): string | null {
     if (agent.sourceType === "registry_aitmpl") return "registry";
@@ -581,7 +567,7 @@
                       {/if}
                     </div>
                     {#if expandedRegistryKey !== registryKey(item) && item.description}
-                      <p class="card-desc">{item.description}</p>
+                      <p class="card-desc">{stripMarkdown(item.description)}</p>
                     {/if}
                     {#if expandedRegistryKey === registryKey(item)}
                       <div class="card-detail detail-content-scroll markdown-prose">

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { stripMarkdown } from "$lib/utils/format";
   import {
     getMcpState,
     initMcp,
@@ -517,35 +518,9 @@
                         ↗
                       </a>
                     {/if}
-                    <div class="card-actions">
-                      {#if isAdded}
-                        <span class="badge badge--success">✓ Added</span>
-                      {:else if canQuickAdd(entry)}
-                        <button
-                          class="btn btn--primary"
-                          onclick={(e: MouseEvent) => {
-                            e.stopPropagation();
-                            quickAddFromRegistry(entry);
-                          }}
-                          disabled={quickAdding === entry.name}
-                        >
-                          {quickAdding === entry.name ? "Adding…" : "Add"}
-                        </button>
-                      {:else}
-                        <button
-                          class="btn btn--primary"
-                          onclick={(e: MouseEvent) => {
-                            e.stopPropagation();
-                            openRegistryForm(entry);
-                          }}
-                        >
-                          Configure
-                        </button>
-                      {/if}
-                    </div>
                   </div>
                   {#if !isExpanded && entry.description}
-                    <p class="card-desc">{entry.description}</p>
+                    <p class="card-desc">{stripMarkdown(entry.description)}</p>
                   {/if}
                   {#if isExpanded}
                     <div class="card-detail">
@@ -658,6 +633,32 @@
                       {/if}
                     </div>
                   {/if}
+                  <div class="card-actions">
+                    {#if isAdded}
+                      <span class="badge badge--success">✓ Added</span>
+                    {:else if canQuickAdd(entry)}
+                      <button
+                        class="btn btn--primary"
+                        onclick={(e: MouseEvent) => {
+                          e.stopPropagation();
+                          quickAddFromRegistry(entry);
+                        }}
+                        disabled={quickAdding === entry.name}
+                      >
+                        {quickAdding === entry.name ? "Adding…" : "Add"}
+                      </button>
+                    {:else}
+                      <button
+                        class="btn btn--primary"
+                        onclick={(e: MouseEvent) => {
+                          e.stopPropagation();
+                          openRegistryForm(entry);
+                        }}
+                      >
+                        Configure
+                      </button>
+                    {/if}
+                  </div>
                 </article>
               {/each}
               {#if mcp.hasMoreRegistry}
