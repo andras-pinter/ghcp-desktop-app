@@ -44,6 +44,8 @@
 | `serde_norway`                   | YAML parsing (SKILL.md frontmatter deserialization)                                                                                                                                                                                         |
 | `zip`                            | ZIP archive reading (DOCX/XLSX/PPTX text extraction)                                                                                                                                                                                        |
 | `rmcp`                           | Official MCP Rust SDK (Model Context Protocol, spec version 2025-03-26+)                                                                                                                                                                    |
+| `semver`                         | Semantic version parsing (xtask version management)                                                                                                                                                                                         |
+| `toml_edit`                      | TOML file editing with formatting preservation (xtask version bumping)                                                                                                                                                                      |
 
 ### Frontend (npm packages)
 
@@ -75,6 +77,11 @@
 | `eslint-plugin-svelte`                   | ESLint rules for `.svelte` files                                 |
 | `@testing-library/svelte`                | Component testing utilities                                      |
 | `@types/dompurify`                       | TypeScript definitions for DOMPurify                             |
+| `@eslint/js`                             | ESLint core JavaScript rules                                     |
+| `@tsconfig/svelte`                       | Shared TypeScript config for Svelte projects                     |
+| `typescript-eslint`                      | TypeScript ESLint plugin and parser                              |
+| `globals`                                | Global variable definitions for ESLint                           |
+| `jsdom`                                  | DOM implementation for Vitest test environment                   |
 
 ---
 
