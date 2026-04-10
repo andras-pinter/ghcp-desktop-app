@@ -722,6 +722,9 @@ body::after {
   flex-shrink: 0;
   align-items: center;
 }
+.card-detail + .card-actions {
+  margin-top: var(--spacing-sm);
+}
 
 .card-desc {
   font-size: var(--font-size-xs);
