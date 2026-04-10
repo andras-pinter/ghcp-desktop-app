@@ -215,8 +215,9 @@ custom agent personas, and streaming responses.
 - **Projects** — group conversations + attached files under named projects with custom instructions
 - **Web research** — AI-driven web search (via search API) + manual URL fetching/extraction for context
 - **MCP integration** — connect to MCP servers for extended tool capabilities; browse the official MCP Registry + custom server configuration
-- **Skills management** — enable/disable/configure skills that extend what Copilot can do in conversations. Skills can come from MCP tools, built-in capabilities, or external registries. Browse and install skills from the **aitmpl.com** registry, or import from any **git URL** pointing to SKILL.md files.
-- **Agents management** — create custom agent personas with specific system prompts, assigned skills, and MCP connections. Browse and install pre-built agent templates from the **aitmpl.com** registry, or import from **git URLs**.
+- **Skills management** — enable/disable/configure skills that extend what Copilot can do in conversations. Skills can come from MCP tools, built-in capabilities, or external registries. Browse and install skills from the **aitmpl.com** registry.
+- **Agents management** — create custom agent personas with specific system prompts, assigned skills, and MCP connections. Browse and install pre-built agent templates from the **aitmpl.com** registry.
+- **Git Sources** — manage persistent git repository sources for importing skills and agents. Add repo URLs, scan for SKILL.md/AGENT.md files, pick items to import, toggle sources on/off, auto-sync on app launch, manual re-sync. Removing a source keeps imported items as local copies.
 - **Model selector** — pick from available Copilot models (implement always; gracefully hide if API returns only one model)
 - **Light/dark theme** — follow system preference, manual toggle (CSS custom properties)
 - **Global hotkey** — summon the app from anywhere (e.g., Cmd+Shift+Space) via `tauri-plugin-global-shortcut`
@@ -366,18 +367,19 @@ and **events** (`listen()`/`emit()`). This is the only bridge between the two la
 | `conversations.rs` | `get_conversations` — list from SQLite; `get_conversation` — single by ID; `create_conversation` — new conversation; `update_conversation` — rename/update metadata; `delete_conversation` — remove conversation + messages; `get_messages` — messages for a conversation; `create_message` — insert message; `update_message_content` — update after streaming/edit; `delete_messages_after` — discard messages after sort order (for editing) | ✅ |
 | `models.rs` | `get_models` — fetch available Copilot models (deduplicates API response) | ✅ |
 | `settings.rs` | `get_setting` — read config key; `update_setting` — write config key-value; `get_db_size` — return database file size; `save_export_file` — export conversations via server-side save dialog (Rust controls path selection); `delete_old_conversations` — remove conversations older than cutoff date; `export_conversation_json` — export single conversation as JSON; `export_conversation_markdown` — export single conversation as Markdown; `export_all_conversations_json` — bulk export all as JSON; `export_all_conversations_markdown` — bulk export all as Markdown; `save_draft` — persist input draft; `get_draft` — retrieve draft for conversation; `delete_draft` — clear draft | ✅ |
-| `agents.rs` | `get_agents` — list agent personas; `get_agent` — single by ID; `create_agent` — new agent; `update_agent` — edit agent; `delete_agent` — remove agent (blocks default); `set_agent_skills` — assign skills; `set_agent_mcp_connections` — assign MCP servers; `install_agent_from_registry` — install from aitmpl.com; `import_agent_from_git` — import from git; `fetch_git_agents` — discover agent files from git repo | ✅ |
-| `skills.rs` | `get_skills` — list all skills; `create_skill` — add new skill; `update_skill` — edit skill; `delete_skill` — remove skill; `toggle_skill` — enable/disable; `search_registry` — search aitmpl.com registry; `install_from_registry` — fetch SKILL.md + save; `fetch_git_skills` — discover SKILL.md files from git URL; `import_git_skill` — save parsed skill from git | ✅ |
+| `agents.rs` | `get_agents` — list agent personas; `get_agent` — single by ID; `create_agent` — new agent; `update_agent` — edit agent; `delete_agent` — remove agent (blocks default); `set_agent_skills` — assign skills; `set_agent_mcp_connections` — assign MCP servers; `install_agent_from_registry` — install from aitmpl.com; `import_agent_from_git` — import from git (internal, used by sources); `fetch_git_agents` — discover agent files from git repo (internal, used by sources) | ✅ |
+| `skills.rs` | `get_skills` — list all skills; `create_skill` — add new skill; `update_skill` — edit skill; `delete_skill` — remove skill; `toggle_skill` — enable/disable; `search_registry` — search aitmpl.com registry; `install_from_registry` — fetch SKILL.md + save; `fetch_git_skills` — discover SKILL.md files from git URL (internal, used by sources); `import_git_skill` — save parsed skill from git (internal, used by sources) | ✅ |
 | `projects.rs` | `get_projects` — list projects; `get_project` — single by ID; `create_project` — new project; `update_project` — edit instructions/name; `delete_project` — remove project; `get_project_files` — list files; `add_project_file` — attach file (BLOB); `get_project_file_content` — read file content; `remove_project_file` — detach file; `get_project_conversations` — list conversations in project; `pick_file_for_upload` — native file picker for project files; `pick_file_for_chat` — native file picker for chat attachments; `extract_file_text` — async text extraction (PDF, DOCX, XLSX, PPTX, RTF, 60+ text formats); `read_dropped_files` — read file paths from Tauri drag-drop events (validated against OS-registered allowed paths) | ✅ |
 | `mcp.rs` | `get_mcp_servers` — list configured servers; `add_mcp_server` — register new server; `update_mcp_server` — update server config; `remove_mcp_server` — delete server; `connect_mcp_server` — connect to server (auth_header redacted in response; stdio binaries require prior approval); `disconnect_mcp_server` — disconnect; `test_mcp_connection` — verify server responds; `test_mcp_connection_config` — test unsaved server config from add/edit form; `get_mcp_tools` — list discovered tools; `invoke_mcp_tool` — call an MCP tool; `fetch_mcp_registry` — browse official MCP Registry; `approve_mcp_binary` — approve a stdio binary for execution (persisted to SQLite); `is_mcp_binary_approved` — check if a binary is approved | ✅ |
 | `web_research.rs` | `web_search` — trigger web search via API; `fetch_url` — fetch + extract URL content | ✅ |
+| `sources.rs` | `get_git_sources` — list all git sources; `get_git_source` — single by ID; `create_git_source` — add + scan repo; `update_git_source` — rename/toggle; `delete_git_source` — remove source (items kept as local copies); `sync_git_source` — re-scan repo + update imported items; `import_source_items` — import selected skills/agents from scan; `sync_all_sources` — auto-sync all enabled sources (called on app launch); `get_source_items` — list skills/agents linked to source | ✅ |
 
 **Events** (backend → frontend, push):
 - `streaming-token` — individual SSE tokens during chat
 - `streaming-complete` — response finished
 - `streaming-error` — error during streaming
 - `auth-state-changed` — login/logout
-- `git-import-progress` — progress updates during git skill/agent import (total, fetched, phase)
+- `git-import-progress` — progress updates during git source scan/sync (total, fetched, phase)
 - `context-summarized` — older messages were condensed into a summary to manage context window
 - `tray-new-chat` — user clicked "New Chat" in system tray menu
 - `update-available` — new version found (via `tauri-plugin-updater`, not custom emit)
@@ -420,13 +422,14 @@ copilot-desktop/
 │   │   │   ├── AuthScreen.svelte        # OAuth login/welcome screen
 │   │   │   ├── SettingsPanel.svelte     # Settings (account, theme, model, MCP, export, DB, shortcuts)
 │   │   │   ├── ProjectView.svelte       # Project detail (instructions, files, conversations)
-│   │   │   ├── AgentsPanel.svelte       # Agent management (create/edit/delete + registry browse + git import)
-│   │   │   ├── SkillsPanel.svelte       # Skills browser (local + registry + git import, toggle on/off)
+│   │   │   ├── AgentsPanel.svelte       # Agent management (create/edit/delete + registry browse)
+│   │   │   ├── SkillsPanel.svelte       # Skills browser (local + registry, toggle on/off)
 │   │   │   ├── McpSettings.svelte       # MCP server management (add, configure, test, browse registry)
 │   │   │   ├── McpServerForm.svelte    # MCP server add/edit form with registry pre-fill
 │   │   │   ├── ConfirmDialog.svelte    # Reusable confirmation dialog modal
 │   │   │   ├── UpdateBanner.svelte      # Auto-update notification + download progress
-│   │   │   └── SearchOverlay.svelte     # In-conversation Cmd+F search overlay
+│   │   │   ├── SearchOverlay.svelte     # In-conversation Cmd+F search overlay
+│   │   │   └── SourcesPanel.svelte      # Git sources management (add, sync, browse, import items)
 │   │   ├── stores/               # Svelte 5 runes-based stores (reactive state)
 │   │   │   ├── conversations.svelte.ts  # Conversation + message state
 │   │   │   ├── auth.svelte.ts           # Auth state (token, user info)
@@ -436,7 +439,8 @@ copilot-desktop/
 │   │   │   ├── skills.svelte.ts         # Skills/extensions state
 │   │   │   ├── projects.svelte.ts       # Projects state
 │   │   │   ├── settings.svelte.ts       # User preferences + theme management (applies data-theme)
-│   │   │   └── network.svelte.ts        # Online/offline state
+│   │   │   ├── network.svelte.ts        # Online/offline state
+│   │   │   └── sources.svelte.ts        # Git sources state (CRUD, sync, import)
 │   │   ├── types/                # TypeScript type definitions (mirrors Rust types)
 │   │   │   ├── auth.ts
 │   │   │   ├── conversation.ts
@@ -446,7 +450,8 @@ copilot-desktop/
 │   │   │   ├── agent.ts
 │   │   │   ├── skill.ts
 │   │   │   ├── registry.ts
-│   │   │   └── project.ts
+│   │   │   ├── project.ts
+│   │   │   └── source.ts
 │   │   ├── strings/               # Centralized user-facing strings (i18n prep)
 │   │   │   └── en.ts              # English strings (default)
 │   │   └── utils/
@@ -478,10 +483,11 @@ copilot-desktop/
 │       │   ├── auth.rs           # authenticate, logout, get_auth_state
 │       │   ├── conversations.rs  # CRUD conversations + messages
 │       │   ├── agents.rs         # CRUD agent personas + registry import
-│       │   ├── skills.rs         # List/toggle/configure skills + registry search + git import
+│       │   ├── skills.rs         # List/toggle/configure skills + registry search
 │       │   ├── projects.rs       # CRUD projects + file attachments + drag-drop + text extraction
 │       │   ├── mcp.rs            # MCP server management + tool invocation
 │       │   ├── web_research.rs   # Web search + URL fetching
+│       │   ├── sources.rs        # Git sources management (CRUD, sync, import)
 │       │   ├── models.rs         # Model discovery + selection
 │       │   └── settings.rs       # User preferences + export + DB management
 │       └── db/                   # Database layer

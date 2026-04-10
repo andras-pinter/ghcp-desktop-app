@@ -67,6 +67,7 @@ CREATE TABLE agents (
     is_default INTEGER DEFAULT 0,  -- 1 for the built-in default agent
     source_url TEXT,               -- Registry permalink or git URL (NULL for local)
     source_type TEXT DEFAULT 'local', -- "local", "registry_aitmpl", "git"
+    git_source_id TEXT REFERENCES git_sources(id) ON DELETE SET NULL, -- Links to managing git source
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
@@ -97,6 +98,7 @@ CREATE TABLE skills (
     mcp_server_id TEXT,             -- Soft reference to mcp_servers(id); NULL for non-MCP skills
     config TEXT,                   -- JSON config blob
     enabled INTEGER DEFAULT 1,
+    git_source_id TEXT REFERENCES git_sources(id) ON DELETE SET NULL, -- Links to managing git source
     created_at TEXT NOT NULL,
     updated_at TEXT                -- Added in migration v2
 );
@@ -135,6 +137,18 @@ CREATE TABLE drafts (
     updated_at TEXT NOT NULL
 );
 
+-- Git Sources (persistent git repository sources for importing skills/agents)
+CREATE TABLE git_sources (
+    id TEXT PRIMARY KEY,           -- UUID
+    name TEXT NOT NULL,            -- Display name
+    url TEXT NOT NULL UNIQUE,      -- Git repository URL
+    enabled INTEGER DEFAULT 1,    -- 1 = active (syncs on launch), 0 = paused
+    last_synced_at TEXT,           -- ISO 8601 timestamp of last successful sync
+    item_count INTEGER DEFAULT 0, -- Number of imported items from this source
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
 -- ── Indexes (performance-critical queries) ──
 
 CREATE INDEX idx_messages_conversation ON messages(conversation_id, sort_order);
@@ -145,13 +159,14 @@ CREATE INDEX idx_conversations_favourite ON conversations(is_favourite) WHERE is
 CREATE INDEX idx_project_files_project ON project_files(project_id);
 CREATE INDEX idx_agent_skills_agent ON agent_skills(agent_id);
 CREATE INDEX idx_skills_source ON skills(source);
+CREATE INDEX idx_git_sources_enabled ON git_sources(enabled);
 
 -- ── Initial seed data ──
 
-INSERT INTO config (key, value) VALUES ('schema_version', '3');
+INSERT INTO config (key, value) VALUES ('schema_version', '4');
 ```
 
-> _Note: The schema above reflects the **final state** after all migrations (v1→v2→v3). See `src-tauri/src/db/migrations.rs` for the incremental ALTER TABLE statements that evolve the schema across versions._
+> _Note: The schema above reflects the **final state** after all migrations (v1→v2→v3→v4). See `src-tauri/src/db/migrations.rs` for the incremental ALTER TABLE statements that evolve the schema across versions. Migration v4 adds the `git_sources` table, `git_source_id` FK columns on skills/agents, and backfills sources from existing git-imported items._
 
 ### Persistence Rules
 
