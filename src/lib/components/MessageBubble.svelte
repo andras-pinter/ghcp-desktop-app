@@ -413,7 +413,7 @@
   /* Runway below the indicator absorbs content growth so the
      indicator doesn't bounce at the viewport edge. */
   .streaming-scroll-runway {
-    height: 2em;
+    height: 0.5em;
   }
 
   .streaming-orb {
