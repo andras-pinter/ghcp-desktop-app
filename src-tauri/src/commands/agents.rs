@@ -47,6 +47,7 @@ pub fn create_agent(
         system_prompt.trim(),
         source_url.as_deref(),
         &source_type.unwrap_or_else(|| "local".to_string()),
+        None,
     )
     .map_err(|e| e.to_string())
 }
@@ -164,6 +165,7 @@ pub async fn install_agent_from_registry(
         &instructions,
         Some(&source_url),
         source_type,
+        None,
     )
     .map_err(|e| format!("Failed to save agent: {e}"))
 }
@@ -192,6 +194,7 @@ pub fn import_agent_from_git(
         &parsed.instructions,
         Some(&source_url),
         "git",
+        None,
     )
     .map_err(|e| format!("Failed to save agent: {e}"))
 }

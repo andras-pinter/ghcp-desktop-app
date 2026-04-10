@@ -43,6 +43,7 @@ pub fn create_skill(
         instructions.as_deref(),
         source_url.as_deref(),
         &source_type.unwrap_or_else(|| "builtin".to_string()),
+        None,
     )
     .map_err(|e| e.to_string())
 }
@@ -167,6 +168,7 @@ pub async fn install_from_registry(
             Some(&instructions),
             Some(&source_url),
             source_type,
+            None,
         )
         .map_err(|e| format!("Failed to save skill: {e}"))?;
     }
@@ -231,6 +233,7 @@ pub fn import_git_skill(
         Some(&parsed.instructions),
         Some(&source_url),
         "git",
+        None,
     )
     .map_err(|e| format!("Failed to save skill: {e}"))
 }
