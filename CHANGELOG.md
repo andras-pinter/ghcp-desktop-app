@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.2.3] — 2026-04-10
+
+### Bug Fixes
+
+- **docs:** clarify update-available event source, add missing deps (d9f7f19)
+- **docs:** address review findings in split documentation (5405f6d)
+
+### Refactoring
+
+- **docs:** split AGENTS.md into modular documentation (2444eaa)
+
 ## [0.2.2] — 2026-04-10
 
 ### Bug Fixes
