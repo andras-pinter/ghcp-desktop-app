@@ -25,7 +25,7 @@
 
 ### Phase 3: Persistence & Data Layer ✅
 
-9. ✅ **sqlite-setup** — SQLite database with full schema (11 tables), migrations support, 500+ line `queries.rs` with complete CRUD, Tauri app data directory. Unit tests for all query functions.
+9. ✅ **sqlite-setup** — SQLite database with full schema (12 tables), migrations support, 500+ line `queries.rs` with complete CRUD, Tauri app data directory. Unit tests for all query functions.
 10. ✅ **conversation-persistence** — CRUD for conversations + messages via Tauri commands. Reactive Svelte store with `initConversations()`, `switchConversation()`, `newConversation()`, `renameConversation()`, `toggleFavourite()`, `removeConversation()`. Auto-generate titles from first user message.
 11. ✅ **draft-auto-save** — 3-second debounced auto-save to `drafts` table. Restore on conversation switch and app launch. Clear on successful send. Backend commands + frontend store functions.
 
@@ -95,7 +95,7 @@
 
 ### Phase 12: Distribution
 
-47. ⬚ **app-packaging** — `cargo tauri build` for all platforms. `.dmg` (macOS with code signing + App Sandbox + notarization), `.AppImage`/`.deb` (Linux), `.msi`/`.nsis` (Windows). GitHub Actions CI/CD for automated builds. Publish releases to GitHub Releases for auto-update consumption.
+49. ⬚ **app-packaging** — `cargo tauri build` for all platforms. `.dmg` (macOS with code signing + App Sandbox + notarization), `.AppImage`/`.deb` (Linux), `.msi`/`.nsis` (Windows). GitHub Actions CI/CD for automated builds. Publish releases to GitHub Releases for auto-update consumption.
 
 ---
 

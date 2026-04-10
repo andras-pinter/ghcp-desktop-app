@@ -380,6 +380,7 @@ and **events** (`listen()`/`emit()`). This is the only bridge between the two la
 - `git-import-progress` — progress updates during git skill/agent import (total, fetched, phase)
 - `context-summarized` — older messages were condensed into a summary to manage context window
 - `tray-new-chat` — user clicked "New Chat" in system tray menu
+- `update-available` — new version found
 
 ---
 

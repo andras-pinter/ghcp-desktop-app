@@ -221,7 +221,7 @@ Uses the **OAuth device flow** — the same flow VS Code uses to authenticate wi
 ### URL Fetching
 
 - User pastes a URL → Rust backend fetches the page over HTTPS → extracts readable text via `dom_smoothie` (Readability algorithm)
-- **Security:** only public HTTPS URLs allowed. Block private IPs, localhost, metadata endpoints (see Security section)
+- **Security:** only public HTTPS URLs allowed. Block private IPs, localhost, metadata endpoints (see [Security](../AGENTS.md#security))
 - Extracted content is truncated to a reasonable size (e.g., 50KB of text) before inclusion in context
 - Show a URL preview card in the input area (title, domain, favicon if available)
 
@@ -235,7 +235,7 @@ Uses the **OAuth device flow** — the same flow VS Code uses to authenticate wi
 - Reference: https://modelcontextprotocol.io/specification
 - Support two transports:
   - **HTTP (SSE)** — preferred, works with remote servers. Default for registry entries with remote URLs.
-  - **Stdio** — for local MCP servers. Requires user-approved binary path (see MCP Security). Uses `tauri-plugin-shell` with scoped permissions.
+  - **Stdio** — for local MCP servers. Requires user-approved binary path (see [MCP Security](../AGENTS.md#mcp-security)). Uses `tauri-plugin-shell` with scoped permissions.
 
 ### MCP Registry
 
@@ -254,7 +254,7 @@ Instead of a static built-in catalog, the app browses the **official MCP Registr
 Users can also add custom MCP servers manually in settings (`McpSettings.svelte` + `McpServerForm.svelte`):
 
 - **HTTP servers:** URL + optional auth header
-- **Stdio servers:** binary path + arguments (user-approved, see MCP Security)
+- **Stdio servers:** binary path + arguments (user-approved, see [MCP Security](../AGENTS.md#mcp-security))
 - Test connectivity button to verify the server responds
 - View discovered tools/resources from the server
 
