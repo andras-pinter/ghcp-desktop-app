@@ -30,7 +30,7 @@
   let searchQuery = $state("");
   let searchDebounce: ReturnType<typeof setTimeout> | null = null;
 
-  let registryExpanded = $state(true);
+  let registryExpanded = $state(false);
 
   let installingId = $state<string | null>(null);
   let installedId = $state<string | null>(null);

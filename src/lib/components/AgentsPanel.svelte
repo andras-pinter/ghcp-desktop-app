@@ -83,7 +83,7 @@
 
   // ── Registry state ──────────────────────────────────────────
 
-  let registryExpanded = $state(true);
+  let registryExpanded = $state(false);
   let registrySearchInput = $state("");
   let registrySearchDebounce: ReturnType<typeof setTimeout> | null = null;
   let installingId = $state<string | null>(null);
