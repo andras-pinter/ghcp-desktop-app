@@ -506,18 +506,6 @@
                       <span class="badge badge--copper">HTTP</span>
                     {/if}
                     <span class="badge badge--neutral">{entry.name}</span>
-                    {#if entry.repoUrl}
-                      <a
-                        href={entry.repoUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        class="source-link"
-                        aria-label="View repository"
-                        onclick={(e: MouseEvent) => e.stopPropagation()}
-                      >
-                        ↗
-                      </a>
-                    {/if}
                   </div>
                   {#if !isExpanded && entry.description}
                     <p class="card-desc">{stripMarkdown(entry.description)}</p>
