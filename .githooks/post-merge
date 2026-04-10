@@ -1,0 +1,25 @@
+#!/bin/bash
+# Auto-release after merge: detect bump level from commits, bump version,
+# generate changelog, commit, and tag.
+#
+# Only runs if the merge introduced conventional commits that warrant a release.
+# Safe to skip on failure — the user can always run `cargo xtask release` manually.
+
+set -euo pipefail
+
+echo ""
+echo "🔄 Post-merge: checking for version bump..."
+
+# Run release (auto-detects bump level from conventional commits)
+if cargo xtask release 2>&1; then
+    echo ""
+    echo "✅ Auto-release complete. Don't forget: git push && git push --tags"
+else
+    EXIT_CODE=$?
+    # Exit code 0 with "nothing to release" is fine; actual errors get reported
+    if [ $EXIT_CODE -ne 0 ]; then
+        echo ""
+        echo "⚠️  Auto-release skipped or failed. Run manually if needed:"
+        echo "    cargo xtask release"
+    fi
+fi
