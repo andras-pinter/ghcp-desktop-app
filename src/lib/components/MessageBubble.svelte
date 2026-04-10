@@ -405,7 +405,8 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    margin-top: 8px;
+    margin-top: 12px;
+    margin-bottom: 16px;
     min-height: 24px;
   }
 
