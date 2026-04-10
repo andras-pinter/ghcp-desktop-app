@@ -430,7 +430,7 @@
             </div>
           {:else if mcp.registry.length > 0}
             <div class="registry-results" role="list">
-              {#each mcp.registry as entry (entry.name)}
+              {#each mcp.registry as entry, i (entry.name + "-" + i)}
                 {@const isExpanded = expandedRegistryName === entry.name}
                 {@const isAdded = isRegistryAdded(entry)}
                 <article
