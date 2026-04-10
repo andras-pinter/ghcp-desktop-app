@@ -248,6 +248,8 @@ pub fn run(force_logout: bool) {
             commands::sources::import_source_items,
             commands::sources::sync_all_sources,
             commands::sources::get_source_items,
+            commands::sources::search_catalog,
+            commands::sources::install_catalog_item,
             commands::projects::get_projects,
             commands::projects::get_project,
             commands::projects::create_project,

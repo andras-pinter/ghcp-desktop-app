@@ -217,13 +217,17 @@
     }
   }
 
-  function registrySourceLabel(): string {
-    return "Registry";
+  function registrySourceLabel(item: RegistryItem): string {
+    return item.sourceName ?? "Registry";
   }
 
   function isAlreadyInstalled(item: RegistryItem): boolean {
     return store.skills.some(
-      (s) => s.id === item.id || s.id === `reg-aitmpl-${item.id}` || s.name === item.name,
+      (s) =>
+        s.id === item.id ||
+        s.id === `reg-aitmpl-${item.id}` ||
+        s.id === `git-${item.name}` ||
+        s.name === item.name,
     );
   }
 
@@ -662,14 +666,14 @@
                           : "Expand"}>▶</button
                       >
                       <strong class="card-title">{item.name}</strong>
-                      <span class="badge badge--neutral">{registrySourceLabel()}</span>
+                      <span class="badge badge--neutral">{registrySourceLabel(item)}</span>
                       {#if item.url}
                         <a
                           href={item.url}
                           target="_blank"
                           rel="noopener noreferrer"
                           class="source-link"
-                          aria-label="View on {registrySourceLabel()}"
+                          aria-label="View on {registrySourceLabel(item)}"
                         >
                           ↗
                         </a>

@@ -6,19 +6,14 @@
     toggleSource,
     removeSource,
     syncSource,
-    importItems,
     toggleExpand,
-    refreshItems,
     updateScanProgress,
     clearScanResult,
     renameSource,
   } from "$lib/stores/sources.svelte";
-  import type { ImportItem } from "$lib/types/source";
-  import type { GitSkillFile } from "$lib/types/registry";
   import { onMount, onDestroy } from "svelte";
   import { listen, type UnlistenFn } from "@tauri-apps/api/event";
   import ConfirmDialog from "./ConfirmDialog.svelte";
-  import { SvelteSet } from "svelte/reactivity";
 
   interface Props {
     onBack: () => void;
@@ -28,10 +23,7 @@
 
   const store = getSourceStore();
 
-  type ViewState =
-    | { kind: "list" }
-    | { kind: "add" }
-    | { kind: "pick"; sourceId: string; files: GitSkillFile[] };
+  type ViewState = { kind: "list" } | { kind: "add" };
 
   let view = $state<ViewState>({ kind: "list" });
   let addUrl = $state("");
@@ -41,7 +33,6 @@
   let pendingDeleteId = $state<string | null>(null);
   let editingNameId = $state<string | null>(null);
   let editingNameValue = $state("");
-  const selectedFiles = new SvelteSet<string>();
 
   let unlistenProgress: UnlistenFn | undefined;
 
@@ -89,9 +80,9 @@
       return;
     }
     try {
-      const result = await addSource(url, addName.trim() || null);
-      selectedFiles.clear();
-      view = { kind: "pick", sourceId: result.source.id, files: result.files };
+      await addSource(url, addName.trim() || null);
+      clearScanResult();
+      view = { kind: "list" };
     } catch (e) {
       addError = String(e);
     }
@@ -101,43 +92,10 @@
 
   async function handleSync(sourceId: string) {
     try {
-      const result = await syncSource(sourceId);
-      if (result.files.length > 0) {
-        selectedFiles.clear();
-        view = { kind: "pick", sourceId: result.source.id, files: result.files };
-      }
+      await syncSource(sourceId);
     } catch (e) {
       addError = String(e);
     }
-  }
-
-  // ── Import flow ───────────────────────────────────────────────
-
-  async function handleImport(sourceId: string, files: GitSkillFile[]) {
-    const items: ImportItem[] = files
-      .filter((f) => selectedFiles.has(f.path))
-      .map((f) => ({
-        path: f.path,
-        content: f.content,
-        kind: f.path.endsWith(".agent.md") ? "agent" : "skill",
-      }));
-    if (items.length === 0) return;
-    try {
-      await importItems(sourceId, items);
-      await refreshItems(sourceId);
-      clearScanResult();
-      view = { kind: "list" };
-    } catch (e) {
-      addError = String(e);
-    }
-  }
-
-  function selectAll(files: GitSkillFile[]) {
-    for (const f of files) selectedFiles.add(f.path);
-  }
-
-  function selectNone() {
-    selectedFiles.clear();
   }
 
   // ── Delete ────────────────────────────────────────────────────
@@ -189,15 +147,6 @@
     const days = Math.floor(hrs / 24);
     return `${days}d ago`;
   }
-
-  function itemKind(path: string): "agent" | "skill" {
-    return path.endsWith(".agent.md") ? "agent" : "skill";
-  }
-
-  function fileName(path: string): string {
-    const base = path.split("/").pop() ?? path;
-    return base.replace(/\.(agent\.md|skill\.md|SKILL\.md)$/i, "").replace(/[-_]/g, " ");
-  }
 </script>
 
 <header class="panel-header" data-tauri-drag-region>
@@ -224,8 +173,6 @@
   <h2 class="panel-title">
     {#if view.kind === "add"}
       Add Source
-    {:else if view.kind === "pick"}
-      Import Items
     {:else}
       Sources
     {/if}
@@ -300,73 +247,6 @@
           {/if}
         </button>
       </div>
-    </section>
-  {:else if view.kind === "pick"}
-    <!-- ── Pick Items to Import ────────────────────────────── -->
-    <section class="panel-section">
-      {#if view.files.length === 0}
-        <p class="section-empty">No skills or agents found in this repository.</p>
-        <button
-          class="btn"
-          onclick={() => {
-            view = { kind: "list" };
-          }}>Back to Sources</button
-        >
-      {:else}
-        <p class="pick-summary">
-          Found {view.files.length} item{view.files.length !== 1 ? "s" : ""}. Select which to
-          import:
-        </p>
-
-        <div class="pick-actions">
-          <button
-            class="btn btn--ghost btn--sm"
-            onclick={() => selectAll(view.kind === "pick" ? view.files : [])}
-          >
-            Select all
-          </button>
-          <button class="btn btn--ghost btn--sm" onclick={selectNone}> Select none </button>
-        </div>
-
-        <div class="pick-list" role="list">
-          {#each view.files as file (file.path)}
-            <label class="pick-item" role="listitem">
-              <input
-                type="checkbox"
-                checked={selectedFiles.has(file.path)}
-                onchange={() => {
-                  if (selectedFiles.has(file.path)) selectedFiles.delete(file.path);
-                  else selectedFiles.add(file.path);
-                }}
-              />
-              <span class="pick-icon">{itemKind(file.path) === "agent" ? "🤖" : "⚡"}</span>
-              <span class="pick-name">{fileName(file.path)}</span>
-              <span class="badge badge--neutral">{itemKind(file.path)}</span>
-            </label>
-          {/each}
-        </div>
-
-        <div class="form-actions">
-          <button
-            class="btn"
-            onclick={() => {
-              clearScanResult();
-              view = { kind: "list" };
-            }}
-          >
-            Cancel
-          </button>
-          <button
-            class="btn btn--accent"
-            disabled={selectedFiles.size === 0}
-            onclick={() => {
-              if (view.kind === "pick") handleImport(view.sourceId, view.files);
-            }}
-          >
-            Import {selectedFiles.size} item{selectedFiles.size !== 1 ? "s" : ""}
-          </button>
-        </div>
-      {/if}
     </section>
   {:else}
     <!-- ── Source List ──────────────────────────────────────── -->
@@ -503,7 +383,7 @@
               {:else}
                 {#each store.expandedItems[source.id] as item (item.id)}
                   <div class="source-item-row">
-                    <span class="pick-icon">{item.kind === "agent" ? "🤖" : "⚡"}</span>
+                    <span class="source-item-icon">{item.kind === "agent" ? "🤖" : "⚡"}</span>
                     <span class="source-item-name">{item.name}</span>
                     <span class="badge badge--neutral">{item.kind}</span>
                   </div>
@@ -561,61 +441,6 @@
     margin-top: var(--spacing-sm);
     font-size: var(--font-size-xs);
     color: var(--color-text-secondary);
-  }
-
-  /* ── Pick list ── */
-
-  .pick-summary {
-    font-size: var(--font-size-sm);
-    color: var(--color-text-secondary);
-    margin-bottom: var(--spacing-sm);
-  }
-
-  .pick-actions {
-    display: flex;
-    gap: var(--spacing-xs);
-    margin-bottom: var(--spacing-sm);
-  }
-
-  .pick-list {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-xs);
-    max-height: 400px;
-    overflow-y: auto;
-  }
-
-  .pick-item {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-sm);
-    padding: var(--spacing-xs) var(--spacing-sm);
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    transition: background var(--transition-fast);
-  }
-
-  .pick-item:hover {
-    background: var(--color-bg-hover);
-  }
-
-  .pick-item input[type="checkbox"] {
-    accent-color: var(--color-accent-copper);
-  }
-
-  .pick-icon {
-    flex-shrink: 0;
-    font-size: var(--font-size-sm);
-  }
-
-  .pick-name {
-    flex: 1;
-    font-size: var(--font-size-sm);
-    color: var(--color-text-primary);
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   /* ── Source list ── */
@@ -678,5 +503,10 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .source-item-icon {
+    flex-shrink: 0;
+    font-size: var(--font-size-sm);
   }
 </style>

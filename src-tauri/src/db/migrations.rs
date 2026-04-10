@@ -16,6 +16,9 @@ pub fn run(conn: &Connection, current_version: i32) -> Result<(), Box<dyn std::e
     if current_version < 4 {
         migrate_v4(conn)?;
     }
+    if current_version < 5 {
+        migrate_v5(conn)?;
+    }
     Ok(())
 }
 
@@ -404,6 +407,34 @@ fn uuid_v4() -> String {
     format!("{:032x}", seed)
 }
 
+/// Version 5: Catalog items table for persisting scanned git source contents.
+fn migrate_v5(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
+    conn.execute_batch(
+        "
+        CREATE TABLE IF NOT EXISTS git_source_items (
+            id TEXT PRIMARY KEY,
+            git_source_id TEXT NOT NULL REFERENCES git_sources(id) ON DELETE CASCADE,
+            path TEXT NOT NULL,
+            kind TEXT NOT NULL,
+            name TEXT NOT NULL,
+            description TEXT,
+            content TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            UNIQUE(git_source_id, path)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_git_source_items_source ON git_source_items(git_source_id);
+        CREATE INDEX IF NOT EXISTS idx_git_source_items_kind ON git_source_items(kind);
+
+        UPDATE config SET value = '5' WHERE key = 'schema_version';
+        ",
+    )?;
+
+    log::info!("Database migrated to schema version 5");
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -454,7 +485,7 @@ mod tests {
         conn.execute_batch("PRAGMA foreign_keys=ON;").unwrap();
         run(&conn, 0).unwrap();
 
-        // Verify schema version is now 4
+        // Verify schema version is now 5
         let version: String = conn
             .query_row(
                 "SELECT value FROM config WHERE key='schema_version'",
@@ -462,7 +493,7 @@ mod tests {
                 |row| row.get(0),
             )
             .unwrap();
-        assert_eq!(version, "4");
+        assert_eq!(version, "5");
 
         // Verify new skill columns exist
         conn.execute(
@@ -513,7 +544,7 @@ mod tests {
         let conn2 = Connection::open_in_memory().unwrap();
         conn2.execute_batch("PRAGMA foreign_keys=ON;").unwrap();
         migrate_v1(&conn2).unwrap();
-        // Run from v1 should apply v2, v3, and v4
+        // Run from v1 should apply v2, v3, v4, and v5
         run(&conn2, 1).unwrap();
 
         let version: String = conn2
@@ -523,7 +554,7 @@ mod tests {
                 |row| row.get(0),
             )
             .unwrap();
-        assert_eq!(version, "4");
+        assert_eq!(version, "5");
 
         // Verify git_sources table exists
         let table_exists: bool = conn2

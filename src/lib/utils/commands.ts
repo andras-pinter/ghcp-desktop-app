@@ -501,6 +501,24 @@ export async function installFromRegistry(
   });
 }
 
+/** Search unified catalog: aitmpl.com + git source items. */
+export async function searchCatalog(
+  query: string,
+  kind?: string | null,
+  limit?: number | null,
+): Promise<RegistrySearchResult> {
+  return invoke<RegistrySearchResult>("search_catalog", {
+    query,
+    kind: kind ?? null,
+    limit: limit ?? null,
+  });
+}
+
+/** Install a skill or agent from a git source catalog item. */
+export async function installCatalogItem(itemId: string): Promise<string> {
+  return invoke<string>("install_catalog_item", { itemId });
+}
+
 // ── Git Sources ─────────────────────────────────────────────────
 
 /** List all git sources. */

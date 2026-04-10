@@ -8,9 +8,10 @@ import {
   setAgentSkills as setAgentSkillsCmd,
   setAgentMcpConnections as setAgentMcpCmd,
   installAgentFromRegistry as installAgentFromRegistryCmd,
+  searchCatalog as searchCatalogCmd,
+  installCatalogItem as installCatalogItemCmd,
   logFrontend,
 } from "$lib/utils/commands";
-import { searchRegistry as searchRegistryCmd } from "$lib/utils/commands";
 import type { Agent } from "$lib/types/agent";
 import type { RegistryItem, RegistrySearchResult } from "$lib/types/registry";
 
@@ -104,8 +105,8 @@ export async function prefetchAgentRegistry(): Promise<void> {
   if (registrySearching) return;
   registrySearching = true;
   try {
-    const result: RegistrySearchResult = await searchRegistryCmd("", 200);
-    browseCache = result.items.filter((i) => i.kind === "agent");
+    const result: RegistrySearchResult = await searchCatalogCmd("", "agent", 200);
+    browseCache = result.items;
     registryQuery = "";
     registryResults = browseCache;
   } catch (e) {
@@ -121,9 +122,8 @@ export async function searchAgentRegistries(query: string): Promise<void> {
   registryQuery = query;
   registrySearching = true;
   try {
-    const result: RegistrySearchResult = await searchRegistryCmd(query);
-    // Filter to agent-kind items only
-    registryResults = result.items.filter((i) => i.kind === "agent");
+    const result: RegistrySearchResult = await searchCatalogCmd(query, "agent");
+    registryResults = result.items;
   } catch (e) {
     logFrontend("error", `Agent registry search failed: ${e}`);
     registryResults = [];
@@ -132,19 +132,28 @@ export async function searchAgentRegistries(query: string): Promise<void> {
   }
 }
 
-/** Install an agent from a registry result. */
+/** Install an agent from a catalog result (aitmpl.com or git source). */
 export async function installAgentFromRegistry(item: RegistryItem): Promise<Agent | null> {
   try {
-    const agent = await installAgentFromRegistryCmd(
-      item.id,
-      item.source,
-      item.sourceRepo,
-      item.url,
-      item.content,
-      item.name,
-    );
-    agents = [...agents, agent];
-    return agent;
+    if (item.source === "git") {
+      // Git source catalog item — install via catalog command
+      await installCatalogItemCmd(item.id);
+    } else {
+      // aitmpl.com registry item — install via existing registry command
+      await installAgentFromRegistryCmd(
+        item.id,
+        item.source,
+        item.sourceRepo,
+        item.url,
+        item.content,
+        item.name,
+      );
+    }
+    // Reload agents to pick up the new one
+    await initAgents();
+    // Invalidate browse cache so next prefetch includes updated installed status
+    browseCache = [];
+    return agents[agents.length - 1] ?? null;
   } catch (e) {
     logFrontend("error", `Agent registry install failed: ${e}`);
     return null;

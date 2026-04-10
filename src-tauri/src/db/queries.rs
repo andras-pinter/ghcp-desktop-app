@@ -1113,6 +1113,149 @@ pub fn refresh_git_source_item_count(
     Ok(count)
 }
 
+// ── Git Source Catalog Items ────────────────────────────────────
+
+/// A catalog item persisted from a git source scan.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GitSourceCatalogItem {
+    pub id: String,
+    pub git_source_id: String,
+    pub path: String,
+    pub kind: String,
+    pub name: String,
+    pub description: Option<String>,
+    pub content: String,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+/// Upsert a catalog item from a git source scan.
+/// On conflict (same source + path), update content/name/description.
+#[allow(dead_code)]
+#[allow(clippy::too_many_arguments)]
+pub fn upsert_git_source_item(
+    conn: &Connection,
+    id: &str,
+    git_source_id: &str,
+    path: &str,
+    kind: &str,
+    name: &str,
+    description: Option<&str>,
+    content: &str,
+) -> Result<(), rusqlite::Error> {
+    conn.execute(
+        "INSERT INTO git_source_items (id, git_source_id, path, kind, name, description, content, created_at, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, datetime('now'), datetime('now'))
+         ON CONFLICT(git_source_id, path) DO UPDATE SET
+            name = excluded.name,
+            description = excluded.description,
+            content = excluded.content,
+            kind = excluded.kind,
+            updated_at = datetime('now')",
+        params![id, git_source_id, path, kind, name, description, content],
+    )?;
+    Ok(())
+}
+
+/// Remove catalog items for a source that are no longer present in the repo.
+/// `current_paths` is the set of paths found in the latest scan.
+#[allow(dead_code)]
+pub fn delete_stale_source_items(
+    conn: &Connection,
+    git_source_id: &str,
+    current_paths: &[String],
+) -> Result<usize, rusqlite::Error> {
+    if current_paths.is_empty() {
+        let count = conn.execute(
+            "DELETE FROM git_source_items WHERE git_source_id = ?1",
+            params![git_source_id],
+        )?;
+        return Ok(count);
+    }
+
+    let placeholders: Vec<String> = (0..current_paths.len())
+        .map(|i| format!("?{}", i + 2))
+        .collect();
+    let sql = format!(
+        "DELETE FROM git_source_items WHERE git_source_id = ?1 AND path NOT IN ({})",
+        placeholders.join(", ")
+    );
+
+    let mut stmt = conn.prepare(&sql)?;
+    let mut param_values: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
+    param_values.push(Box::new(git_source_id.to_string()));
+    for p in current_paths {
+        param_values.push(Box::new(p.clone()));
+    }
+    let params_ref: Vec<&dyn rusqlite::types::ToSql> =
+        param_values.iter().map(|b| b.as_ref()).collect();
+    let count = stmt.execute(params_ref.as_slice())?;
+    Ok(count)
+}
+
+/// Get all catalog items from enabled git sources, optionally filtered by kind and search query.
+#[allow(dead_code)]
+pub fn get_catalog_entries(
+    conn: &Connection,
+    kind: Option<&str>,
+    query: Option<&str>,
+) -> Result<Vec<GitSourceCatalogItem>, rusqlite::Error> {
+    let mut sql = String::from(
+        "SELECT i.id, i.git_source_id, i.path, i.kind, i.name, i.description, i.content, i.created_at, i.updated_at
+         FROM git_source_items i
+         JOIN git_sources s ON i.git_source_id = s.id
+         WHERE s.enabled = 1",
+    );
+    let mut param_values: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
+    let mut param_idx = 1;
+
+    if let Some(k) = kind {
+        sql.push_str(&format!(" AND i.kind = ?{param_idx}"));
+        param_values.push(Box::new(k.to_string()));
+        param_idx += 1;
+    }
+
+    if let Some(q) = query {
+        if !q.trim().is_empty() {
+            let pattern = format!("%{}%", q.trim());
+            sql.push_str(&format!(
+                " AND (i.name LIKE ?{param_idx} OR i.description LIKE ?{})",
+                param_idx + 1
+            ));
+            param_values.push(Box::new(pattern.clone()));
+            param_values.push(Box::new(pattern));
+            param_idx += 2;
+        }
+    }
+    let _ = param_idx;
+
+    sql.push_str(" ORDER BY i.name ASC");
+
+    let params_ref: Vec<&dyn rusqlite::types::ToSql> =
+        param_values.iter().map(|b| b.as_ref()).collect();
+    let mut stmt = conn.prepare(&sql)?;
+    let rows = stmt.query_map(params_ref.as_slice(), |row| {
+        Ok(GitSourceCatalogItem {
+            id: row.get(0)?,
+            git_source_id: row.get(1)?,
+            path: row.get(2)?,
+            kind: row.get(3)?,
+            name: row.get(4)?,
+            description: row.get(5)?,
+            content: row.get(6)?,
+            created_at: row.get(7)?,
+            updated_at: row.get(8)?,
+        })
+    })?;
+
+    let mut items = Vec::new();
+    for row in rows {
+        items.push(row?);
+    }
+    Ok(items)
+}
+
 // ── Projects ────────────────────────────────────────────────────
 
 /// A project container (matches frontend `Project` type).
@@ -1510,9 +1653,9 @@ mod tests {
     fn test_settings() {
         let conn = setup_db();
 
-        // Schema version was seeded (v4 after all migrations)
+        // Schema version was seeded (v5 after all migrations)
         let ver = get_setting(&conn, "schema_version").unwrap();
-        assert_eq!(ver, Some("4".to_string()));
+        assert_eq!(ver, Some("5".to_string()));
 
         // Set new value
         set_setting(&conn, "theme", "dark").unwrap();

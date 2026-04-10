@@ -78,12 +78,14 @@ pub async fn create_git_source(
     // Scan the repository for definition files
     let files = scan_source(&app, &url).await?;
 
-    // Update item count (discovered, not yet imported)
+    // Persist discovered items for catalog browsing
+    persist_catalog_items(&app, &id, &files)?;
+
+    // Update item count
     {
         let state = app.state::<AppState>();
         let db = state.db.lock().map_err(|e| e.to_string())?;
-        // Item count = 0 initially (nothing imported yet); we track discovered count client-side
-        queries::update_git_source_synced(&db, &id, 0)
+        queries::update_git_source_synced(&db, &id, files.len() as i64)
             .map_err(|e| format!("Failed to update sync timestamp: {e}"))?;
     }
 
@@ -145,20 +147,17 @@ pub async fn sync_git_source(app: AppHandle, id: String) -> Result<SourceScanRes
     // Update existing imported items if their content changed
     update_existing_items(&app, &id, &files)?;
 
-    // Update sync timestamp + actual imported item count
+    // Persist discovered items for catalog browsing
+    persist_catalog_items(&app, &id, &files)?;
+
+    // Update sync timestamp + discovered item count
     {
         let state = app.state::<AppState>();
         let db = state.db.lock().map_err(|e| e.to_string())?;
         queries::refresh_git_source_item_count(&db, &id)
             .map_err(|e| format!("Failed to refresh item count: {e}"))?;
-        queries::update_git_source_synced(
-            &db,
-            &id,
-            queries::get_source_items(&db, &id)
-                .map_err(|e| e.to_string())?
-                .len() as i64,
-        )
-        .map_err(|e| format!("Failed to update sync timestamp: {e}"))?;
+        queries::update_git_source_synced(&db, &id, files.len() as i64)
+            .map_err(|e| format!("Failed to update sync timestamp: {e}"))?;
     }
 
     let state = app.state::<AppState>();
@@ -239,6 +238,173 @@ pub fn get_source_items(
     let state = app.state::<AppState>();
     let db = state.db.lock().map_err(|e| e.to_string())?;
     queries::get_source_items(&db, &source_id).map_err(|e| e.to_string())
+}
+
+/// Search the unified catalog: aitmpl.com registry + git source items from enabled sources.
+/// Returns results as `RegistryItem` so the frontend handles a single type.
+#[tauri::command]
+pub async fn search_catalog(
+    app: AppHandle,
+    query: String,
+    kind: Option<String>,
+    limit: Option<u32>,
+) -> Result<crate::registry::RegistrySearchResult, String> {
+    let state = app.state::<AppState>();
+    let client = &state.http_client;
+
+    // 1) Fetch aitmpl.com results
+    let aitmpl_result =
+        crate::registry::search_registries(client, &query, limit.unwrap_or(200)).await;
+    let mut items: Vec<crate::registry::RegistryItem> = match aitmpl_result {
+        Ok(r) => r.items,
+        Err(e) => {
+            log::warn!("aitmpl.com search failed: {e}");
+            Vec::new()
+        }
+    };
+
+    // Filter aitmpl results by kind if specified
+    if let Some(ref k) = kind {
+        let target_kind = match k.as_str() {
+            "skill" => crate::registry::RegistryItemKind::Skill,
+            "agent" => crate::registry::RegistryItemKind::Agent,
+            _ => return Err(format!("Invalid kind: {k}")),
+        };
+        items.retain(|i| i.kind == target_kind);
+    }
+
+    // 2) Fetch git source catalog items from enabled sources
+    let git_items = {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        let q = if query.trim().is_empty() {
+            None
+        } else {
+            Some(query.as_str())
+        };
+        queries::get_catalog_entries(&db, kind.as_deref(), q)
+            .map_err(|e| format!("Catalog query failed: {e}"))?
+    };
+
+    // Get source names for display
+    let source_names: std::collections::HashMap<String, String> = {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        queries::list_git_sources(&db)
+            .map_err(|e| e.to_string())?
+            .into_iter()
+            .map(|s| (s.id.clone(), s.name.clone()))
+            .collect()
+    };
+
+    // Convert git catalog items to RegistryItem
+    for gi in git_items {
+        let item_kind = match gi.kind.as_str() {
+            "agent" => crate::registry::RegistryItemKind::Agent,
+            _ => crate::registry::RegistryItemKind::Skill,
+        };
+        let sname = source_names.get(&gi.git_source_id).cloned();
+        items.push(crate::registry::RegistryItem {
+            id: gi.id,
+            name: gi.name,
+            description: gi.description,
+            source: crate::registry::RegistrySource::Git,
+            source_name: sname,
+            url: None,
+            installs: None,
+            kind: item_kind,
+            source_repo: None,
+            content: Some(gi.content),
+        });
+    }
+
+    // Sort: aitmpl items by installs (highest first), then git items alphabetically
+    items.sort_by(|a, b| {
+        let a_is_git = a.source == crate::registry::RegistrySource::Git;
+        let b_is_git = b.source == crate::registry::RegistrySource::Git;
+        match (a_is_git, b_is_git) {
+            (false, true) => std::cmp::Ordering::Less,
+            (true, false) => std::cmp::Ordering::Greater,
+            (false, false) => b.installs.unwrap_or(0).cmp(&a.installs.unwrap_or(0)),
+            (true, true) => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
+        }
+    });
+
+    let total = items.len() as u64;
+    Ok(crate::registry::RegistrySearchResult {
+        items,
+        total: Some(total),
+    })
+}
+
+/// Install a skill or agent from a git source catalog item.
+/// Reads the content from `git_source_items` and creates a skill/agent in the DB.
+#[tauri::command]
+pub fn install_catalog_item(app: AppHandle, item_id: String) -> Result<String, String> {
+    let state = app.state::<AppState>();
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+
+    // Look up the catalog item
+    let items = queries::get_catalog_entries(&db, None, None).map_err(|e| e.to_string())?;
+    let catalog_item = items
+        .into_iter()
+        .find(|i| i.id == item_id)
+        .ok_or_else(|| format!("Catalog item '{item_id}' not found"))?;
+
+    let source = queries::get_git_source(&db, &catalog_item.git_source_id)
+        .map_err(|e| e.to_string())?
+        .ok_or("Git source not found")?;
+
+    let source_url = format!("{}/blob/main/{}", source.url, catalog_item.path);
+
+    match catalog_item.kind.as_str() {
+        "skill" => {
+            let parsed = crate::skillmd::parse(&catalog_item.content)
+                .map_err(|e| format!("Parse error: {e}"))?;
+            let db_id = format!("git-{}", parsed.name);
+            queries::create_skill(
+                &db,
+                &db_id,
+                &parsed.name,
+                Some(&parsed.description),
+                "git",
+                None,
+                None,
+                Some(&parsed.instructions),
+                Some(&source_url),
+                "git",
+                Some(&source.id),
+            )
+            .map_err(|e| format!("Failed to save skill: {e}"))?;
+
+            // Refresh item count
+            queries::refresh_git_source_item_count(&db, &source.id)
+                .map_err(|e| format!("Failed to refresh count: {e}"))?;
+
+            Ok(db_id)
+        }
+        "agent" => {
+            let parsed = crate::skillmd::parse(&catalog_item.content)
+                .map_err(|e| format!("Parse error: {e}"))?;
+            let id = uuid::Uuid::new_v4().to_string();
+            queries::create_agent(
+                &db,
+                &id,
+                &parsed.name,
+                None,
+                &parsed.instructions,
+                Some(&source_url),
+                "git",
+                Some(&source.id),
+            )
+            .map_err(|e| format!("Failed to save agent: {e}"))?;
+
+            // Refresh item count
+            queries::refresh_git_source_item_count(&db, &source.id)
+                .map_err(|e| format!("Failed to refresh count: {e}"))?;
+
+            Ok(id)
+        }
+        _ => Err(format!("Unknown item kind: {}", catalog_item.kind)),
+    }
 }
 
 // ── Internal helpers ────────────────────────────────────────────
@@ -378,15 +544,72 @@ async fn scan_and_update_source(
     // Update existing imported items if their content changed
     update_existing_items(app, &source.id, &files)?;
 
+    // Persist discovered items for catalog browsing
+    persist_catalog_items(app, &source.id, &files)?;
+
     // Update sync timestamp + item count
     let db = state.db.lock().map_err(|e| e.to_string())?;
     queries::refresh_git_source_item_count(&db, &source.id)
         .map_err(|e| format!("Failed to refresh item count: {e}"))?;
-    let count = queries::get_source_items(&db, &source.id)
-        .map_err(|e| e.to_string())?
-        .len() as i64;
-    queries::update_git_source_synced(&db, &source.id, count)
+    queries::update_git_source_synced(&db, &source.id, files.len() as i64)
         .map_err(|e| format!("Failed to update sync timestamp: {e}"))?;
+
+    Ok(())
+}
+
+/// Persist discovered files into `git_source_items` for catalog browsing.
+/// Parses each file to extract name + description, upserts into the table,
+/// and removes stale items no longer in the repo.
+fn persist_catalog_items(
+    app: &AppHandle,
+    source_id: &str,
+    files: &[crate::registry::GitSkillFile],
+) -> Result<(), String> {
+    let state = app.state::<AppState>();
+    let db = state.db.lock().map_err(|e| e.to_string())?;
+
+    let mut current_paths = Vec::new();
+
+    for file in files {
+        let kind = if file.path.ends_with(".agent.md") {
+            "agent"
+        } else {
+            "skill"
+        };
+
+        // Parse to extract name + description
+        let (name, description) = match crate::skillmd::parse(&file.content) {
+            Ok(parsed) => (parsed.name, Some(parsed.description)),
+            Err(_) => {
+                let (n, d, _) = crate::registry::parse_content_lenient(&file.content, &file.path);
+                (n, if d.is_empty() { None } else { Some(d) })
+            }
+        };
+
+        let id = format!(
+            "gsi-{}-{}",
+            source_id.chars().take(8).collect::<String>(),
+            file.path
+        );
+
+        queries::upsert_git_source_item(
+            &db,
+            &id,
+            source_id,
+            &file.path,
+            kind,
+            &name,
+            description.as_deref(),
+            &file.content,
+        )
+        .map_err(|e| format!("Failed to upsert catalog item: {e}"))?;
+
+        current_paths.push(file.path.clone());
+    }
+
+    // Remove items that are no longer in the repo
+    queries::delete_stale_source_items(&db, source_id, &current_paths)
+        .map_err(|e| format!("Failed to remove stale items: {e}"))?;
 
     Ok(())
 }

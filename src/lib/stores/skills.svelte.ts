@@ -5,8 +5,9 @@ import {
   createSkill as createSkillCmd,
   deleteSkill as deleteSkillCmd,
   toggleSkill as toggleSkillCmd,
-  searchRegistry as searchRegistryCmd,
+  searchCatalog as searchCatalogCmd,
   installFromRegistry as installFromRegistryCmd,
+  installCatalogItem as installCatalogItemCmd,
   logFrontend,
 } from "$lib/utils/commands";
 import type { Skill } from "$lib/types/skill";
@@ -62,8 +63,8 @@ export async function prefetchRegistry(): Promise<void> {
   if (registrySearching) return;
   registrySearching = true;
   try {
-    const result: RegistrySearchResult = await searchRegistryCmd("", 200);
-    browseCache = result.items.filter((i) => i.kind === "skill");
+    const result: RegistrySearchResult = await searchCatalogCmd("", "skill", 200);
+    browseCache = result.items;
     registryQuery = "";
     registryResults = browseCache;
     registryTotal = browseCache.length;
@@ -80,10 +81,9 @@ export async function searchRegistries(query: string): Promise<void> {
   registryQuery = query;
   registrySearching = true;
   try {
-    const result: RegistrySearchResult = await searchRegistryCmd(query);
-    const filtered = result.items.filter((i) => i.kind === "skill");
-    registryResults = filtered;
-    registryTotal = filtered.length;
+    const result: RegistrySearchResult = await searchCatalogCmd(query, "skill");
+    registryResults = result.items;
+    registryTotal = result.items.length;
   } catch (e) {
     logFrontend("error", `Registry search failed: ${e}`);
     registryResults = [];
@@ -93,20 +93,28 @@ export async function searchRegistries(query: string): Promise<void> {
   }
 }
 
-/** Install a skill from a registry result. */
+/** Install a skill from a catalog result (aitmpl.com or git source). */
 export async function installFromRegistry(item: RegistryItem): Promise<Skill | null> {
   try {
-    const installed: RegistryItem = await installFromRegistryCmd(
-      item.id,
-      item.source,
-      item.sourceRepo,
-      item.url,
-      item.content,
-      item.name,
-    );
+    if (item.source === "git") {
+      // Git source catalog item — install via catalog command
+      await installCatalogItemCmd(item.id);
+    } else {
+      // aitmpl.com registry item — install via registry command
+      await installFromRegistryCmd(
+        item.id,
+        item.source,
+        item.sourceRepo,
+        item.url,
+        item.content,
+        item.name,
+      );
+    }
     // Reload skills to pick up the new one
     await initSkills();
-    return skills.find((s) => s.id === installed.id) ?? null;
+    // Invalidate browse cache so next prefetch includes updated installed status
+    browseCache = [];
+    return skills[skills.length - 1] ?? null;
   } catch (e) {
     logFrontend("error", `Registry install failed: ${e}`);
     return null;

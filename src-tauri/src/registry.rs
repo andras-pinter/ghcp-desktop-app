@@ -20,6 +20,9 @@ pub struct RegistryItem {
     pub description: Option<String>,
     /// Which registry this came from.
     pub source: RegistrySource,
+    /// Human-readable label for the source (e.g., "aitmpl.com" or git source name).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source_name: Option<String>,
     /// URL to the skill/agent on the registry.
     pub url: Option<String>,
     /// Install count (if available).
@@ -41,6 +44,8 @@ pub enum RegistrySource {
     Aitmpl,
     /// For future custom catalog URLs.
     Custom,
+    /// From a user-configured git source.
+    Git,
 }
 
 /// Whether the item is a skill or agent template.
@@ -271,6 +276,7 @@ fn aitmpl_to_registry_item(item: &AitmplComponent, kind: RegistryItemKind) -> Re
         name: item.name.clone(),
         description,
         source: RegistrySource::Aitmpl,
+        source_name: Some("aitmpl.com".to_string()),
         url,
         installs: None,
         kind,
