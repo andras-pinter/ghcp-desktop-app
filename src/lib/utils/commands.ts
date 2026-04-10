@@ -1,7 +1,7 @@
 /** Typed wrappers around Tauri invoke() for all backend commands. */
 
 import { invoke } from "@tauri-apps/api/core";
-import type { AuthState, DeviceCodeResponse, GitHubUser } from "$lib/types/auth";
+import type { AuthState, AuthenticateResult, GitHubUser } from "$lib/types/auth";
 import type { Conversation } from "$lib/types/conversation";
 import type { Message, ChatMessage, Model } from "$lib/types/message";
 import type { SearchResult, ExtractedContent } from "$lib/types/web-research";
@@ -34,8 +34,8 @@ export async function getAuthState(): Promise<AuthState> {
 }
 
 /** Start the GitHub OAuth device flow. */
-export async function authenticate(): Promise<DeviceCodeResponse> {
-  return invoke<DeviceCodeResponse>("authenticate");
+export async function authenticate(): Promise<AuthenticateResult> {
+  return invoke<AuthenticateResult>("authenticate");
 }
 
 /** Poll once for the OAuth token after user authorizes. */

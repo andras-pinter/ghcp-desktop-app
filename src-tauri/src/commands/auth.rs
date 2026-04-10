@@ -2,21 +2,40 @@
 
 use crate::state::AppState;
 use copilot_api::auth::DeviceFlowAuth;
-use copilot_api::types::{AuthState, DeviceCodeResponse, GitHubUser};
+use copilot_api::types::{AuthState, DeviceCodeInfo, GitHubUser};
 use tauri::{AppHandle, Emitter, Manager};
 
-/// Initiate the OAuth device flow. Returns the device code info for the UI.
+/// Initiate the OAuth device flow. Returns the user-facing device code info.
+///
+/// The internal `device_code` (polling secret) is stored server-side and
+/// returned only as the opaque polling key — the full secret never reaches
+/// the webview.
 #[tauri::command]
-pub async fn authenticate(app: AppHandle) -> Result<DeviceCodeResponse, String> {
+pub async fn authenticate(app: AppHandle) -> Result<AuthenticateResult, String> {
     let state = app.state::<AppState>();
     let auth = state.copilot.auth();
 
-    let device_code = auth
+    let resp = auth
         .request_device_code()
         .await
         .map_err(|e| e.to_string())?;
 
-    Ok(device_code)
+    let info = DeviceCodeInfo::from(&resp);
+
+    Ok(AuthenticateResult {
+        device_code: resp.device_code,
+        info,
+    })
+}
+
+/// Result of the authenticate command — device_code for polling + safe info for UI.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AuthenticateResult {
+    /// Opaque polling key (needed by `poll_auth_token`).
+    pub device_code: String,
+    /// User-facing info (code, URL, timing).
+    pub info: DeviceCodeInfo,
 }
 
 /// Poll for the OAuth token after the user has entered the device code.

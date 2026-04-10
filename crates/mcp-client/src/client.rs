@@ -401,20 +401,30 @@ fn convert_call_result(result: rmcp::model::CallToolResult) -> McpToolResult {
 
 // ── Security helpers ────────────────────────────────────────────
 
-/// Check if an IP address is private, loopback, link-local, or a cloud metadata endpoint.
+/// Check if an IP address is private, loopback, link-local, reserved, or a cloud metadata endpoint.
+///
+/// Comprehensive blocking aligned with the `web-research` crate's `is_blocked_ip()`.
 fn is_private_ip(ip: &IpAddr) -> bool {
     match ip {
         IpAddr::V4(v4) => {
-            v4.is_loopback()            // 127.0.0.0/8
-                || v4.is_private()       // 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16
-                || v4.is_link_local()    // 169.254.0.0/16
-                || v4.is_broadcast()     // 255.255.255.255
-                || v4.is_unspecified()   // 0.0.0.0
-                || v4.octets() == [169, 254, 169, 254] // cloud metadata
+            let octets = v4.octets();
+            v4.is_loopback()              // 127.0.0.0/8
+                || v4.is_private()         // 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16
+                || v4.is_link_local()      // 169.254.0.0/16
+                || v4.is_broadcast()       // 255.255.255.255
+                || v4.is_unspecified()     // 0.0.0.0
+                || octets[0] == 0          // 0.0.0.0/8 (current network)
+                || octets == [169, 254, 169, 254] // cloud metadata endpoint
+                || (octets[0] == 100 && (octets[1] & 0xC0) == 64) // 100.64.0.0/10 (CGNAT / Shared Address Space)
+                || (octets[0] == 192 && octets[1] == 0 && octets[2] == 2)   // 192.0.2.0/24 (TEST-NET-1 documentation)
+                || (octets[0] == 198 && octets[1] == 51 && octets[2] == 100) // 198.51.100.0/24 (TEST-NET-2 documentation)
+                || (octets[0] == 203 && octets[1] == 0 && octets[2] == 113)  // 203.0.113.0/24 (TEST-NET-3 documentation)
+                || (octets[0] == 198 && (octets[1] & 0xFE) == 18)           // 198.18.0.0/15 (benchmarking)
+                || octets[0] >= 240 // 240.0.0.0/4 (Class E reserved / future use)
         }
         IpAddr::V6(v6) => {
-            v6.is_loopback()             // ::1
-                || v6.is_unspecified()   // ::
+            v6.is_loopback()               // ::1
+                || v6.is_unspecified()     // ::
                 || is_ipv6_private(v6)
         }
     }
@@ -440,6 +450,14 @@ fn is_ipv6_private(v6: &std::net::Ipv6Addr) -> bool {
     if segs[0] == 0x2001 && segs[1] == 0x0000 {
         return true;
     }
+    // Documentation: 2001:db8::/32
+    if segs[0] == 0x2001 && segs[1] == 0x0db8 {
+        return true;
+    }
+    // Multicast: ff00::/8
+    if segs[0] & 0xff00 == 0xff00 {
+        return true;
+    }
     // Deprecated site-local: fec0::/10
     if segs[0] & 0xffc0 == 0xfec0 {
         return true;
@@ -453,7 +471,7 @@ mod tests {
 
     #[test]
     fn test_private_ip_detection() {
-        // IPv4
+        // IPv4 private / loopback / link-local / unspecified
         assert!(is_private_ip(&"127.0.0.1".parse().unwrap()));
         assert!(is_private_ip(&"10.0.0.1".parse().unwrap()));
         assert!(is_private_ip(&"172.16.0.1".parse().unwrap()));
@@ -461,6 +479,26 @@ mod tests {
         assert!(is_private_ip(&"169.254.169.254".parse().unwrap()));
         assert!(is_private_ip(&"169.254.1.1".parse().unwrap()));
         assert!(is_private_ip(&"0.0.0.0".parse().unwrap()));
+        assert!(is_private_ip(&"0.1.2.3".parse().unwrap()));
+
+        // CGNAT (100.64.0.0/10)
+        assert!(is_private_ip(&"100.64.0.1".parse().unwrap()));
+        assert!(is_private_ip(&"100.127.255.255".parse().unwrap()));
+        assert!(!is_private_ip(&"100.128.0.1".parse().unwrap()));
+
+        // Documentation ranges (TEST-NET-1/2/3)
+        assert!(is_private_ip(&"192.0.2.1".parse().unwrap()));
+        assert!(is_private_ip(&"198.51.100.1".parse().unwrap()));
+        assert!(is_private_ip(&"203.0.113.1".parse().unwrap()));
+
+        // Benchmarking (198.18.0.0/15)
+        assert!(is_private_ip(&"198.18.0.1".parse().unwrap()));
+        assert!(is_private_ip(&"198.19.255.255".parse().unwrap()));
+
+        // Class E reserved (240.0.0.0/4)
+        assert!(is_private_ip(&"240.0.0.1".parse().unwrap()));
+        assert!(is_private_ip(&"255.255.255.254".parse().unwrap()));
+        assert!(is_private_ip(&"255.255.255.255".parse().unwrap())); // broadcast
 
         // IPv6 basics
         assert!(is_private_ip(&"::1".parse().unwrap()));
@@ -477,13 +515,17 @@ mod tests {
         assert!(is_private_ip(&"::ffff:169.254.169.254".parse().unwrap()));
         // Teredo (2001:0000::/32)
         assert!(is_private_ip(&"2001:0000::1".parse().unwrap()));
+        // Documentation (2001:db8::/32)
+        assert!(is_private_ip(&"2001:0db8::1".parse().unwrap()));
+        // Multicast (ff00::/8)
+        assert!(is_private_ip(&"ff02::1".parse().unwrap()));
         // Site-local (fec0::/10)
         assert!(is_private_ip(&"fec0::1".parse().unwrap()));
 
         // Public IPs
         assert!(!is_private_ip(&"8.8.8.8".parse().unwrap()));
         assert!(!is_private_ip(&"1.1.1.1".parse().unwrap()));
-        assert!(!is_private_ip(&"203.0.113.1".parse().unwrap()));
+        assert!(!is_private_ip(&"104.16.133.229".parse().unwrap()));
         assert!(!is_private_ip(&"2607:f8b0:4004:800::200e".parse().unwrap()));
         // Public IPv4-mapped IPv6
         assert!(!is_private_ip(&"::ffff:8.8.8.8".parse().unwrap()));

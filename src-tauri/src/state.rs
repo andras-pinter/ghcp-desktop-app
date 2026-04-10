@@ -43,7 +43,7 @@ impl AppState {
 
         crate::db::initialize(&conn)?;
 
-        log::info!("Database opened at {}", db_path.display());
+        log::info!("Database initialized successfully");
 
         Ok(Self {
             db: Mutex::new(conn),

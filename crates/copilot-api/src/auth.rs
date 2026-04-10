@@ -49,7 +49,7 @@ pub enum AuthError {
     AccessDenied,
     #[error("OAuth error: {0}")]
     OAuthError(String),
-    #[error("Copilot token exchange failed: {status} {body}")]
+    #[error("Copilot token exchange failed (HTTP {status})")]
     CopilotTokenExchange { status: u16, body: String },
     #[error("Keychain error: {0}")]
     Keychain(#[from] keychain::KeychainError),
@@ -256,11 +256,17 @@ impl DeviceFlowAuth {
 
     /// Clear all stored tokens from the keychain (logout).
     pub fn clear_tokens() -> Result<(), AuthError> {
-        // Ignore NotFound errors — token might not exist
-        let _ = keychain::delete(KEY_GITHUB_TOKEN);
-        let _ = keychain::delete(KEY_COPILOT_TOKEN);
-        let _ = keychain::delete(KEY_COPILOT_EXPIRES);
-        let _ = keychain::delete(KEY_COPILOT_API_BASE);
+        for key in [
+            KEY_GITHUB_TOKEN,
+            KEY_COPILOT_TOKEN,
+            KEY_COPILOT_EXPIRES,
+            KEY_COPILOT_API_BASE,
+        ] {
+            match keychain::delete(key) {
+                Ok(()) | Err(keychain::KeychainError::NotFound(_)) => {}
+                Err(e) => return Err(AuthError::Keychain(e)),
+            }
+        }
         Ok(())
     }
 }
