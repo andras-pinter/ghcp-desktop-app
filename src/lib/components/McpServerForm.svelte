@@ -34,6 +34,10 @@
   let formArgs = $state("");
   let formAuthHeader = $state("");
   let formError = $state("");
+  let formValid = $derived(
+    formName.trim().length > 0 &&
+      (formTransport === "http" ? formUrl.trim().length > 0 : formBinaryPath.trim().length > 0),
+  );
   let submitting = $state(false);
   let testing = $state(false);
   let testResult = $state<{ success: boolean; message: string } | null>(null);
@@ -335,12 +339,12 @@
       {/if}
 
       <div class="form-actions form-actions--split">
-        <button type="button" class="btn" onclick={handleTest} disabled={testing}>
+        <button type="button" class="btn" onclick={handleTest} disabled={testing || !formValid}>
           {testing ? "Testing..." : "Test Connection"}
         </button>
         <div class="actions-right">
           <button type="button" class="btn" onclick={onBack}>Cancel</button>
-          <button type="submit" class="btn btn--primary" disabled={submitting}>
+          <button type="submit" class="btn btn--primary" disabled={submitting || !formValid}>
             {#if submitting}
               Saving...
             {:else}
