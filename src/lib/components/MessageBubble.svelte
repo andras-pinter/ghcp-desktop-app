@@ -282,6 +282,7 @@
           <div class="markdown-prose" bind:this={contentEl}></div>
         {/if}
         {#if isStreaming || isRevealing}
+          <div class="streaming-indicator-spacer" aria-hidden="true"></div>
           <div class="streaming-indicator" aria-hidden="true">
             <span class="streaming-orb"></span>
             <span class="streaming-phrase">{streamingPhrase}</span>
@@ -399,6 +400,10 @@
     font-size: var(--font-size-base);
     line-height: var(--line-height-relaxed);
     color: var(--color-text-primary);
+  }
+
+  .streaming-indicator-spacer {
+    height: 1em;
   }
 
   .streaming-indicator {
