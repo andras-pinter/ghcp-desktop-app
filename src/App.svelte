@@ -7,6 +7,7 @@
   import SkillsPanel from "$lib/components/SkillsPanel.svelte";
   import AgentsPanel from "$lib/components/AgentsPanel.svelte";
   import ProjectView from "$lib/components/ProjectView.svelte";
+  import SourcesPanel from "$lib/components/SourcesPanel.svelte";
   import UpdateBanner from "$lib/components/UpdateBanner.svelte";
   import { initAuth, getAuth } from "$lib/stores/auth.svelte";
   import { initModels, getModelStore } from "$lib/stores/models.svelte";
@@ -26,7 +27,14 @@
   import { register, unregister } from "@tauri-apps/plugin-global-shortcut";
   import { onMount } from "svelte";
 
-  type AppView = "chat" | "settings" | "mcp-settings" | "skills" | "agents" | "projects";
+  type AppView =
+    | "chat"
+    | "settings"
+    | "mcp-settings"
+    | "skills"
+    | "agents"
+    | "projects"
+    | "sources";
 
   let sidebarCollapsed = $state(false);
   let dataLoaded = $state(false);
@@ -260,6 +268,8 @@
               currentView = "chat";
             }}
           />
+        {:else if currentView === "sources"}
+          <SourcesPanel onBack={navigateBack} />
         {:else}
           <ChatView />
         {/if}
