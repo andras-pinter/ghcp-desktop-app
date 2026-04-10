@@ -354,18 +354,7 @@
 
           {#if initialRegistry.websiteUrl || initialRegistry.repoUrl}
             <div class="detail-section">
-              <div class="detail-label">Links</div>
               <div class="setup-links">
-                {#if initialRegistry.websiteUrl}
-                  <a
-                    href={initialRegistry.websiteUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    class="detail-link"
-                  >
-                    Website ↗
-                  </a>
-                {/if}
                 {#if initialRegistry.repoUrl}
                   <a
                     href={initialRegistry.repoUrl}
@@ -373,7 +362,17 @@
                     rel="noopener noreferrer"
                     class="detail-link"
                   >
-                    Repository ↗
+                    📦 Repository
+                  </a>
+                {/if}
+                {#if initialRegistry.websiteUrl}
+                  <a
+                    href={initialRegistry.websiteUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="detail-link"
+                  >
+                    🌐 Website
                   </a>
                 {/if}
               </div>
