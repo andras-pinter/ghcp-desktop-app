@@ -31,7 +31,7 @@ here. When this guide conflicts with scoped component styles, the guide wins.
 16. [Search Input](#16-search-input)
 17. [Empty State](#17-empty-state)
 18. [Banners](#18-banners)
-19. [Code Block](#19-code-block)
+19. [Code Snippet](#19-code-snippet)
 20. [Segmented Control & Tab Bar](#20-segmented-control--tab-bar)
 21. [Spinner & Progress](#21-spinner--progress)
 22. [Checkbox List](#22-checkbox-list)
@@ -619,20 +619,20 @@ Feedback messages for success, warning, error, and info states.
 
 ---
 
-## 19. Code Block
+## 19. Code Snippet
 
 Inline code display with copy button (e.g., MCP server URLs, command snippets).
 
-| Class              | Purpose                                             |
-| ------------------ | --------------------------------------------------- |
-| `.code-block`      | Flex row: code + copy button. Tertiary bg, bordered |
-| `.code-block code` | Monospace text, word-break, padding                 |
-| `.code-block-copy` | 36px-wide copy button on the right, border-left     |
+| Class                | Purpose                                             |
+| -------------------- | --------------------------------------------------- |
+| `.code-snippet`      | Flex row: code + copy button. Tertiary bg, bordered |
+| `.code-snippet code` | Monospace text, word-break, padding                 |
+| `.code-snippet-copy` | 36px-wide copy button on the right, border-left     |
 
 ```svelte
-<div class="code-block">
+<div class="code-snippet">
   <code>npx -y @azure/mcp@3.0.0 server start</code>
-  <button class="code-block-copy" onclick={copy}>📋</button>
+  <button class="code-snippet-copy" onclick={copy}>📋</button>
 </div>
 ```
 
@@ -1100,7 +1100,7 @@ Settings:       .setting-row, .setting-info, .setting-label, .setting-desc
 Search:         .search-field, .search-field-icon, .search-spinner
 Empty:          .empty-state, .empty-state-icon, .empty-state-title, .empty-state-desc
 Banners:        .banner, .banner--success, .banner--warning, .banner--error, .banner--info
-Code:           .code-block, .code-block code, .code-block-copy
+Code:           .code-snippet, .code-snippet code, .code-snippet-copy
 Segmented:      .segmented, .segmented-item, .segmented-item--active
 Tabs:           .tab-bar, .tab-pill, .tab-pill--active
 Spinner:        .spinner, .spinner--sm
