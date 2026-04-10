@@ -76,6 +76,9 @@ cargo install tauri-cli --version "^2"
 # Install frontend dependencies
 pnpm install
 
+# Enable git hooks (auto-release on merge)
+git config core.hooksPath .githooks
+
 # Development (hot-reload frontend + Rust backend)
 cargo tauri dev
 
