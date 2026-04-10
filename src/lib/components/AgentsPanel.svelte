@@ -325,8 +325,20 @@
   }
 
   function truncatePrompt(text: string, max: number = 100): string {
-    if (text.length <= max) return text;
-    return text.slice(0, max).trimEnd() + "…";
+    // Strip markdown formatting for plain-text preview
+    const plain = text
+      .replace(/^#{1,6}\s+/gm, "") // headings
+      .replace(/\*\*(.+?)\*\*/g, "$1") // bold
+      .replace(/\*(.+?)\*/g, "$1") // italic
+      .replace(/`(.+?)`/g, "$1") // inline code
+      .replace(/\[(.+?)\]\(.+?\)/g, "$1") // links
+      .replace(/^[-*]\s+/gm, "• ") // list items
+      .replace(/\n{2,}/g, " · ") // paragraph breaks → separator
+      .replace(/\n/g, " ") // remaining newlines
+      .replace(/\s{2,}/g, " ") // collapse whitespace
+      .trim();
+    if (plain.length <= max) return plain;
+    return plain.slice(0, max).trimEnd() + "…";
   }
 
   function sourceLabel(agent: Agent): string | null {
