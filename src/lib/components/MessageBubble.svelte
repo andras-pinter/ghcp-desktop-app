@@ -287,6 +287,7 @@
             <span class="streaming-orb"></span>
             <span class="streaming-phrase">{streamingPhrase}</span>
           </div>
+          <div class="streaming-scroll-runway" aria-hidden="true"></div>
         {/if}
         {#if webResults.length > 0}
           <nav class="web-results" aria-label="Web sources">
@@ -404,6 +405,14 @@
 
   .streaming-indicator-spacer {
     height: 1em;
+  }
+
+  /* Tall invisible zone below the indicator. Auto-scroll targets
+     scrollHeight which includes this runway, so the indicator
+     stays comfortably above the viewport edge even as content
+     grows line-by-line — preventing the scroll-chase flap. */
+  .streaming-scroll-runway {
+    height: 4em;
   }
 
   .streaming-indicator {
