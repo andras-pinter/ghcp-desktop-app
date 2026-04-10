@@ -326,7 +326,7 @@
       <details class="setup-guide">
         <summary class="setup-summary">
           <span class="setup-arrow">▶</span>
-          Setup Guide
+          More Info
         </summary>
 
         <div class="setup-body">
