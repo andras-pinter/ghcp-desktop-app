@@ -171,15 +171,25 @@
     }
   });
 
-  // Reset summarization banner when switching conversations
+  // Reset summarization banner and scroll state when switching conversations
   $effect(() => {
     // eslint-disable-next-line @typescript-eslint/no-unused-expressions
     store.activeConversationId;
     summarizedCount = 0;
+    userScrolledAway = false;
   });
 
-  // Auto-scroll when active conversation receives streaming tokens
+  // Auto-scroll when active conversation receives streaming tokens.
+  // If the user scrolls up, pause auto-scroll; resume when they scroll back near the bottom.
   let scrollInterval: ReturnType<typeof setInterval> | undefined;
+  let userScrolledAway = false;
+
+  function handleChatScroll(): void {
+    if (!chatContainer) return;
+    const { scrollTop, scrollHeight, clientHeight } = chatContainer;
+    // Consider "near bottom" if within 80px of the end
+    userScrolledAway = scrollHeight - scrollTop - clientHeight > 80;
+  }
 
   onMount(async () => {
     // Load draft for active conversation
@@ -190,7 +200,7 @@
     setupDragDrop();
 
     scrollInterval = setInterval(() => {
-      if (streaming && chatContainer) {
+      if (streaming && chatContainer && !userScrolledAway) {
         chatContainer.scrollTo({ top: chatContainer.scrollHeight, behavior: "smooth" });
       }
     }, 150);
@@ -208,6 +218,9 @@
   });
 
   async function handleSend(text: string, urls?: UrlPreview[], files?: ChatFileData[]) {
+    // User just sent a message — follow the response
+    userScrolledAway = false;
+
     // Ensure we have an active conversation
     let convId = store.activeConversationId;
     if (!convId) {
@@ -544,7 +557,13 @@
     {#if showSearch}
       <SearchOverlay {chatContainer} onClose={() => (showSearch = false)} />
     {/if}
-    <div class="chat-messages" bind:this={chatContainer} role="log" aria-label="Chat messages">
+    <div
+      class="chat-messages"
+      bind:this={chatContainer}
+      role="log"
+      aria-label="Chat messages"
+      onscroll={handleChatScroll}
+    >
       <div class="messages-inner">
         {#if summarizedCount > 0}
           <div class="context-summary-banner" role="status">
