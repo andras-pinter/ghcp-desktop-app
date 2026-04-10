@@ -9,6 +9,7 @@ pub mod models;
 pub mod projects;
 pub mod settings;
 pub mod skills;
+pub mod sources;
 pub mod web_research;
 
 /// Return basic application info.
