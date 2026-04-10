@@ -187,8 +187,8 @@
   function handleChatScroll(): void {
     if (!chatContainer) return;
     const { scrollTop, scrollHeight, clientHeight } = chatContainer;
-    // Consider "near bottom" if within 80px of the end
-    userScrolledAway = scrollHeight - scrollTop - clientHeight > 80;
+    // Consider "near bottom" if within 200px of the end
+    userScrolledAway = scrollHeight - scrollTop - clientHeight > 200;
   }
 
   onMount(async () => {
