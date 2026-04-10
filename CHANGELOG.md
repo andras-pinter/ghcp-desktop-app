@@ -3,6 +3,18 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.2.2] — 2026-04-10
+
+### Bug Fixes
+
+- **quality:** improve error handling, logging, and overflow protection (2c48579)
+- **security:** harden token handling, SSRF protection, and logging (f5b4a87)
+
+### Documentation
+
+- **agents:** add missing deps, fix skills schema, update project structure (0da09b4)
+- fix schema docs, add JSDoc, update project structure (e3f69d7)
+
 ## [0.2.1] — 2026-04-10
 
 ### Bug Fixes
