@@ -1027,6 +1027,8 @@ copilot-desktop/
 │   └── config.toml               # Cargo aliases (xtask)
 ├── CHANGELOG.md                   # Auto-generated from conventional commits (cargo xtask changelog)
 ├── AGENTS.md
+├── STYLE-GUIDE.md                 # Warm Ink design system reference (tokens, components, per-panel guides)
+├── LICENSE                        # Project license
 └── README.md
 ```
 
@@ -1246,6 +1248,12 @@ an MCP server binary. This is the **only** exception to the no-subprocess rule:
 | `dom_smoothie` | Readable content extraction (Readability algorithm) for URL fetching |
 | `url` | URL parsing and validation |
 | `uuid` | UUID generation (conversation, message, project, agent IDs) |
+| `base64` | Base64 encoding/decoding (file content transfer between frontend and backend) |
+| `chrono` | Date/time handling (ISO 8601 timestamps, changelog generation) |
+| `futures-util` | Async stream combinators (SSE streaming, web fetching) |
+| `async-trait` | Async fn in traits (registry provider trait) |
+| `serde_norway` | YAML parsing (SKILL.md frontmatter deserialization) |
+| `zip` | ZIP archive reading (DOCX/XLSX/PPTX text extraction) |
 | `rmcp` | Official MCP Rust SDK (Model Context Protocol, spec version 2025-03-26+) |
 
 ### Frontend (npm packages)
@@ -1264,12 +1272,14 @@ an MCP server binary. This is the **only** exception to the no-subprocess rule:
 | `@tauri-apps/plugin-shell` | Frontend bindings for shell plugin |
 | `@tauri-apps/plugin-clipboard-manager` | Frontend bindings for clipboard plugin |
 | `@tauri-apps/plugin-store` | Frontend bindings for store plugin (ephemeral UI state only) |
+| `@tauri-apps/plugin-process` | Frontend bindings for process plugin (app relaunch after update) |
 | `@fontsource-variable/plus-jakarta-sans` | Plus Jakarta Sans variable font (body text, UI) |
 | `@fontsource/instrument-serif` | Instrument Serif font (display titles, editorial headings) |
 | `marked` | Markdown parsing (fast, CommonMark-compliant) |
 | `shiki` | Syntax highlighting (VS Code quality, WASM-based) |
 | `dompurify` | HTML sanitization for rendered markdown |
 | `vitest` | Frontend unit testing |
+| `svelte-check` | Svelte type checker (validates `.svelte` files with TypeScript) |
 | `eslint` | Code linting |
 | `prettier` | Code formatting |
 | `prettier-plugin-svelte` | Prettier support for `.svelte` files |
@@ -1651,7 +1661,8 @@ CREATE TABLE skills (
     mcp_server_id TEXT,             -- Soft reference to mcp_servers(id); NULL for non-MCP skills
     config TEXT,                   -- JSON config blob
     enabled INTEGER DEFAULT 1,
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL,
+    updated_at TEXT                -- Added in migration v2
 );
 
 -- MCP server configurations
@@ -1703,6 +1714,8 @@ CREATE INDEX idx_skills_source ON skills(source);
 
 INSERT INTO config (key, value) VALUES ('schema_version', '3');
 ```
+
+> *Note: The schema above reflects the **final state** after all migrations (v1→v2→v3). See `src-tauri/src/db/migrations.rs` for the incremental ALTER TABLE statements that evolve the schema across versions.*
 
 ### Persistence Rules
 
