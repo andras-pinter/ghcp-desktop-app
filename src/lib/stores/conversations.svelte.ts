@@ -119,9 +119,6 @@ async function handleStreamingComplete(payload: StreamingCompletePayload): Promi
     if (conversationId !== activeConversationId) {
       unreadConversations.add(conversationId);
     }
-
-    // Auto-generate title if conversation has no title yet (best-effort)
-    autoGenerateTitle(conversationId);
   }
 }
 
@@ -207,6 +204,9 @@ export function startStreaming(conversationId: string, assistantMessageId: strin
     content: "",
     thinkingContent: "",
   });
+
+  // Generate title immediately — don't wait for streaming to finish
+  autoGenerateTitle(conversationId);
 }
 
 /** Check if a specific conversation is currently streaming. */
