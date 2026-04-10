@@ -206,8 +206,18 @@
 
   async function handleCreateSkill() {
     const name = createName.trim();
+    const description = createDescription.trim();
+    const instructions = createInstructions.trim();
     if (!name) {
       createError = "Name is required";
+      return;
+    }
+    if (!description) {
+      createError = "Description is required";
+      return;
+    }
+    if (!instructions) {
+      createError = "Instructions are required";
       return;
     }
     createSaving = true;
@@ -218,11 +228,11 @@
       await createSkill(
         id,
         name,
-        createDescription.trim() || null,
+        description,
         "builtin",
         null,
         null,
-        createInstructions.trim() || null,
+        instructions,
         null,
         "local",
       );
@@ -939,7 +949,7 @@
           <button
             class="btn btn--primary"
             onclick={handleCreateSkill}
-            disabled={createSaving || !createName.trim()}
+            disabled={createSaving || !createName.trim() || !createDescription.trim() || !createInstructions.trim()}
           >
             {createSaving ? "Creating…" : "Create Skill"}
           </button>
