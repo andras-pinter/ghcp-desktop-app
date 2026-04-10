@@ -187,8 +187,8 @@
   function handleChatScroll(): void {
     if (!chatContainer) return;
     const { scrollTop, scrollHeight, clientHeight } = chatContainer;
-    // Consider "near bottom" if within 200px of the end
-    userScrolledAway = scrollHeight - scrollTop - clientHeight > 200;
+    // Consider "near bottom" if within 150px of the end
+    userScrolledAway = scrollHeight - scrollTop - clientHeight > 150;
   }
 
   onMount(async () => {
@@ -203,7 +203,7 @@
       if (streaming && chatContainer && !userScrolledAway) {
         chatContainer.scrollTo({ top: chatContainer.scrollHeight, behavior: "smooth" });
       }
-    }, 150);
+    }, 100);
 
     unlistenSummarized = await onContextSummarized((payload) => {
       summarizedCount = payload.count;
