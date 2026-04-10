@@ -89,9 +89,9 @@ function handleStreamingToken(payload: StreamingTokenPayload): void {
 
   // If this is the active conversation, also update the in-memory messages array
   if (conversationId === activeConversationId) {
-    const last = messages[messages.length - 1];
-    if (last && last.id === buffer.messageId && last.role === "assistant") {
-      last.content = buffer.content;
+    const msg = messages.find((m) => m.id === buffer.messageId);
+    if (msg && msg.role === "assistant") {
+      msg.content = buffer.content;
       // eslint-disable-next-line no-self-assign -- trigger Svelte 5 reactivity on mutation
       messages = messages;
     }
@@ -243,6 +243,12 @@ export function getStreamingMessageId(conversationId: string): string | null {
 /** Get buffered content for a conversation (used when switching to a streaming conversation). */
 export function getStreamingBuffer(conversationId: string): StreamingBuffer | undefined {
   return streamingBuffers.get(conversationId);
+}
+
+/** Clean up streaming state for a conversation (e.g., on send failure before events fire). */
+export function cancelStreamingState(conversationId: string): void {
+  streamingConversations.delete(conversationId);
+  streamingBuffers.delete(conversationId);
 }
 
 // ── Initialization ──────────────────────────────────────────────

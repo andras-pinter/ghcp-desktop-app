@@ -326,18 +326,23 @@ pub async fn send_message(
         stream: true,
     };
 
-    // Set up cancellation — reject if this specific conversation is already streaming
+    // Set up cancellation — reject if this specific conversation is already streaming.
+    // Check-and-insert in a single critical section to prevent TOCTOU races.
+    const MAX_CONCURRENT_STREAMS: usize = 10;
+    let (cancel_tx, mut cancel_rx) = tokio::sync::watch::channel(false);
     {
-        let lock = state.active_streams.lock().await;
+        let mut lock = state.active_streams.lock().await;
         if lock.contains_key(&conv_id) {
             return Err(format!(
                 "A streaming response is already in progress for conversation {conv_id}"
             ));
         }
-    }
-    let (cancel_tx, mut cancel_rx) = tokio::sync::watch::channel(false);
-    {
-        let mut lock = state.active_streams.lock().await;
+        if lock.len() >= MAX_CONCURRENT_STREAMS {
+            return Err(
+                "Too many concurrent streams. Please wait for existing streams to complete."
+                    .to_string(),
+            );
+        }
         lock.insert(conv_id.clone(), cancel_tx);
     }
 
@@ -420,17 +425,17 @@ pub async fn send_message(
 #[tauri::command]
 pub async fn stop_streaming(app: AppHandle, conversation_id: Option<String>) -> Result<(), String> {
     let state = app.state::<AppState>();
-    let lock = state.active_streams.lock().await;
-
-    if let Some(conv_id) = conversation_id {
-        if let Some(tx) = lock.get(&conv_id) {
-            let _ = tx.send(true);
+    // Collect senders under the lock, then release before sending
+    let senders: Vec<_> = {
+        let lock = state.active_streams.lock().await;
+        if let Some(conv_id) = conversation_id {
+            lock.get(&conv_id).cloned().into_iter().collect()
+        } else {
+            lock.values().cloned().collect()
         }
-    } else {
-        // Cancel all active streams
-        for tx in lock.values() {
-            let _ = tx.send(true);
-        }
+    };
+    for tx in senders {
+        let _ = tx.send(true);
     }
     Ok(())
 }

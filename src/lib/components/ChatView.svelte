@@ -28,6 +28,7 @@
     deleteMessagesAfter,
     startStreaming,
     isStreaming as isConvStreaming,
+    cancelStreamingState,
   } from "$lib/stores/conversations.svelte";
   import { getModelStore, setDefaultModel } from "$lib/stores/models.svelte";
   import { getAgentStore, selectAgent } from "$lib/stores/agents.svelte";
@@ -374,6 +375,9 @@
         store.activeConversation?.projectId,
       );
     } catch (e) {
+      // Clean up streaming state on send failure (events won't fire)
+      cancelStreamingState(convId);
+
       const msgs = store.messages;
       const last = msgs[msgs.length - 1];
       if (last && last.role === "assistant" && !last.content) {
