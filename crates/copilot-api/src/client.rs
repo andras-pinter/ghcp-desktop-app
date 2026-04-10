@@ -118,9 +118,14 @@ impl CopilotClient {
             let mut es = match EventSource::new(req) {
                 Ok(es) => es,
                 Err(e) => {
-                    let _ = tx.send(StreamEvent::Error(format!(
-                        "Failed to initialize stream: {e}"
-                    )));
+                    if tx
+                        .send(StreamEvent::Error(format!(
+                            "Failed to initialize stream: {e}"
+                        )))
+                        .is_err()
+                    {
+                        log::trace!("Stream receiver dropped before error could be sent");
+                    }
                     return;
                 }
             };
@@ -131,7 +136,9 @@ impl CopilotClient {
                     Ok(Event::Open) => {}
                     Ok(Event::Message(msg)) => {
                         if msg.data == "[DONE]" {
-                            let _ = tx.send(StreamEvent::Done);
+                            if tx.send(StreamEvent::Done).is_err() {
+                                log::trace!("Stream receiver dropped on [DONE]");
+                            }
                             es.close();
                             break;
                         }
@@ -148,11 +155,17 @@ impl CopilotClient {
                                             return;
                                         }
                                     }
-                                    if choice.delta.role.is_some() {
-                                        let _ = tx.send(StreamEvent::RoleSet);
+                                    if choice.delta.role.is_some()
+                                        && tx.send(StreamEvent::RoleSet).is_err()
+                                    {
+                                        log::trace!("Stream receiver dropped on RoleSet");
+                                        es.close();
+                                        return;
                                     }
                                     if choice.finish_reason.is_some() {
-                                        let _ = tx.send(StreamEvent::Done);
+                                        if tx.send(StreamEvent::Done).is_err() {
+                                            log::trace!("Stream receiver dropped on finish");
+                                        }
                                         es.close();
                                         return;
                                     }
@@ -164,11 +177,15 @@ impl CopilotClient {
                         }
                     }
                     Err(reqwest_eventsource::Error::StreamEnded) => {
-                        let _ = tx.send(StreamEvent::Done);
+                        if tx.send(StreamEvent::Done).is_err() {
+                            log::trace!("Stream receiver dropped on StreamEnded");
+                        }
                         break;
                     }
                     Err(e) => {
-                        let _ = tx.send(StreamEvent::Error(e.to_string()));
+                        if tx.send(StreamEvent::Error(e.to_string())).is_err() {
+                            log::trace!("Stream receiver dropped before error could be sent");
+                        }
                         es.close();
                         break;
                     }
