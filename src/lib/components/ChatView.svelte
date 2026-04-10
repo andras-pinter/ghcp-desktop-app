@@ -181,8 +181,9 @@
   });
 
   // Auto-scroll when active conversation receives streaming tokens.
-  // If the user scrolls up, pause auto-scroll; resume when they scroll back near the bottom.
-  let scrollInterval: ReturnType<typeof setInterval> | undefined;
+  // Uses RAF instead of setInterval so scroll is synchronized with the
+  // browser's render cycle — no gap between content growth and scroll.
+  let scrollRafId: number | null = null;
   let userScrolledAway = false;
 
   function handleChatScroll(): void {
@@ -192,6 +193,30 @@
     userScrolledAway = scrollHeight - scrollTop - clientHeight > 150;
   }
 
+  function scrollFollowLoop(): void {
+    if (streaming && chatContainer && !userScrolledAway) {
+      chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+    if (streaming) {
+      scrollRafId = requestAnimationFrame(scrollFollowLoop);
+    } else {
+      scrollRafId = null;
+    }
+  }
+
+  // Start/stop the scroll-follow RAF loop when streaming state changes
+  $effect(() => {
+    if (streaming && scrollRafId === null) {
+      scrollRafId = requestAnimationFrame(scrollFollowLoop);
+    }
+    return () => {
+      if (scrollRafId !== null) {
+        cancelAnimationFrame(scrollRafId);
+        scrollRafId = null;
+      }
+    };
+  });
+
   onMount(async () => {
     // Load draft for active conversation
     if (store.activeConversationId) {
@@ -199,12 +224,6 @@
     }
 
     setupDragDrop();
-
-    scrollInterval = setInterval(() => {
-      if (streaming && chatContainer && !userScrolledAway) {
-        chatContainer.scrollTo({ top: chatContainer.scrollHeight, behavior: "smooth" });
-      }
-    }, 100);
 
     unlistenSummarized = await onContextSummarized((payload) => {
       summarizedCount = payload.count;
@@ -214,7 +233,7 @@
   onDestroy(() => {
     unlistenSummarized?.();
     unlistenDragDrop?.();
-    if (scrollInterval) clearInterval(scrollInterval);
+    if (scrollRafId !== null) cancelAnimationFrame(scrollRafId);
     if (draftTimer) clearTimeout(draftTimer);
   });
 

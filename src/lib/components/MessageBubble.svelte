@@ -53,11 +53,93 @@
   /** Track mounted CodeBlock instances for cleanup. */
   let mountedBlocks: Record<string, ReturnType<typeof mount>> = {};
 
+  // ── Typewriter reveal ────────────────────────────────────────────
+  // During streaming, characters are revealed progressively to create
+  // a smooth typing effect. This decouples the bursty SSE token
+  // delivery from the visual display.
+
+  /** How many characters of message.content are currently visible.
+   *  Initialized to current length so historical messages don't re-type. */
+  const initialLength = message.content.length;
+  let revealedLength = $state(initialLength);
+  let revealRafId: number | null = null;
+  let lastRenderTime = 0;
+
+  /** True while the typewriter is still catching up (streaming or flushing). */
+  let isRevealing = $state(false);
+
+  const RENDER_INTERVAL = 60; // ms between markdown re-renders during typing
+  const CHARS_PER_FRAME = 3; // base chars/frame at 60fps ≈ 180 chars/sec
+
+  /** Get the content to render — sliced during reveal, full otherwise. */
+  function getRevealedContent(): string {
+    if (isUser) return message.content;
+    if (isRevealing) return message.content.slice(0, revealedLength);
+    return message.content;
+  }
+
+  function revealTick(): void {
+    revealRafId = null;
+    const target = message.content.length;
+
+    if (revealedLength < target) {
+      // Adaptive speed: catch up faster when buffer grows ahead
+      const gap = target - revealedLength;
+      const speed =
+        gap > 200 ? Math.ceil(gap * 0.12) : gap > 60 ? CHARS_PER_FRAME * 3 : CHARS_PER_FRAME;
+      revealedLength = Math.min(revealedLength + speed, target);
+    }
+
+    // Throttled markdown render
+    const now = Date.now();
+    if (now - lastRenderTime >= RENDER_INTERVAL) {
+      lastRenderTime = now;
+      renderAndMount();
+    }
+
+    // Keep loop alive while streaming or still flushing remaining chars
+    if (isStreaming || revealedLength < message.content.length) {
+      isRevealing = true;
+      revealRafId = requestAnimationFrame(revealTick);
+    } else {
+      isRevealing = false;
+      // Final render to ensure everything is properly formatted
+      renderAndMount();
+    }
+  }
+
+  // Start the reveal loop when streaming begins
+  $effect(() => {
+    if (isStreaming && !isUser && revealRafId === null) {
+      isRevealing = true;
+      revealRafId = requestAnimationFrame(revealTick);
+    }
+    return () => {
+      if (revealRafId !== null) {
+        cancelAnimationFrame(revealRafId);
+        revealRafId = null;
+      }
+    };
+  });
+
+  // When streaming ends, keep flushing if there are unrevealed chars.
+  // The currently-running RAF loop handles this via its continuation
+  // check, but if the loop already stopped (edge case: stream ends
+  // exactly when revealedLength catches up), restart it.
+  $effect(() => {
+    if (!isStreaming && !isUser && revealedLength < message.content.length) {
+      if (revealRafId === null) {
+        isRevealing = true;
+        revealRafId = requestAnimationFrame(revealTick);
+      }
+    }
+  });
+
   /** Render markdown and mount CodeBlock components into placeholders. */
   function renderAndMount() {
     if (!contentEl || isUser) return;
 
-    const html = renderMarkdown(message.content);
+    const html = renderMarkdown(getRevealedContent());
     const codeBlocks = getLastCodeBlocks();
 
     // eslint-disable-next-line svelte/no-dom-manipulating -- Intentional: we render sanitized markdown HTML and mount Svelte CodeBlock components into placeholders
@@ -88,19 +170,15 @@
     });
   }
 
-  // Re-render on content change — debounced during streaming for performance
+  // Non-streaming render: immediate on content load, conversation switch, etc.
+  // During streaming/reveal, the RAF loop handles all rendering.
   $effect(() => {
     void message.content;
     void contentEl;
-    const currentlyStreaming = isStreaming;
 
+    if (isStreaming || isRevealing) return;
     if (renderTimer) clearTimeout(renderTimer);
-
-    if (currentlyStreaming) {
-      renderTimer = setTimeout(() => renderAndMount(), 100);
-    } else {
-      renderAndMount();
-    }
+    renderAndMount();
   });
 
   onDestroy(() => {
@@ -110,6 +188,10 @@
     mountedBlocks = {};
     if (copyTimeout) clearTimeout(copyTimeout);
     if (renderTimer) clearTimeout(renderTimer);
+    if (revealRafId !== null) {
+      cancelAnimationFrame(revealRafId);
+      revealRafId = null;
+    }
   });
 
   async function handleCopy() {
@@ -205,7 +287,7 @@
         {#if message.content}
           <div class="markdown-prose" bind:this={contentEl}></div>
         {/if}
-        {#if isStreaming}
+        {#if isStreaming || isRevealing}
           <div class="streaming-indicator" aria-hidden="true">
             <span class="streaming-orb"></span>
             <span class="streaming-phrase">{streamingPhrase}</span>
@@ -218,7 +300,7 @@
             {/each}
           </nav>
         {/if}
-        {#if !isStreaming && message.content}
+        {#if !isStreaming && !isRevealing && message.content}
           <div class="message-actions assistant-actions">
             <button
               class="action-btn"
@@ -329,7 +411,7 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    margin-top: 8px;
+    margin-top: 12px;
     min-height: 24px;
   }
 
