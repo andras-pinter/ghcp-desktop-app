@@ -88,7 +88,13 @@
     });
   }
 
-  // Re-render on content change — debounced during streaming for performance
+  // Re-render on content change — throttled during streaming for smooth display.
+  // Throttle ensures renders happen at regular intervals even when tokens arrive
+  // continuously. A debounce would delay rendering until tokens pause, causing
+  // content to appear in visible bursts.
+  let lastRenderTime = 0;
+  const RENDER_INTERVAL = 80; // ms — ~12 renders/sec for smooth perceived streaming
+
   $effect(() => {
     void message.content;
     void contentEl;
@@ -97,7 +103,19 @@
     if (renderTimer) clearTimeout(renderTimer);
 
     if (currentlyStreaming) {
-      renderTimer = setTimeout(() => renderAndMount(), 100);
+      const now = Date.now();
+      const elapsed = now - lastRenderTime;
+
+      if (elapsed >= RENDER_INTERVAL) {
+        lastRenderTime = now;
+        renderAndMount();
+      } else {
+        // Trailing edge: ensures the final state always renders
+        renderTimer = setTimeout(() => {
+          lastRenderTime = Date.now();
+          renderAndMount();
+        }, RENDER_INTERVAL - elapsed);
+      }
     } else {
       renderAndMount();
     }

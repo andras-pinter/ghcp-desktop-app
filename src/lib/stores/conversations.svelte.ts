@@ -62,6 +62,42 @@ let unlistenToken: UnlistenFn | undefined;
 let unlistenComplete: UnlistenFn | undefined;
 let unlistenError: UnlistenFn | undefined;
 
+// ── RAF-batched token updates ───────────────────────────────────
+// Tokens arrive per-SSE-event (potentially 100s/sec). We accumulate them
+// in the buffer object (cheap string concat) and batch Svelte reactivity
+// updates into a single requestAnimationFrame callback (~60/sec max).
+
+let tokenRafId: number | null = null;
+const dirtyConversations = new Set<string>();
+
+function flushTokenUpdates(): void {
+  tokenRafId = null;
+
+  for (const convId of dirtyConversations) {
+    const buffer = streamingBuffers.get(convId);
+    if (!buffer) continue;
+
+    // Trigger SvelteMap reactivity once per dirty conversation per frame
+    streamingBuffers.set(convId, buffer);
+
+    // Update the active conversation's messages array
+    if (convId === activeConversationId) {
+      const msg = messages.find((m) => m.id === buffer.messageId);
+      if (msg && msg.role === "assistant") {
+        msg.content = buffer.content;
+      }
+    }
+  }
+
+  // Trigger Svelte array reactivity once (not per-token)
+  if (dirtyConversations.has(activeConversationId ?? "")) {
+    // eslint-disable-next-line no-self-assign -- trigger Svelte 5 reactivity on mutation
+    messages = messages;
+  }
+
+  dirtyConversations.clear();
+}
+
 // ── Global event listeners ──────────────────────────────────────
 
 /** Initialize global streaming event listeners. Call once after app startup. */
@@ -76,6 +112,10 @@ export function destroyStreamingListeners(): void {
   unlistenToken?.();
   unlistenComplete?.();
   unlistenError?.();
+  if (tokenRafId !== null) {
+    cancelAnimationFrame(tokenRafId);
+    tokenRafId = null;
+  }
 }
 
 function handleStreamingToken(payload: StreamingTokenPayload): void {
@@ -83,18 +123,13 @@ function handleStreamingToken(payload: StreamingTokenPayload): void {
   const buffer = streamingBuffers.get(conversationId);
   if (!buffer) return;
 
+  // Accumulate immediately (cheap string concat, no reactivity)
   buffer.content += token;
-  // Force reactivity update on the map
-  streamingBuffers.set(conversationId, buffer);
 
-  // If this is the active conversation, also update the in-memory messages array
-  if (conversationId === activeConversationId) {
-    const msg = messages.find((m) => m.id === buffer.messageId);
-    if (msg && msg.role === "assistant") {
-      msg.content = buffer.content;
-      // eslint-disable-next-line no-self-assign -- trigger Svelte 5 reactivity on mutation
-      messages = messages;
-    }
+  // Mark dirty and schedule a batched UI flush
+  dirtyConversations.add(conversationId);
+  if (tokenRafId === null) {
+    tokenRafId = requestAnimationFrame(flushTokenUpdates);
   }
 }
 
