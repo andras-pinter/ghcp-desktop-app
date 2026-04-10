@@ -568,7 +568,7 @@
                           openRegistryForm(entry);
                         }}
                       >
-                        Add
+                        Add & Configure
                       </button>
                     {/if}
                   </div>
