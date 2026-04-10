@@ -350,7 +350,9 @@
         {:else if hasUnread(conv.id)}
           <span class="conv-status conv-status--unread" aria-label="Unread"></span>
         {/if}
-        <span class="conv-title">{truncate(conv.title ?? "Untitled", 32)}</span>
+        <span class="conv-title" class:conv-title--unread={hasUnread(conv.id)}
+          >{truncate(conv.title ?? "Untitled", 32)}</span
+        >
         <span class="conv-actions">
           <span
             class="conv-action-btn"
@@ -586,6 +588,10 @@
     text-overflow: ellipsis;
     flex: 1;
     min-width: 0;
+  }
+
+  .conv-title--unread {
+    font-weight: 650;
   }
 
   /* ── Inline action icons (star + trash) ── */
