@@ -310,6 +310,13 @@
                 <strong class="card-title">{info.config.name}</strong>
                 <span class="badge badge--neutral">{info.config.transport.toUpperCase()}</span>
                 <div class="card-actions">
+                  <button
+                    class="btn btn--sm"
+                    onclick={() => handleTest(info)}
+                    disabled={testingServer === info.config.id}
+                  >
+                    {testingServer === info.config.id ? "Testing…" : "Test"}
+                  </button>
                   {#if info.status === "connected"}
                     <button class="btn btn--sm" onclick={() => handleDisconnect(info.config.id)}>
                       Disconnect
@@ -321,6 +328,13 @@
                       Connect
                     </button>
                   {/if}
+                  <button class="btn btn--sm" onclick={() => openEditForm(info)}>Edit</button>
+                  <button
+                    class="btn btn--sm btn--danger"
+                    onclick={() => handleRemove(info.config.id)}
+                  >
+                    Remove
+                  </button>
                 </div>
               </div>
 
@@ -374,23 +388,6 @@
                       {/each}
                     </div>
                   {/if}
-
-                  <div class="card-actions" style="margin-top: var(--spacing-sm)">
-                    <button
-                      class="btn btn--sm"
-                      onclick={() => handleTest(info)}
-                      disabled={testingServer === info.config.id}
-                    >
-                      {testingServer === info.config.id ? "Testing…" : "Test"}
-                    </button>
-                    <button class="btn btn--sm" onclick={() => openEditForm(info)}>Edit</button>
-                    <button
-                      class="btn btn--sm btn--danger"
-                      onclick={() => handleRemove(info.config.id)}
-                    >
-                      Remove
-                    </button>
-                  </div>
                 </div>
               {/if}
             </article>
