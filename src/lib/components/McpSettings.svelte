@@ -504,15 +504,15 @@
         </svg>
       </button>
       <h2 class="panel-title">MCP Servers</h2>
-      <button class="btn" onclick={openAddForm}>+ Add Custom</button>
+      <button class="btn" onclick={openAddForm}>+ New Server</button>
     </header>
 
     <div class="panel-body">
       {#if mcp.loading}
-        <div class="mcp-loading">Loading MCP servers...</div>
+        <div class="panel-loading">Loading MCP servers...</div>
       {:else}
         <!-- Configured Servers -->
-        <section class="mcp-section">
+        <section class="panel-section">
           <h3 class="section-heading">Configured Servers</h3>
 
           {#if mcp.servers.length === 0}
@@ -620,7 +620,7 @@
         </section>
 
         <!-- MCP Registry -->
-        <section class="mcp-section">
+        <section class="panel-section">
           <h3 class="section-heading">
             MCP Registry
             {#if mcp.registry.length > 0 && !mcp.registryLoading}
@@ -636,7 +636,7 @@
             >. Search by name to find specific servers.
           </p>
 
-          <div class="search-field">
+          <div class="search-row">
             <input
               type="text"
               value={registrySearch}
@@ -717,33 +717,7 @@
 />
 
 <style>
-  /* ── Component-specific layout overrides ── */
-
-  .mcp-loading {
-    text-align: center;
-    color: var(--color-text-secondary);
-    padding: var(--spacing-2xl);
-  }
-
-  .mcp-section {
-    margin-bottom: var(--spacing-xl);
-  }
-
-  .section-desc {
-    font-size: var(--font-size-xs);
-    color: var(--color-text-secondary);
-    margin: 0 0 var(--spacing-sm) 0;
-  }
-  .section-desc a {
-    color: var(--color-accent-copper);
-    text-decoration: underline;
-  }
-
-  .section-empty {
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-sm);
-    font-style: italic;
-  }
+  /* ── MCP-specific layout overrides ── */
 
   /* ── Server card overrides ── */
 
@@ -809,25 +783,6 @@
     color: var(--color-text-tertiary);
     text-transform: none;
     letter-spacing: 0;
-  }
-
-  .search-field {
-    margin-bottom: var(--spacing-sm);
-  }
-
-  .search-field .form-input {
-    padding-left: var(--spacing-sm);
-    padding-right: var(--spacing-2xl);
-  }
-
-  .registry-loading {
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-sm);
-    font-style: italic;
-    padding: var(--spacing-md) 0;
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-sm);
   }
 
   .registry-list {

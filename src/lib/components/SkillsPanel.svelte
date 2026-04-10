@@ -338,7 +338,7 @@
             >
               <div class="card-header">
                 <button
-                  class="skill-expand-btn"
+                  class="expand-btn"
                   class:expanded={expandedSkillId === skill.id}
                   onclick={(e: MouseEvent) => {
                     e.stopPropagation();
@@ -347,18 +347,18 @@
                   aria-label={expandedSkillId === skill.id ? "Collapse details" : "Expand details"}
                   >▶</button
                 >
-                <div class="skill-info">
-                  <strong class="card-title">{skill.name}</strong>
-                  <span class="badge badge--neutral">{sourceBadge(skill)}</span>
+                <strong class="card-title">{skill.name}</strong>
+                <span class="badge badge--neutral">{sourceBadge(skill)}</span>
+                <div class="card-actions">
+                  <label class="toggle" aria-label="Toggle {skill.name}">
+                    <input
+                      type="checkbox"
+                      checked={skill.enabled}
+                      onchange={() => handleToggle(skill)}
+                    />
+                    <span class="toggle-track"></span>
+                  </label>
                 </div>
-                <label class="toggle" aria-label="Toggle {skill.name}">
-                  <input
-                    type="checkbox"
-                    checked={skill.enabled}
-                    onchange={() => handleToggle(skill)}
-                  />
-                  <span class="toggle-track"></span>
-                </label>
               </div>
               {#if skill.description}
                 <p class="card-desc">{skill.description}</p>
@@ -366,18 +366,18 @@
               {#if expandedSkillId === skill.id}
                 <div class="card-detail">
                   {#if skill.instructions}
-                    <div class="skill-instructions markdown-prose">
+                    <div class="detail-content-scroll markdown-prose">
                       {@html renderMarkdown(skill.instructions)}
                     </div>
                   {/if}
                   {#if skill.sourceUrl}
-                    <div class="skill-detail-row">
+                    <div class="detail-row">
                       <span>Source:</span>
                       <a
                         href={skill.sourceUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        class="skill-detail-link">{skill.sourceUrl}</a
+                        class="detail-link">{skill.sourceUrl}</a
                       >
                     </div>
                   {/if}
@@ -398,7 +398,7 @@
             >
               <div class="card-header">
                 <button
-                  class="skill-expand-btn"
+                  class="expand-btn"
                   class:expanded={expandedSkillId === skill.id}
                   onclick={(e: MouseEvent) => {
                     e.stopPropagation();
@@ -407,18 +407,18 @@
                   aria-label={expandedSkillId === skill.id ? "Collapse details" : "Expand details"}
                   >▶</button
                 >
-                <div class="skill-info">
-                  <strong class="card-title">{skill.name}</strong>
-                  <span class="badge badge--copper">{sourceBadge(skill)}</span>
+                <strong class="card-title">{skill.name}</strong>
+                <span class="badge badge--neutral">{sourceBadge(skill)}</span>
+                <div class="card-actions">
+                  <label class="toggle" aria-label="Toggle {skill.name}">
+                    <input
+                      type="checkbox"
+                      checked={skill.enabled}
+                      onchange={() => handleToggle(skill)}
+                    />
+                    <span class="toggle-track"></span>
+                  </label>
                 </div>
-                <label class="toggle" aria-label="Toggle {skill.name}">
-                  <input
-                    type="checkbox"
-                    checked={skill.enabled}
-                    onchange={() => handleToggle(skill)}
-                  />
-                  <span class="toggle-track"></span>
-                </label>
               </div>
               {#if skill.description}
                 <p class="card-desc">{skill.description}</p>
@@ -426,18 +426,18 @@
               {#if expandedSkillId === skill.id}
                 <div class="card-detail">
                   {#if skill.instructions}
-                    <div class="skill-instructions markdown-prose">
+                    <div class="detail-content-scroll markdown-prose">
                       {@html renderMarkdown(skill.instructions)}
                     </div>
                   {/if}
                   {#if skill.sourceUrl}
-                    <div class="skill-detail-row">
+                    <div class="detail-row">
                       <span>Source:</span>
                       <a
                         href={skill.sourceUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        class="skill-detail-link">{skill.sourceUrl}</a
+                        class="detail-link">{skill.sourceUrl}</a
                       >
                     </div>
                   {/if}
@@ -461,7 +461,7 @@
                 >
                   <div class="card-header">
                     <button
-                      class="skill-expand-btn"
+                      class="expand-btn"
                       class:expanded={expandedSkillId === skill.id}
                       onclick={(e: MouseEvent) => {
                         e.stopPropagation();
@@ -471,18 +471,18 @@
                         ? "Collapse details"
                         : "Expand details"}>▶</button
                     >
-                    <div class="skill-info">
-                      <strong class="card-title">{skill.name}</strong>
-                      <span class="badge badge--success">{sourceBadge(skill)}</span>
+                    <strong class="card-title">{skill.name}</strong>
+                    <span class="badge badge--neutral">{sourceBadge(skill)}</span>
+                    <div class="card-actions">
+                      <label class="toggle" aria-label="Toggle {skill.name}">
+                        <input
+                          type="checkbox"
+                          checked={skill.enabled}
+                          onchange={() => handleToggle(skill)}
+                        />
+                        <span class="toggle-track"></span>
+                      </label>
                     </div>
-                    <label class="toggle" aria-label="Toggle {skill.name}">
-                      <input
-                        type="checkbox"
-                        checked={skill.enabled}
-                        onchange={() => handleToggle(skill)}
-                      />
-                      <span class="toggle-track"></span>
-                    </label>
                   </div>
                   {#if skill.description}
                     <p class="card-desc">{skill.description}</p>
@@ -490,18 +490,18 @@
                   {#if expandedSkillId === skill.id}
                     <div class="card-detail">
                       {#if skill.instructions}
-                        <div class="skill-instructions markdown-prose">
+                        <div class="detail-content-scroll markdown-prose">
                           {@html renderMarkdown(skill.instructions)}
                         </div>
                       {/if}
                       {#if skill.sourceUrl}
-                        <div class="skill-detail-row">
+                        <div class="detail-row">
                           <span>Source:</span>
                           <a
                             href={skill.sourceUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            class="skill-detail-link">{skill.sourceUrl}</a
+                            class="detail-link">{skill.sourceUrl}</a
                           >
                         </div>
                       {/if}
@@ -524,7 +524,7 @@
             >
               <div class="card-header">
                 <button
-                  class="skill-expand-btn"
+                  class="expand-btn"
                   class:expanded={expandedSkillId === skill.id}
                   onclick={(e: MouseEvent) => {
                     e.stopPropagation();
@@ -533,21 +533,19 @@
                   aria-label={expandedSkillId === skill.id ? "Collapse details" : "Expand details"}
                   >▶</button
                 >
-                <div class="skill-info">
-                  <strong class="card-title">{skill.name}</strong>
-                  <span class="badge badge--copper">{sourceBadge(skill)}</span>
-                  {#if skill.sourceUrl}
-                    <a
-                      href={skill.sourceUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      class="source-link"
-                      aria-label="View on {sourceBadge(skill)}"
-                    >
-                      ↗
-                    </a>
-                  {/if}
-                </div>
+                <strong class="card-title">{skill.name}</strong>
+                <span class="badge badge--neutral">{sourceBadge(skill)}</span>
+                {#if skill.sourceUrl}
+                  <a
+                    href={skill.sourceUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="source-link"
+                    aria-label="View on {sourceBadge(skill)}"
+                  >
+                    ↗
+                  </a>
+                {/if}
                 <div class="card-actions">
                   <button
                     class="btn btn--danger"
@@ -572,18 +570,18 @@
               {#if expandedSkillId === skill.id}
                 <div class="card-detail">
                   {#if skill.instructions}
-                    <div class="skill-instructions markdown-prose">
+                    <div class="detail-content-scroll markdown-prose">
                       {@html renderMarkdown(skill.instructions)}
                     </div>
                   {/if}
                   {#if skill.sourceUrl}
-                    <div class="skill-detail-row">
+                    <div class="detail-row">
                       <span>Source:</span>
                       <a
                         href={skill.sourceUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        class="skill-detail-link">{skill.sourceUrl}</a
+                        class="detail-link">{skill.sourceUrl}</a
                       >
                     </div>
                   {/if}
@@ -604,7 +602,7 @@
             >
               <div class="card-header">
                 <button
-                  class="skill-expand-btn"
+                  class="expand-btn"
                   class:expanded={expandedSkillId === skill.id}
                   onclick={(e: MouseEvent) => {
                     e.stopPropagation();
@@ -613,21 +611,19 @@
                   aria-label={expandedSkillId === skill.id ? "Collapse details" : "Expand details"}
                   >▶</button
                 >
-                <div class="skill-info">
-                  <strong class="card-title">{skill.name}</strong>
-                  <span class="badge badge--mono">{sourceBadge(skill)}</span>
-                  {#if skill.sourceUrl}
-                    <a
-                      href={skill.sourceUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      class="source-link"
-                      aria-label="View repository"
-                    >
-                      ↗
-                    </a>
-                  {/if}
-                </div>
+                <strong class="card-title">{skill.name}</strong>
+                <span class="badge badge--neutral">{sourceBadge(skill)}</span>
+                {#if skill.sourceUrl}
+                  <a
+                    href={skill.sourceUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="source-link"
+                    aria-label="View repository"
+                  >
+                    ↗
+                  </a>
+                {/if}
                 <div class="card-actions">
                   <button
                     class="btn btn--danger"
@@ -652,18 +648,18 @@
               {#if expandedSkillId === skill.id}
                 <div class="card-detail">
                   {#if skill.instructions}
-                    <div class="skill-instructions markdown-prose">
+                    <div class="detail-content-scroll markdown-prose">
                       {@html renderMarkdown(skill.instructions)}
                     </div>
                   {/if}
                   {#if skill.sourceUrl}
-                    <div class="skill-detail-row">
+                    <div class="detail-row">
                       <span>Source:</span>
                       <a
                         href={skill.sourceUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        class="skill-detail-link">{skill.sourceUrl}</a
+                        class="detail-link">{skill.sourceUrl}</a
                       >
                     </div>
                   {/if}
@@ -721,7 +717,7 @@
                   >
                     <div class="card-header">
                       <button
-                        class="skill-expand-btn"
+                        class="expand-btn"
                         class:expanded={expandedRegistryKey === registryKey(item)}
                         onclick={(e: MouseEvent) => {
                           e.stopPropagation();
@@ -732,7 +728,7 @@
                           : "Expand"}>▶</button
                       >
                       <strong class="card-title">{item.name}</strong>
-                      <span class="badge badge--copper">{registrySourceLabel()}</span>
+                      <span class="badge badge--neutral">{registrySourceLabel()}</span>
                       {#if item.url}
                         <a
                           href={item.url}
@@ -979,67 +975,7 @@
     user-select: text;
   }
 
-  /* ── Loading state ── */
-
-  .panel-loading {
-    text-align: center;
-    color: var(--color-text-secondary);
-    padding: var(--spacing-2xl);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: var(--spacing-sm);
-    font-size: var(--font-size-sm);
-    font-style: italic;
-  }
-
-  /* ── Sections ── */
-
-  .panel-section {
-    margin-bottom: var(--spacing-xl);
-  }
-
-  .section-heading.inline {
-    font-size: var(--font-size-sm);
-    font-weight: var(--font-weight-semibold);
-    color: inherit;
-    margin: 0;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-
-  .section-desc {
-    font-size: var(--font-size-xs);
-    color: var(--color-text-secondary);
-    margin: 0 0 var(--spacing-sm);
-    line-height: var(--leading-relaxed, 1.6);
-  }
-
-  .section-empty {
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-sm);
-    font-style: italic;
-    padding: var(--spacing-md) 0;
-  }
-
-  .section-hint {
-    font-size: var(--font-size-xs);
-    color: var(--color-text-tertiary);
-    margin-left: auto;
-    font-weight: var(--font-weight-normal);
-    text-transform: none;
-    letter-spacing: 0;
-  }
-
-  /* ── Group Headings ── */
-
-  .group-heading {
-    font-size: var(--font-size-xs);
-    font-weight: var(--font-weight-semibold);
-    color: var(--color-text-secondary);
-    margin: var(--spacing-md) 0 var(--spacing-xs) 0;
-    padding-left: var(--spacing-xs);
-  }
+  /* ── MCP skill grouping ── */
 
   .mcp-group {
     margin-bottom: var(--spacing-sm);
@@ -1052,241 +988,6 @@
     margin: var(--spacing-xs) 0;
     padding-left: var(--spacing-sm);
     font-family: var(--font-mono);
-  }
-
-  /* ── Skill card layout helpers ── */
-
-  .skill-info {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-sm);
-    flex: 1;
-    min-width: 0;
-  }
-
-  .source-link {
-    font-size: var(--font-size-xs);
-    color: var(--color-accent-copper);
-    text-decoration: none;
-    flex-shrink: 0;
-    transition: opacity var(--transition-fast);
-  }
-  .source-link:hover {
-    opacity: 0.7;
-    text-decoration: underline;
-  }
-
-  /* ── Expand / Collapse (cards) ── */
-
-  .skill-expand-btn {
-    all: unset;
-    font-size: 10px;
-    color: var(--color-text-tertiary);
-    flex-shrink: 0;
-    cursor: pointer;
-    padding: 4px 6px;
-    border-radius: var(--radius-sm);
-    transition:
-      transform 0.2s ease,
-      color 0.15s,
-      background 0.15s;
-    line-height: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .skill-expand-btn:hover {
-    color: var(--color-text-secondary);
-    background: var(--color-bg-tertiary, rgba(0, 0, 0, 0.05));
-  }
-  .skill-expand-btn.expanded {
-    transform: rotate(90deg);
-    color: var(--color-accent-copper);
-  }
-
-  /* ── Expanded skill detail helpers ── */
-
-  .skill-instructions {
-    font-size: var(--font-size-xs);
-    color: var(--color-text-secondary);
-    word-break: break-word;
-    max-height: 200px;
-    overflow-y: auto;
-    line-height: var(--line-height-relaxed);
-    margin: 0;
-  }
-
-  .skill-detail-row {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-xs);
-    font-size: var(--font-size-xs);
-    color: var(--color-text-tertiary);
-    margin-top: var(--spacing-xs);
-  }
-
-  .skill-detail-link {
-    color: var(--color-accent-copper);
-    text-decoration: none;
-    word-break: break-all;
-  }
-  .skill-detail-link:hover {
-    text-decoration: underline;
-  }
-
-  /* ── Collapsible Sections ── */
-
-  .catalog-section {
-    margin-top: var(--spacing-lg);
-  }
-
-  .collapsible-heading {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-xs);
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: var(--spacing-xs) 0;
-    width: 100%;
-    text-align: left;
-    color: var(--color-text-primary);
-  }
-  .collapsible-heading:hover {
-    color: var(--color-accent-copper);
-  }
-
-  .collapse-arrow {
-    font-size: 10px;
-    transition: transform 0.2s ease;
-    color: var(--color-text-tertiary);
-  }
-  .collapse-arrow.expanded {
-    transform: rotate(90deg);
-  }
-
-  .section-content {
-    padding: var(--spacing-sm) 0;
-  }
-
-  /* ── Search / Registry ── */
-
-  .search-row {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-sm);
-    margin-bottom: var(--spacing-sm);
-  }
-
-  .search-row .form-input {
-    flex: 1;
-  }
-
-  .search-spinner {
-    animation: spin 0.8s linear infinite;
-    color: var(--color-text-tertiary);
-  }
-
-  .registry-loading {
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-sm);
-    font-style: italic;
-    padding: var(--spacing-md) 0;
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-sm);
-  }
-
-  .result-count {
-    font-size: var(--font-size-xs);
-    color: var(--color-text-tertiary);
-    margin: 0 0 var(--spacing-sm) 0;
-  }
-
-  .registry-results,
-  .git-results {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-sm);
-  }
-
-  /* Registry card overrides on .card base */
-
-  .registry-card {
-    padding: var(--spacing-sm);
-    background: var(--color-bg-primary);
-  }
-  .registry-card:hover {
-    border-color: var(--color-accent-copper);
-  }
-
-  .registry-card > .card-actions {
-    justify-content: flex-end;
-  }
-
-  .registry-card .card-detail {
-    max-height: 300px;
-    overflow-y: auto;
-  }
-
-  .install-count {
-    font-size: var(--font-size-2xs);
-    color: var(--color-text-tertiary);
-    margin-left: auto;
-  }
-
-  /* ── Git Import ── */
-
-  .git-row {
-    display: flex;
-    gap: var(--spacing-sm);
-    margin-bottom: var(--spacing-sm);
-  }
-
-  .git-row .form-input {
-    flex: 1;
-  }
-
-  /* Git file card overrides on .card base */
-
-  .git-file-card {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: var(--spacing-sm);
-    background: var(--color-bg-primary);
-  }
-  .git-file-card:hover {
-    border-color: var(--color-accent-copper);
-  }
-
-  .git-file-info {
-    flex: 1;
-    min-width: 0;
-  }
-
-  .git-file-path {
-    font-size: var(--font-size-xs);
-    font-family: var(--font-mono);
-    color: var(--color-text-primary);
-    word-break: break-all;
-  }
-
-  /* ── Git Import Progress ── */
-
-  .git-progress-area {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-xs);
-    padding: var(--spacing-sm) 0;
-  }
-
-  .git-progress-info {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-xs);
-    font-size: var(--font-size-sm);
-    color: var(--color-text-secondary);
   }
 
   /* ── Create Custom Skill ── */
@@ -1325,10 +1026,6 @@
       width: 100%;
       text-align: center;
       justify-content: center;
-    }
-    .search-row,
-    .git-row {
-      flex-direction: column;
     }
   }
 </style>
