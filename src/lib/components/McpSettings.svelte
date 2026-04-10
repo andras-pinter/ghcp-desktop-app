@@ -102,6 +102,8 @@
   function returnToList() {
     view = { kind: "list" };
     expandedRegistryName = null;
+    testResult = null;
+    testingServer = null;
   }
 
   async function handleConnect(serverId: string, isRetry = false) {
@@ -293,6 +295,7 @@
                     e.stopPropagation();
                     toggleExpandServer(info.config.id);
                   }}
+                  aria-expanded={expandedServerId === info.config.id}
                   aria-label={expandedServerId === info.config.id
                     ? "Collapse details"
                     : "Expand details"}>▶</button
@@ -447,6 +450,7 @@
                         e.stopPropagation();
                         toggleExpandRegistry(entry);
                       }}
+                      aria-expanded={isExpanded}
                       aria-label={isExpanded ? "Collapse" : "Expand"}>▶</button
                     >
                     <strong class="card-title">{entry.displayName}</strong>
@@ -555,7 +559,7 @@
                             <a
                               href={entry.repoUrl}
                               target="_blank"
-                              rel="noopener"
+                              rel="noopener noreferrer"
                               class="detail-link">📦 Repository</a
                             >
                           {/if}
@@ -563,7 +567,7 @@
                             <a
                               href={entry.websiteUrl}
                               target="_blank"
-                              rel="noopener"
+                              rel="noopener noreferrer"
                               class="detail-link">🌐 Website</a
                             >
                           {/if}

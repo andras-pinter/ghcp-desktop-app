@@ -406,6 +406,7 @@
                   e.stopPropagation();
                   toggleExpandAgent(defaultAgent.id);
                 }}
+                aria-expanded={expandedAgentId === defaultAgent.id}
                 aria-label={expandedAgentId === defaultAgent.id
                   ? "Collapse details"
                   : "Expand details"}>▶</button
@@ -448,6 +449,7 @@
                     e.stopPropagation();
                     toggleExpandAgent(agent.id);
                   }}
+                  aria-expanded={expandedAgentId === agent.id}
                   aria-label={expandedAgentId === agent.id ? "Collapse details" : "Expand details"}
                   >▶</button
                 >
@@ -548,6 +550,7 @@
                           e.stopPropagation();
                           toggleExpandRegistry(item);
                         }}
+                        aria-expanded={expandedRegistryKey === registryKey(item)}
                         aria-label={expandedRegistryKey === registryKey(item)
                           ? "Collapse"
                           : "Expand"}>▶</button

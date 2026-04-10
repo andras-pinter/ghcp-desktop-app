@@ -345,6 +345,7 @@
                     e.stopPropagation();
                     toggleExpandSkill(skill.id);
                   }}
+                  aria-expanded={expandedSkillId === skill.id}
                   aria-label={expandedSkillId === skill.id ? "Collapse details" : "Expand details"}
                   >▶</button
                 >
@@ -405,6 +406,7 @@
                     e.stopPropagation();
                     toggleExpandSkill(skill.id);
                   }}
+                  aria-expanded={expandedSkillId === skill.id}
                   aria-label={expandedSkillId === skill.id ? "Collapse details" : "Expand details"}
                   >▶</button
                 >
@@ -468,6 +470,7 @@
                         e.stopPropagation();
                         toggleExpandSkill(skill.id);
                       }}
+                      aria-expanded={expandedSkillId === skill.id}
                       aria-label={expandedSkillId === skill.id
                         ? "Collapse details"
                         : "Expand details"}>▶</button
@@ -531,6 +534,7 @@
                     e.stopPropagation();
                     toggleExpandSkill(skill.id);
                   }}
+                  aria-expanded={expandedSkillId === skill.id}
                   aria-label={expandedSkillId === skill.id ? "Collapse details" : "Expand details"}
                   >▶</button
                 >
@@ -598,6 +602,7 @@
                     e.stopPropagation();
                     toggleExpandSkill(skill.id);
                   }}
+                  aria-expanded={expandedSkillId === skill.id}
                   aria-label={expandedSkillId === skill.id ? "Collapse details" : "Expand details"}
                   >▶</button
                 >
@@ -702,6 +707,7 @@
                           e.stopPropagation();
                           toggleExpandRegistry(item);
                         }}
+                        aria-expanded={expandedRegistryKey === registryKey(item)}
                         aria-label={expandedRegistryKey === registryKey(item)
                           ? "Collapse"
                           : "Expand"}>▶</button
