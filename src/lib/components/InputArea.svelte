@@ -499,7 +499,7 @@
   }
 
   $effect(() => {
-    if (dropdownOpen) {
+    if (dropdownOpen || agentDropdownOpen) {
       document.addEventListener("click", handleWindowClick);
     } else {
       document.removeEventListener("click", handleWindowClick);
