@@ -212,10 +212,6 @@
       createError = "Name is required";
       return;
     }
-    if (!description) {
-      createError = "Description is required";
-      return;
-    }
     if (!instructions) {
       createError = "Instructions are required";
       return;
@@ -228,7 +224,7 @@
       await createSkill(
         id,
         name,
-        description,
+        description || null,
         "builtin",
         null,
         null,
@@ -949,7 +945,7 @@
           <button
             class="btn btn--primary"
             onclick={handleCreateSkill}
-            disabled={createSaving || !createName.trim() || !createDescription.trim() || !createInstructions.trim()}
+            disabled={createSaving || !createName.trim() || !createInstructions.trim()}
           >
             {createSaving ? "Creating…" : "Create Skill"}
           </button>
