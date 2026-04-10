@@ -282,12 +282,10 @@
           <div class="markdown-prose" bind:this={contentEl}></div>
         {/if}
         {#if isStreaming || isRevealing}
-          <div class="streaming-indicator-spacer" aria-hidden="true"></div>
           <div class="streaming-indicator" aria-hidden="true">
             <span class="streaming-orb"></span>
             <span class="streaming-phrase">{streamingPhrase}</span>
           </div>
-          <div class="streaming-scroll-runway" aria-hidden="true"></div>
         {/if}
         {#if webResults.length > 0}
           <nav class="web-results" aria-label="Web sources">
@@ -403,25 +401,18 @@
     color: var(--color-text-primary);
   }
 
-  .streaming-indicator-spacer {
-    height: 1em;
-  }
-
-  /* Tall invisible zone below the indicator. Auto-scroll targets
-     scrollHeight which includes this runway, so the indicator
-     stays comfortably above the viewport edge even as content
-     grows line-by-line — preventing the scroll-chase flap. */
-  .streaming-scroll-runway {
-    height: 4em;
-  }
-
   .streaming-indicator {
+    position: sticky;
+    bottom: 8px;
     display: flex;
     align-items: center;
     gap: 8px;
     margin-top: 12px;
-    margin-bottom: 16px;
+    padding: 8px 12px;
     min-height: 24px;
+    background: var(--color-bg);
+    border-radius: var(--radius-md);
+    z-index: 1;
   }
 
   .streaming-orb {
