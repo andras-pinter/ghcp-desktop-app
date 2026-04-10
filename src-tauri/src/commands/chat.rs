@@ -418,10 +418,7 @@ pub async fn send_message(
 /// If `conversation_id` is provided, cancels only that conversation's stream.
 /// If omitted, cancels **all** active streams.
 #[tauri::command]
-pub async fn stop_streaming(
-    app: AppHandle,
-    conversation_id: Option<String>,
-) -> Result<(), String> {
+pub async fn stop_streaming(app: AppHandle, conversation_id: Option<String>) -> Result<(), String> {
     let state = app.state::<AppState>();
     let lock = state.active_streams.lock().await;
 
