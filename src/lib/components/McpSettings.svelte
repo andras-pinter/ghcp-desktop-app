@@ -506,18 +506,16 @@
                       <span class="badge badge--copper">HTTP</span>
                     {/if}
                     <span class="badge badge--neutral">{entry.name}</span>
-                    {#if entry.repoUrl}
-                      <a
-                        href={entry.repoUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        class="source-link"
-                        aria-label="View repository"
-                        onclick={(e: MouseEvent) => e.stopPropagation()}
-                      >
-                        ↗
-                      </a>
-                    {/if}
+                    <a
+                      href={`https://registry.modelcontextprotocol.io/servers/${encodeURIComponent(entry.name)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="source-link"
+                      aria-label="View on MCP Registry"
+                      onclick={(e: MouseEvent) => e.stopPropagation()}
+                    >
+                      ↗
+                    </a>
                   </div>
                   {#if !isExpanded && entry.description}
                     <p class="card-desc">{stripMarkdown(entry.description)}</p>
@@ -608,27 +606,6 @@
                               {/if}
                             {/each}
                           </div>
-                        </div>
-                      {/if}
-
-                      {#if entry.repoUrl || entry.websiteUrl}
-                        <div class="detail-links">
-                          {#if entry.repoUrl}
-                            <a
-                              href={entry.repoUrl}
-                              target="_blank"
-                              rel="noopener"
-                              class="detail-link">📦 Repository</a
-                            >
-                          {/if}
-                          {#if entry.websiteUrl}
-                            <a
-                              href={entry.websiteUrl}
-                              target="_blank"
-                              rel="noopener"
-                              class="detail-link">🌐 Website</a
-                            >
-                          {/if}
                         </div>
                       {/if}
                     </div>
@@ -833,22 +810,6 @@
     font-size: var(--font-size-xs);
     color: var(--color-accent-copper);
     font-style: italic;
-  }
-
-  .detail-links {
-    display: flex;
-    gap: var(--spacing-md);
-  }
-
-  .detail-link {
-    font-size: var(--font-size-sm);
-    color: var(--color-accent-copper);
-    text-decoration: none;
-    transition: opacity var(--transition-fast);
-  }
-  .detail-link:hover {
-    opacity: 0.8;
-    text-decoration: underline;
   }
 
   /* ── Setup Guide ── */
