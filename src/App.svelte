@@ -10,7 +10,11 @@
   import UpdateBanner from "$lib/components/UpdateBanner.svelte";
   import { initAuth, getAuth } from "$lib/stores/auth.svelte";
   import { initModels, getModelStore } from "$lib/stores/models.svelte";
-  import { initConversations, newConversation } from "$lib/stores/conversations.svelte";
+  import {
+    initConversations,
+    newConversation,
+    initStreamingListeners,
+  } from "$lib/stores/conversations.svelte";
   import { initMcp, loadRegistry as prefetchMcpRegistry } from "$lib/stores/mcp.svelte";
   import { initAgents, prefetchAgentRegistry } from "$lib/stores/agents.svelte";
   import { initSkills, prefetchRegistry as prefetchSkillRegistry } from "$lib/stores/skills.svelte";
@@ -117,6 +121,7 @@
       dataLoaded = true;
       Promise.all([
         initConversations(),
+        initStreamingListeners(),
         initModels(),
         initMcp(),
         initAgents(),

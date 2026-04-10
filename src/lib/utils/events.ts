@@ -2,20 +2,42 @@
 
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 
-export function onStreamingToken(callback: (token: string) => void): Promise<UnlistenFn> {
-  return listen<string>("streaming-token", (event) => {
+// ── Streaming event payloads (include conversationId for routing) ──
+
+export interface StreamingTokenPayload {
+  conversationId: string;
+  token: string;
+}
+
+export interface StreamingCompletePayload {
+  conversationId: string;
+}
+
+export interface StreamingErrorPayload {
+  conversationId: string;
+  error: string;
+}
+
+export function onStreamingToken(
+  callback: (payload: StreamingTokenPayload) => void,
+): Promise<UnlistenFn> {
+  return listen<StreamingTokenPayload>("streaming-token", (event) => {
     callback(event.payload);
   });
 }
 
-export function onStreamingComplete(callback: () => void): Promise<UnlistenFn> {
-  return listen("streaming-complete", () => {
-    callback();
+export function onStreamingComplete(
+  callback: (payload: StreamingCompletePayload) => void,
+): Promise<UnlistenFn> {
+  return listen<StreamingCompletePayload>("streaming-complete", (event) => {
+    callback(event.payload);
   });
 }
 
-export function onStreamingError(callback: (error: string) => void): Promise<UnlistenFn> {
-  return listen<string>("streaming-error", (event) => {
+export function onStreamingError(
+  callback: (payload: StreamingErrorPayload) => void,
+): Promise<UnlistenFn> {
+  return listen<StreamingErrorPayload>("streaming-error", (event) => {
     callback(event.payload);
   });
 }

@@ -52,12 +52,14 @@ export async function doLogout(): Promise<void> {
 
 /** Send chat messages and start streaming the response. */
 export async function sendMessage(
+  conversationId: string,
   messages: ChatMessage[],
   model: string,
   agentId?: string | null,
   projectId?: string | null,
 ): Promise<void> {
   return invoke("send_message", {
+    conversationId,
     messages,
     model,
     agentId: agentId ?? null,
@@ -65,9 +67,11 @@ export async function sendMessage(
   });
 }
 
-/** Cancel an in-flight streaming response. */
-export async function stopStreaming(): Promise<void> {
-  return invoke("stop_streaming");
+/** Cancel an in-flight streaming response for a conversation (or all if omitted). */
+export async function stopStreaming(conversationId?: string | null): Promise<void> {
+  return invoke("stop_streaming", {
+    conversationId: conversationId ?? null,
+  });
 }
 
 /** Generate a conversation title via the AI from the first exchange. */

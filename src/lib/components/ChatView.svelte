@@ -9,18 +9,10 @@
   import {
     sendMessage,
     stopStreaming,
-    updateConversation,
     extractFileText,
     readDroppedFiles,
-    generateConversationTitle,
-    logFrontend,
   } from "$lib/utils/commands";
-  import {
-    onStreamingToken,
-    onStreamingComplete,
-    onStreamingError,
-    onContextSummarized,
-  } from "$lib/utils/events";
+  import { onContextSummarized } from "$lib/utils/events";
   import { onMount, onDestroy } from "svelte";
   import { getCurrentWebview } from "@tauri-apps/api/webview";
   import type { UnlistenFn } from "@tauri-apps/api/event";
@@ -29,13 +21,13 @@
     newConversation,
     addMessage,
     updateMessageContent as updateMessageContentStore,
-    appendStreamingToken,
     touchConversation,
-    setConversationTitle,
     saveDraft,
     loadDraft,
     clearDraft,
     deleteMessagesAfter,
+    startStreaming,
+    isStreaming as isConvStreaming,
   } from "$lib/stores/conversations.svelte";
   import { getModelStore, setDefaultModel } from "$lib/stores/models.svelte";
   import { getAgentStore, selectAgent } from "$lib/stores/agents.svelte";
@@ -57,14 +49,17 @@
   const agentStore = getAgentStore();
   const network = getNetwork();
   let chatContainer: HTMLElement | undefined = $state();
-  let streaming = $state(false);
   let selectedModel = $state("gpt-4o");
   let draftText = $state("");
   let draftTimer: ReturnType<typeof setTimeout> | undefined;
   let showSearch = $state(false);
   let extractingFiles = $state(false);
-  let generatingTitleForConv: string | null = null;
   const greeting = greetings[Math.floor(Math.random() * greetings.length)];
+
+  // Derive streaming state from store (not local)
+  let streaming = $derived(
+    store.activeConversationId ? isConvStreaming(store.activeConversationId) : false,
+  );
 
   // Full-window drag-and-drop via Tauri's native onDragDropEvent.
   // HTML5 drag events don't receive file data in Tauri's webview — the
@@ -155,9 +150,6 @@
     pendingDropFiles = [];
   }
 
-  let unlistenToken: UnlistenFn | undefined;
-  let unlistenComplete: UnlistenFn | undefined;
-  let unlistenError: UnlistenFn | undefined;
   let unlistenSummarized: UnlistenFn | undefined;
 
   /** Number of older messages that were summarized in the current conversation. */
@@ -186,8 +178,8 @@
     summarizedCount = 0;
   });
 
-  // Track the assistant message ID being streamed so we can persist on complete
-  let streamingAssistantId: string | null = $state(null);
+  // Auto-scroll when active conversation receives streaming tokens
+  let scrollInterval: ReturnType<typeof setInterval> | undefined;
 
   onMount(async () => {
     // Load draft for active conversation
@@ -197,43 +189,11 @@
 
     setupDragDrop();
 
-    unlistenToken = await onStreamingToken((token) => {
-      appendStreamingToken(token);
-      requestAnimationFrame(() => {
-        chatContainer?.scrollTo({ top: chatContainer.scrollHeight, behavior: "smooth" });
-      });
-    });
-
-    unlistenComplete = await onStreamingComplete(async () => {
-      streaming = false;
-      // Persist the completed assistant message
-      if (streamingAssistantId) {
-        const msg = store.messages.find((m) => m.id === streamingAssistantId);
-        if (msg && msg.content) {
-          await updateMessageContentStore(msg.id, msg.content, msg.thinkingContent);
-          // Auto-generate title if conversation has no title yet (best-effort)
-          if (store.activeConversationId) {
-            const conv = store.conversations.find((c) => c.id === store.activeConversationId);
-            if (!conv?.title) {
-              generateTitle(store.activeConversationId, store.messages).catch((e) =>
-                logFrontend("warn", `Title generation failed: ${e}`),
-              );
-            }
-          }
-        }
-        streamingAssistantId = null;
+    scrollInterval = setInterval(() => {
+      if (streaming && chatContainer) {
+        chatContainer.scrollTo({ top: chatContainer.scrollHeight, behavior: "smooth" });
       }
-    });
-
-    unlistenError = await onStreamingError((error) => {
-      streaming = false;
-      streamingAssistantId = null;
-      const msgs = store.messages;
-      const last = msgs[msgs.length - 1];
-      if (last && last.role === "assistant" && !last.content) {
-        updateMessageContentStore(last.id, `⚠️ Error: ${error}`);
-      }
-    });
+    }, 150);
 
     unlistenSummarized = await onContextSummarized((payload) => {
       summarizedCount = payload.count;
@@ -241,11 +201,9 @@
   });
 
   onDestroy(() => {
-    unlistenToken?.();
-    unlistenComplete?.();
-    unlistenError?.();
     unlistenSummarized?.();
     unlistenDragDrop?.();
+    if (scrollInterval) clearInterval(scrollInterval);
     if (draftTimer) clearTimeout(draftTimer);
   });
 
@@ -313,8 +271,7 @@
       sortOrder: store.messages.length,
     };
     await addMessage(assistantMessage);
-    streamingAssistantId = assistantMessage.id;
-    streaming = true;
+    startStreaming(convId, assistantMessage.id);
 
     touchConversation(convId);
 
@@ -397,14 +354,13 @@
 
     try {
       await sendMessage(
+        convId,
         apiMessages,
         selectedModel,
         agentStore.selectedAgentId,
         store.activeConversation?.projectId,
       );
     } catch (e) {
-      streaming = false;
-      streamingAssistantId = null;
       const msgs = store.messages;
       const last = msgs[msgs.length - 1];
       if (last && last.role === "assistant" && !last.content) {
@@ -416,7 +372,9 @@
 
   async function handleStop() {
     try {
-      await stopStreaming();
+      if (store.activeConversationId) {
+        await stopStreaming(store.activeConversationId);
+      }
     } catch {
       // Ignore
     }
@@ -437,45 +395,6 @@
     }
   }
 
-  /** Auto-generate a title via AI from the first exchange. Falls back to truncation. */
-  async function generateTitle(convId: string, msgs: Message[]): Promise<void> {
-    const conv = store.conversations.find((c) => c.id === convId);
-    if (conv?.title || generatingTitleForConv === convId) return;
-
-    generatingTitleForConv = convId;
-    try {
-      const firstUser = msgs.find((m) => m.role === "user");
-      const firstAssistant = msgs.find((m) => m.role === "assistant");
-      if (!firstUser) return;
-
-      let title: string;
-      try {
-        title = await generateConversationTitle(
-          firstUser.content,
-          firstAssistant?.content ?? "",
-          selectedModel,
-        );
-      } catch {
-        // Fallback: truncate the first user message
-        const cleaned = firstUser.content
-          .replace(/\n+---\n📎\s*\[.*$/s, "")
-          .replace(/\n+📎\s*.*/g, "")
-          .trim();
-        if (!cleaned) return;
-        title = cleaned.length > 50 ? cleaned.slice(0, 49) + "…" : cleaned;
-      }
-
-      try {
-        await updateConversation(convId, title);
-        setConversationTitle(convId, title);
-      } catch (e) {
-        console.error("Failed to set conversation title:", e);
-      }
-    } finally {
-      generatingTitleForConv = null;
-    }
-  }
-
   /** Edit a user message: discard it and everything after, load content into input. */
   async function handleEdit(msg: Message) {
     if (streaming || !store.activeConversationId) return;
@@ -490,10 +409,11 @@
   /** Regenerate the last assistant response. */
   async function handleRegenerate() {
     if (streaming || !store.activeConversationId) return;
+    const convId = store.activeConversationId;
 
     // Defensively stop any in-flight stream before starting a new one
     try {
-      await stopStreaming();
+      await stopStreaming(convId);
     } catch {
       // ignore — may not be streaming
     }
@@ -503,20 +423,19 @@
     if (!lastAssistant) return;
 
     // Delete the last assistant message (and anything after it)
-    await deleteMessagesAfter(store.activeConversationId, lastAssistant.sortOrder - 1);
+    await deleteMessagesAfter(convId, lastAssistant.sortOrder - 1);
 
     // Re-create a placeholder assistant message for streaming
     const assistantMessage: Message = {
       id: crypto.randomUUID(),
-      conversationId: store.activeConversationId,
+      conversationId: convId,
       role: "assistant",
       content: "",
       createdAt: new Date().toISOString(),
       sortOrder: store.messages.length,
     };
     await addMessage(assistantMessage);
-    streamingAssistantId = assistantMessage.id;
-    streaming = true;
+    startStreaming(convId, assistantMessage.id);
 
     requestAnimationFrame(() => {
       chatContainer?.scrollTo({ top: chatContainer.scrollHeight, behavior: "smooth" });
@@ -529,14 +448,13 @@
 
     try {
       await sendMessage(
+        convId,
         apiMessages,
         selectedModel,
         agentStore.selectedAgentId,
         store.activeConversation?.projectId,
       );
     } catch (e) {
-      streaming = false;
-      streamingAssistantId = null;
       const last = store.messages[store.messages.length - 1];
       if (last && last.role === "assistant" && !last.content) {
         const errContent = `⚠️ Error: ${e instanceof Error ? e.message : String(e)}`;
