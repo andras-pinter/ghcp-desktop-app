@@ -323,54 +323,64 @@
   {#if initialRegistry && !isEditing}
     {@const authRemote = initialRegistry.remotes.find((r) => r.requiresAuth)}
     {#if authRemote?.authDescription || initialRegistry.description || initialRegistry.websiteUrl || initialRegistry.repoUrl}
-      <section class="setup-guide">
-        <h3 class="setup-heading">Setup Guide</h3>
+      <details class="setup-guide">
+        <summary class="setup-summary">
+          <span class="setup-arrow">▶</span>
+          Setup Guide
+        </summary>
 
-        {#if authRemote?.authDescription}
-          <div class="setup-step">
-            <span class="setup-label">Authentication</span>
-            <p class="setup-text">{authRemote.authDescription}</p>
-          </div>
-        {:else if authRemote}
-          <div class="setup-step">
-            <span class="setup-label">Authentication</span>
-            <p class="setup-text">
-              This server requires authentication. Add your API key or token in the Auth Header
-              field above (e.g. <code>Bearer your-token</code>).
-            </p>
-          </div>
-        {/if}
-
-        {#if initialRegistry.description}
-          <div class="setup-step">
-            <span class="setup-label">About</span>
-            <p class="setup-text">{initialRegistry.description}</p>
-          </div>
-        {/if}
-
-        <div class="setup-links">
-          {#if initialRegistry.websiteUrl}
-            <a
-              href={initialRegistry.websiteUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              class="setup-link"
-            >
-              Website ↗
-            </a>
+        <div class="setup-body">
+          {#if authRemote?.authDescription}
+            <div class="detail-section">
+              <div class="detail-label">🔑 Authentication</div>
+              <div class="detail-value">{authRemote.authDescription}</div>
+            </div>
+          {:else if authRemote}
+            <div class="detail-section">
+              <div class="detail-label">🔑 Authentication</div>
+              <div class="detail-value">
+                This server requires authentication. Add your API key or token in the Auth Header
+                field above (e.g. <code>Bearer your-token</code>).
+              </div>
+            </div>
           {/if}
-          {#if initialRegistry.repoUrl}
-            <a
-              href={initialRegistry.repoUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              class="setup-link"
-            >
-              Repository ↗
-            </a>
+
+          {#if initialRegistry.description}
+            <div class="detail-section">
+              <div class="detail-label">About</div>
+              <div class="detail-value">{initialRegistry.description}</div>
+            </div>
+          {/if}
+
+          {#if initialRegistry.websiteUrl || initialRegistry.repoUrl}
+            <div class="detail-section">
+              <div class="detail-label">Links</div>
+              <div class="setup-links">
+                {#if initialRegistry.websiteUrl}
+                  <a
+                    href={initialRegistry.websiteUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="detail-link"
+                  >
+                    Website ↗
+                  </a>
+                {/if}
+                {#if initialRegistry.repoUrl}
+                  <a
+                    href={initialRegistry.repoUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="detail-link"
+                  >
+                    Repository ↗
+                  </a>
+                {/if}
+              </div>
+            </div>
           {/if}
         </div>
-      </section>
+      </details>
     {/if}
   {/if}
 </div>
@@ -402,40 +412,49 @@
 
   .setup-guide {
     margin-top: var(--spacing-xl);
-    padding-top: var(--spacing-lg);
-    border-top: 1px solid var(--color-border);
   }
 
-  .setup-heading {
-    font-family: var(--font-display);
-    font-size: var(--font-size-base);
-    font-weight: 600;
-    color: var(--color-text-secondary);
-    margin-bottom: var(--spacing-md);
+  .setup-guide[open] .setup-arrow {
+    transform: rotate(90deg);
   }
 
-  .setup-step {
-    margin-bottom: var(--spacing-md);
-  }
-
-  .setup-label {
-    font-size: var(--font-size-xs);
-    font-weight: 600;
-    color: var(--color-text-tertiary);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    display: block;
-    margin-bottom: var(--spacing-xs);
-  }
-
-  .setup-text {
+  .setup-summary {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    cursor: pointer;
+    list-style: none;
     font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
     color: var(--color-text-secondary);
-    line-height: 1.5;
-    margin: 0;
+    padding: var(--spacing-xs) 0;
+    user-select: none;
   }
 
-  .setup-text code {
+  .setup-summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .setup-summary:hover {
+    color: var(--color-text-primary);
+  }
+
+  .setup-arrow {
+    font-size: var(--font-size-2xs);
+    color: var(--color-text-tertiary);
+    transition: transform var(--transition-fast);
+  }
+
+  .setup-body {
+    margin-top: var(--spacing-sm);
+    padding: var(--spacing-sm);
+    background: var(--color-bg-primary);
+    border: 1px solid var(--color-border-primary);
+    border-radius: var(--radius-sm);
+    animation: fadeIn 150ms ease both;
+  }
+
+  .setup-body code {
     font-family: var(--font-mono);
     font-size: var(--font-size-xs);
     background: var(--color-bg-tertiary);
@@ -446,16 +465,5 @@
   .setup-links {
     display: flex;
     gap: var(--spacing-md);
-    margin-top: var(--spacing-sm);
-  }
-
-  .setup-link {
-    font-size: var(--font-size-sm);
-    color: var(--color-accent);
-    text-decoration: none;
-  }
-
-  .setup-link:hover {
-    text-decoration: underline;
   }
 </style>
