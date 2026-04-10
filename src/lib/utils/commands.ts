@@ -8,7 +8,7 @@ import type { SearchResult, ExtractedContent } from "$lib/types/web-research";
 import type { Agent } from "$lib/types/agent";
 import type { Skill } from "$lib/types/skill";
 import type { Project, ProjectFile, FileUpload, ChatFileData } from "$lib/types/project";
-import type { RegistrySearchResult, GitSkillFile, RegistryItem } from "$lib/types/registry";
+import type { RegistrySearchResult, RegistryItem } from "$lib/types/registry";
 import type { GitSource, SourceItem, ImportItem, SourceScanResult } from "$lib/types/source";
 import type {
   McpConnectionInfo,
@@ -419,15 +419,6 @@ export async function installAgentFromRegistry(
   });
 }
 
-/** Import an agent from a git SKILL.md file. */
-export async function importAgentFromGit(
-  content: string,
-  repoUrl: string,
-  path: string,
-): Promise<Agent> {
-  return invoke<Agent>("import_agent_from_git", { content, repoUrl, path });
-}
-
 // ── Skills ──────────────────────────────────────────────────────
 
 /** List all skills. */
@@ -508,27 +499,6 @@ export async function installFromRegistry(
     itemContent: itemContent ?? null,
     itemName: itemName ?? null,
   });
-}
-
-// ── Git Import ──────────────────────────────────────────────────
-
-/** Fetch SKILL.md files from a git repository URL. */
-export async function fetchGitSkills(gitUrl: string): Promise<GitSkillFile[]> {
-  return invoke<GitSkillFile[]>("fetch_git_skills", { gitUrl });
-}
-
-/** Fetch agent definition files (*.agent.md) from a git repository URL. */
-export async function fetchGitAgents(gitUrl: string): Promise<GitSkillFile[]> {
-  return invoke<GitSkillFile[]>("fetch_git_agents", { gitUrl });
-}
-
-/** Import a parsed SKILL.md content as a skill. */
-export async function importGitSkill(
-  content: string,
-  repoUrl: string,
-  path: string,
-): Promise<Skill> {
-  return invoke<Skill>("import_git_skill", { content, repoUrl, path });
 }
 
 // ── Git Sources ─────────────────────────────────────────────────

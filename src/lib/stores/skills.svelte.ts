@@ -7,12 +7,10 @@ import {
   toggleSkill as toggleSkillCmd,
   searchRegistry as searchRegistryCmd,
   installFromRegistry as installFromRegistryCmd,
-  fetchGitSkills as fetchGitSkillsCmd,
-  importGitSkill as importGitSkillCmd,
   logFrontend,
 } from "$lib/utils/commands";
 import type { Skill } from "$lib/types/skill";
-import type { RegistryItem, GitSkillFile, RegistrySearchResult } from "$lib/types/registry";
+import type { RegistryItem, RegistrySearchResult } from "$lib/types/registry";
 
 let skills = $state<Skill[]>([]);
 let loaded = $state(false);
@@ -22,12 +20,6 @@ let registryQuery = $state("");
 let registryResults = $state<RegistryItem[]>([]);
 let registrySearching = $state(false);
 let registryTotal = $state<number | null>(null);
-
-// Git import state
-let gitImportUrl = $state("");
-let gitDiscoveredFiles = $state<GitSkillFile[]>([]);
-let gitImporting = $state(false);
-let gitProgress = $state<{ total: number; fetched: number; phase: string } | null>(null);
 
 /** Load skills from the backend. Call once after auth. */
 export async function initSkills(): Promise<void> {
@@ -121,55 +113,7 @@ export async function installFromRegistry(item: RegistryItem): Promise<Skill | n
   }
 }
 
-// ── Git Import ──────────────────────────────────────────────────
-
-/** Fetch SKILL.md files from a git URL. */
-export async function discoverGitSkills(url: string): Promise<void> {
-  gitImportUrl = url;
-  gitImporting = true;
-  gitProgress = null;
-  try {
-    gitDiscoveredFiles = await fetchGitSkillsCmd(url);
-  } catch (e) {
-    logFrontend("error", `Git skill discovery failed: ${e}`);
-    gitDiscoveredFiles = [];
-    throw e;
-  } finally {
-    gitImporting = false;
-    gitProgress = null;
-  }
-}
-
-/** Import a discovered SKILL.md file as a skill. */
-export async function importFromGit(file: GitSkillFile): Promise<Skill | null> {
-  try {
-    const skill = await importGitSkillCmd(file.content, file.repoUrl, file.path);
-    // Reload to pick up the new skill
-    await initSkills();
-    return skills.find((s) => s.id === skill.id) ?? null;
-  } catch (e) {
-    logFrontend("error", `Git import failed: ${e}`);
-    return null;
-  }
-}
-
-/** Clear git import state. */
-export function clearGitImport(): void {
-  gitImportUrl = "";
-  gitDiscoveredFiles = [];
-  gitProgress = null;
-}
-
-/** Update git import progress (called from event listener). */
-export function updateGitProgress(
-  progress: {
-    total: number;
-    fetched: number;
-    phase: string;
-  } | null,
-): void {
-  gitProgress = progress;
-}
+// ── Git Import ── (removed — git import now handled via Sources panel)
 
 /** Create a manual skill (not from registry/git). */
 export async function addManualSkill(
@@ -213,18 +157,6 @@ export function getSkillStore() {
     },
     get registryTotal() {
       return registryTotal;
-    },
-    get gitImportUrl() {
-      return gitImportUrl;
-    },
-    get gitDiscoveredFiles() {
-      return gitDiscoveredFiles;
-    },
-    get gitImporting() {
-      return gitImporting;
-    },
-    get gitProgress() {
-      return gitProgress;
     },
   };
 }

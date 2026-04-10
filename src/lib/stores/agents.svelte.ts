@@ -8,12 +8,11 @@ import {
   setAgentSkills as setAgentSkillsCmd,
   setAgentMcpConnections as setAgentMcpCmd,
   installAgentFromRegistry as installAgentFromRegistryCmd,
-  importAgentFromGit as importAgentFromGitCmd,
   logFrontend,
 } from "$lib/utils/commands";
 import { searchRegistry as searchRegistryCmd } from "$lib/utils/commands";
 import type { Agent } from "$lib/types/agent";
-import type { RegistryItem, RegistrySearchResult, GitSkillFile } from "$lib/types/registry";
+import type { RegistryItem, RegistrySearchResult } from "$lib/types/registry";
 
 let agents = $state<Agent[]>([]);
 let loaded = $state(false);
@@ -23,12 +22,6 @@ let selectedAgentId = $state<string | null>(null);
 let registryResults = $state<RegistryItem[]>([]);
 let registrySearching = $state(false);
 let registryQuery = $state("");
-
-// ── Git import state ────────────────────────────────────────────
-let gitDiscoveredFiles = $state<GitSkillFile[]>([]);
-let gitImporting = $state(false);
-let gitImportUrl = $state("");
-let gitProgress = $state<{ total: number; fetched: number; phase: string } | null>(null);
 
 /** Load agents from the backend. Call once after auth. */
 export async function initAgents(): Promise<void> {
@@ -158,55 +151,7 @@ export async function installAgentFromRegistry(item: RegistryItem): Promise<Agen
   }
 }
 
-// ── Git Import ──────────────────────────────────────────────────
-
-/** Fetch agent definition files from a git URL. */
-export async function discoverGitAgents(url: string): Promise<void> {
-  const { fetchGitAgents } = await import("$lib/utils/commands");
-  gitImportUrl = url;
-  gitImporting = true;
-  gitProgress = null;
-  try {
-    gitDiscoveredFiles = await fetchGitAgents(url);
-  } catch (e) {
-    logFrontend("error", `Git agent discovery failed: ${e}`);
-    gitDiscoveredFiles = [];
-    throw e;
-  } finally {
-    gitImporting = false;
-    gitProgress = null;
-  }
-}
-
-/** Import a discovered agent definition file. */
-export async function importAgentFromGit(file: GitSkillFile): Promise<Agent | null> {
-  try {
-    const agent = await importAgentFromGitCmd(file.content, file.repoUrl, file.path);
-    agents = [...agents, agent];
-    return agent;
-  } catch (e) {
-    logFrontend("error", `Git agent import failed: ${e}`);
-    return null;
-  }
-}
-
-/** Clear git import state. */
-export function clearAgentGitImport(): void {
-  gitImportUrl = "";
-  gitDiscoveredFiles = [];
-  gitProgress = null;
-}
-
-/** Update git import progress (called from event listener). */
-export function updateAgentGitProgress(
-  progress: {
-    total: number;
-    fetched: number;
-    phase: string;
-  } | null,
-): void {
-  gitProgress = progress;
-}
+// ── Git Import ── (removed — git import now handled via Sources panel)
 
 /** Reactive getters. */
 export function getAgentStore() {
@@ -228,18 +173,6 @@ export function getAgentStore() {
     },
     get registryQuery() {
       return registryQuery;
-    },
-    get gitDiscoveredFiles() {
-      return gitDiscoveredFiles;
-    },
-    get gitImporting() {
-      return gitImporting;
-    },
-    get gitImportUrl() {
-      return gitImportUrl;
-    },
-    get gitProgress() {
-      return gitProgress;
     },
   };
 }

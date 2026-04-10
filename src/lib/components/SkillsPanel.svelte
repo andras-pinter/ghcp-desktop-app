@@ -8,17 +8,12 @@
     searchRegistries,
     installFromRegistry,
     prefetchRegistry,
-    discoverGitSkills,
-    importFromGit,
-    clearGitImport,
-    updateGitProgress,
   } from "$lib/stores/skills.svelte";
   import { getMcpState } from "$lib/stores/mcp.svelte";
   import { renderMarkdown, stripFrontmatter } from "$lib/utils/markdown";
   import type { Skill } from "$lib/types/skill";
-  import type { RegistryItem, GitSkillFile } from "$lib/types/registry";
+  import type { RegistryItem } from "$lib/types/registry";
   import { onMount, onDestroy } from "svelte";
-  import { listen, type UnlistenFn } from "@tauri-apps/api/event";
   import ConfirmDialog from "./ConfirmDialog.svelte";
 
   interface Props {
@@ -35,17 +30,10 @@
   let searchQuery = $state("");
   let searchDebounce: ReturnType<typeof setTimeout> | null = null;
 
-  let gitUrl = $state("");
-  let gitError = $state<string | null>(null);
-  let gitScanned = $state(false);
-
   let registryExpanded = $state(true);
-  let gitExpanded = $state(false);
 
   let installingId = $state<string | null>(null);
   let installedId = $state<string | null>(null);
-  let importingPath = $state<string | null>(null);
-  let importedPath = $state<string | null>(null);
 
   let confirmDelete = $state<Skill | null>(null);
   let deleting = $state(false);
@@ -150,36 +138,6 @@
     }
   }
 
-  async function handleGitFetch() {
-    const url = gitUrl.trim();
-    if (!url) return;
-    gitError = null;
-    gitScanned = false;
-    try {
-      await discoverGitSkills(url);
-    } catch (e) {
-      gitError = e instanceof Error ? e.message : String(e);
-    }
-    gitScanned = true;
-  }
-
-  async function handleGitImport(file: GitSkillFile) {
-    importingPath = file.path;
-    try {
-      const result = await importFromGit(file);
-      if (result) {
-        importedPath = file.path;
-        setTimeout(() => {
-          importedPath = null;
-        }, 2000);
-      }
-    } catch {
-      // Error logged in store
-    } finally {
-      importingPath = null;
-    }
-  }
-
   function toggleExpandSkill(id: string) {
     expandedSkillId = expandedSkillId === id ? null : id;
   }
@@ -269,21 +227,12 @@
     );
   }
 
-  let unlistenProgress: UnlistenFn | null = null;
-
   onMount(async () => {
     initSkills();
-    unlistenProgress = await listen<{ total: number; fetched: number; phase: string }>(
-      "git-import-progress",
-      (event) => {
-        updateGitProgress(event.payload);
-      },
-    );
   });
 
   onDestroy(() => {
     if (searchDebounce) clearTimeout(searchDebounce);
-    unlistenProgress?.();
   });
 </script>
 
@@ -759,108 +708,6 @@
               </div>
             {:else if searchQuery.trim() && !store.registrySearching}
               <p class="section-empty">No skills match "{searchQuery}"</p>
-            {/if}
-          </div>
-        {/if}
-      </section>
-
-      <!-- ── Git Import ──────────────────────────────────────── -->
-      <section class="catalog-section">
-        <button
-          class="collapsible-heading"
-          onclick={() => {
-            gitExpanded = !gitExpanded;
-            if (!gitExpanded) clearGitImport();
-          }}
-          aria-expanded={gitExpanded}
-        >
-          <span class="collapse-arrow" class:expanded={gitExpanded}>▶</span>
-          <h3 class="section-heading inline">Import from Git</h3>
-        </button>
-
-        {#if gitExpanded}
-          <div class="section-content">
-            <p class="section-desc">Import SKILL.md files from a GitHub repository.</p>
-            <div class="git-row">
-              <input
-                type="text"
-                bind:value={gitUrl}
-                placeholder="owner/repo or https://github.com/…"
-                class="form-input"
-                onkeydown={(e) => {
-                  if (e.key === "Enter") handleGitFetch();
-                }}
-              />
-              <button
-                class="btn btn--primary"
-                onclick={handleGitFetch}
-                disabled={!gitUrl.trim() || store.gitImporting}
-              >
-                {store.gitImporting ? "Scanning…" : "Scan"}
-              </button>
-            </div>
-
-            {#if gitError}
-              <div class="banner banner--error" role="alert">⚠ {gitError}</div>
-            {/if}
-
-            {#if store.gitImporting}
-              <div class="git-progress-area">
-                {#if store.gitProgress}
-                  <div class="git-progress-info">
-                    {#if store.gitProgress.phase === "tree"}
-                      <span class="spinner"></span> Scanning repository structure…
-                    {:else}
-                      <span class="spinner"></span> Fetching files… {store.gitProgress
-                        .fetched}/{store.gitProgress.total}
-                    {/if}
-                  </div>
-                  {#if store.gitProgress.phase === "fetch" && store.gitProgress.total > 0}
-                    <div class="progress">
-                      <div
-                        class="progress-fill"
-                        style="width: {Math.round(
-                          (store.gitProgress.fetched / store.gitProgress.total) * 100,
-                        )}%"
-                      ></div>
-                    </div>
-                  {/if}
-                {:else}
-                  <div class="registry-loading">
-                    <span class="spinner"></span> Discovering SKILL.md files…
-                  </div>
-                {/if}
-              </div>
-            {:else if store.gitDiscoveredFiles.length > 0}
-              <div class="git-results" role="list">
-                <p class="result-count">
-                  {store.gitDiscoveredFiles.length} skill file{store.gitDiscoveredFiles.length !== 1
-                    ? "s"
-                    : ""} found
-                </p>
-                {#each store.gitDiscoveredFiles as file (file.path)}
-                  <article class="card git-file-card" role="listitem">
-                    <div class="git-file-info">
-                      <span class="git-file-path">{file.path}</span>
-                    </div>
-                    <div class="card-actions">
-                      {#if importedPath === file.path}
-                        <span class="badge badge--success">✓ Imported</span>
-                      {:else}
-                        <button
-                          class="btn btn--primary"
-                          onclick={() => handleGitImport(file)}
-                          disabled={importingPath === file.path}
-                        >
-                          {importingPath === file.path ? "Importing…" : "Import"}
-                        </button>
-                      {/if}
-                    </div>
-                  </article>
-                {/each}
-              </div>
-            {:else if gitScanned && gitUrl.trim() && !store.gitImporting && !gitError}
-              <p class="section-empty">No SKILL.md files found in this repository.</p>
             {/if}
           </div>
         {/if}

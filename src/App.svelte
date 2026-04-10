@@ -20,6 +20,7 @@
   import { initAgents, prefetchAgentRegistry } from "$lib/stores/agents.svelte";
   import { initSkills, prefetchRegistry as prefetchSkillRegistry } from "$lib/stores/skills.svelte";
   import { initProjects } from "$lib/stores/projects.svelte";
+  import { initSources, syncAllEnabled } from "$lib/stores/sources.svelte";
   import { initSettings, getSettings } from "$lib/stores/settings.svelte";
   import { initNetwork } from "$lib/stores/network.svelte";
   import { listen, type UnlistenFn } from "@tauri-apps/api/event";
@@ -135,11 +136,14 @@
         initAgents(),
         initSkills(),
         initProjects(),
+        initSources(),
       ]).then(() => {
         // Prefetch registries in the background after core data is loaded
         prefetchMcpRegistry();
         prefetchSkillRegistry();
         prefetchAgentRegistry();
+        // Auto-sync enabled git sources (silent, no UI disruption)
+        syncAllEnabled();
       });
     } else if (!auth.authenticated) {
       dataLoaded = false;

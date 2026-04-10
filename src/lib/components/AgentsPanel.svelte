@@ -12,17 +12,13 @@
     searchAgentRegistries,
     installAgentFromRegistry,
     prefetchAgentRegistry,
-    discoverGitAgents,
-    importAgentFromGit,
-    updateAgentGitProgress,
   } from "$lib/stores/agents.svelte";
   import { getSkillStore, initSkills } from "$lib/stores/skills.svelte";
   import { getMcpState, initMcp } from "$lib/stores/mcp.svelte";
   import type { Agent } from "$lib/types/agent";
-  import type { RegistryItem, GitSkillFile } from "$lib/types/registry";
+  import type { RegistryItem } from "$lib/types/registry";
   import { renderMarkdown, stripFrontmatter } from "$lib/utils/markdown";
   import { onMount, onDestroy } from "svelte";
-  import { listen, type UnlistenFn } from "@tauri-apps/api/event";
   import ConfirmDialog from "./ConfirmDialog.svelte";
 
   interface Props {
@@ -85,19 +81,13 @@
   let confirmDelete = $state<Agent | null>(null);
   let deleting = $state(false);
 
-  // ── Registry / Git state ──────────────────────────────────────
+  // ── Registry state ──────────────────────────────────────────
 
   let registryExpanded = $state(true);
-  let gitExpanded = $state(false);
   let registrySearchInput = $state("");
   let registrySearchDebounce: ReturnType<typeof setTimeout> | null = null;
-  let gitUrl = $state("");
-  let gitError = $state<string | null>(null);
-  let gitScanned = $state(false);
   let installingId = $state<string | null>(null);
   let installedId = $state<string | null>(null);
-  let importingPath = $state<string | null>(null);
-  let importedPath = $state<string | null>(null);
 
   // Expand/collapse for individual agent cards
   let expandedAgentId = $state<string | null>(null);
@@ -131,25 +121,16 @@
 
   // ── Lifecycle ───────────────────────────────────────────────
 
-  let unlistenProgress: UnlistenFn | null = null;
-
   onMount(async () => {
     document.addEventListener("click", handleClickOutside);
     if (!agentStore.loaded) initAgents();
     if (!skillStore.loaded) initSkills();
     if (mcpState.servers.length === 0) initMcp();
-    unlistenProgress = await listen<{ total: number; fetched: number; phase: string }>(
-      "git-import-progress",
-      (event) => {
-        updateAgentGitProgress(event.payload);
-      },
-    );
   });
 
   onDestroy(() => {
     document.removeEventListener("click", handleClickOutside);
     if (registrySearchDebounce) clearTimeout(registrySearchDebounce);
-    unlistenProgress?.();
   });
 
   // ── Registry / Git Handlers ────────────────────────────────
@@ -181,33 +162,6 @@
 
   function isAgentAlreadyInstalled(item: RegistryItem): boolean {
     return agentStore.agents.some((a) => a.sourceUrl?.includes(item.id) || a.name === item.name);
-  }
-
-  async function handleGitDiscover() {
-    gitError = null;
-    gitScanned = false;
-    if (!gitUrl.trim()) return;
-    try {
-      await discoverGitAgents(gitUrl.trim());
-    } catch (e: unknown) {
-      gitError = e instanceof Error ? e.message : String(e);
-    }
-    gitScanned = true;
-  }
-
-  async function handleGitImport(file: GitSkillFile) {
-    importingPath = file.path;
-    try {
-      await importAgentFromGit(file);
-      importedPath = file.path;
-      setTimeout(() => {
-        importedPath = null;
-      }, 2000);
-    } catch {
-      // Error logged in store
-    } finally {
-      importingPath = null;
-    }
   }
 
   function registrySourceLabel(): string {
@@ -599,99 +553,6 @@
               </div>
             {:else if registrySearchInput.trim() && !agentStore.registrySearching}
               <p class="section-empty">No agent templates found.</p>
-            {/if}
-          </div>
-        {/if}
-      </section>
-
-      <!-- ── Git Import ──────────────────────────────────────── -->
-      <section class="catalog-section">
-        <button
-          class="collapsible-heading"
-          onclick={() => (gitExpanded = !gitExpanded)}
-          aria-expanded={gitExpanded}
-        >
-          <span class="collapse-arrow" class:expanded={gitExpanded}>▶</span>
-          <h3 class="section-heading inline">Import from Git</h3>
-        </button>
-
-        {#if gitExpanded}
-          <div class="section-content">
-            <p class="section-desc">
-              Enter a GitHub or GitLab repository URL to discover SKILL.md agent templates.
-            </p>
-            <div class="git-row">
-              <input
-                class="form-input"
-                type="url"
-                placeholder="https://github.com/user/repo"
-                bind:value={gitUrl}
-              />
-              <button
-                class="btn btn--primary"
-                onclick={handleGitDiscover}
-                disabled={agentStore.gitImporting || !gitUrl.trim()}
-              >
-                {agentStore.gitImporting ? "Scanning…" : "Scan"}
-              </button>
-            </div>
-
-            {#if gitError}
-              <div class="banner banner--error" role="alert">{gitError}</div>
-            {/if}
-
-            {#if agentStore.gitImporting}
-              <div class="git-progress-area">
-                {#if agentStore.gitProgress}
-                  <div class="git-progress-info">
-                    {#if agentStore.gitProgress.phase === "tree"}
-                      <span class="spinner"></span> Scanning repository structure…
-                    {:else}
-                      <span class="spinner"></span> Fetching files… {agentStore.gitProgress
-                        .fetched}/{agentStore.gitProgress.total}
-                    {/if}
-                  </div>
-                  {#if agentStore.gitProgress.phase === "fetch" && agentStore.gitProgress.total > 0}
-                    <div class="progress">
-                      <div
-                        class="progress-fill"
-                        style="width: {Math.round(
-                          (agentStore.gitProgress.fetched / agentStore.gitProgress.total) * 100,
-                        )}%"
-                      ></div>
-                    </div>
-                  {/if}
-                {:else}
-                  <div class="registry-loading">
-                    <span class="spinner"></span> Discovering agent files…
-                  </div>
-                {/if}
-              </div>
-            {:else if agentStore.gitDiscoveredFiles.length > 0}
-              <div class="git-results" role="list">
-                {#each agentStore.gitDiscoveredFiles as file (file.path)}
-                  <article class="card git-file-card" role="listitem">
-                    <div class="git-file-info">
-                      <span class="git-file-path">{file.path}</span>
-                    </div>
-                    <div class="card-actions">
-                      {#if importedPath === file.path}
-                        <span class="badge badge--success">✓ Imported</span>
-                      {:else}
-                        <button
-                          class="btn btn--primary"
-                          onclick={() => handleGitImport(file)}
-                          disabled={importingPath === file.path}
-                        >
-                          {importingPath === file.path ? "Importing…" : "Import as Agent"}
-                        </button>
-                      {/if}
-                    </div>
-                  </article>
-                {/each}
-              </div>
-            {:else if gitScanned && gitUrl.trim() && !agentStore.gitImporting && !gitError}
-              <p class="section-empty">No agent files found in this repository.</p>
             {/if}
           </div>
         {/if}
