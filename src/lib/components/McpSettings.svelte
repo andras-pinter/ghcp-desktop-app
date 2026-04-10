@@ -3,7 +3,6 @@
   import {
     getMcpState,
     initMcp,
-    addServer,
     removeServer,
     connectServer,
     disconnectServer,
@@ -14,7 +13,7 @@
     searchRegistry,
   } from "$lib/stores/mcp.svelte";
   import { approveMcpBinary } from "$lib/utils/commands";
-  import type { McpConnectionInfo, McpServerConfig, RegistryServer } from "$lib/types/mcp";
+  import type { McpConnectionInfo, RegistryServer } from "$lib/types/mcp";
   import McpServerForm from "./McpServerForm.svelte";
   import ConfirmDialog from "./ConfirmDialog.svelte";
   import { onMount, onDestroy } from "svelte";
@@ -48,7 +47,6 @@
   let registrySearch = $state("");
   let searchDebounce: ReturnType<typeof setTimeout> | null = null;
   let copiedCommand = $state<string | null>(null);
-  let quickAdding = $state<string | null>(null);
 
   async function copyCommand(text: string) {
     try {
@@ -95,68 +93,6 @@
 
   function openRegistryForm(entry: RegistryServer) {
     view = { kind: "form", registryEntry: entry };
-  }
-
-  async function quickAddFromRegistry(entry: RegistryServer) {
-    quickAdding = entry.name;
-    try {
-      const config: McpServerConfig = {
-        id: `mcp-${Date.now()}`,
-        name: entry.name,
-        transport: "stdio",
-        url: null,
-        binaryPath: null,
-        args: null,
-        authHeader: null,
-        fromCatalog: false,
-        enabled: true,
-      };
-
-      // Determine transport + command from packages / remotes
-      const npmPkg = entry.packages.find((p) => p.registryType === "npm");
-      const pypiPkg = entry.packages.find((p) => p.registryType === "pypi");
-      const nugetPkg = entry.packages.find((p) => p.registryType === "nuget");
-
-      if (npmPkg) {
-        const pkgRef = npmPkg.version
-          ? `${npmPkg.identifier}@${npmPkg.version}`
-          : npmPkg.identifier;
-        config.binaryPath = "npx";
-        config.args = JSON.stringify(["-y", pkgRef, ...npmPkg.arguments]);
-      } else if (pypiPkg) {
-        const pkgRef = pypiPkg.version
-          ? `${pypiPkg.identifier}==${pypiPkg.version}`
-          : pypiPkg.identifier;
-        config.binaryPath = "uvx";
-        config.args = JSON.stringify([pkgRef, ...pypiPkg.arguments]);
-      } else if (nugetPkg) {
-        config.binaryPath = "dotnet";
-        config.args = JSON.stringify(["tool", "run", nugetPkg.identifier, ...nugetPkg.arguments]);
-      } else if (!entry.isStdioOnly && entry.remotes.length > 0) {
-        // HTTP server — use the first remote
-        config.transport = "http";
-        config.url = entry.remotes[0]?.url ?? null;
-      } else {
-        // No package info and no remote — fall back to form
-        openRegistryForm(entry);
-        quickAdding = null;
-        return;
-      }
-
-      await addServer(config);
-    } catch {
-      openRegistryForm(entry);
-    } finally {
-      quickAdding = null;
-    }
-  }
-
-  /** Can this registry entry be one-click added (has packages or HTTP remote)? */
-  function canQuickAdd(entry: RegistryServer): boolean {
-    return (
-      entry.packages.some((p) => ["npm", "pypi", "nuget"].includes(p.registryType)) ||
-      (!entry.isStdioOnly && entry.remotes.length > 0)
-    );
   }
 
   function toggleExpandRegistry(entry: RegistryServer) {
@@ -624,17 +560,6 @@
                   <div class="card-actions">
                     {#if isAdded}
                       <span class="badge badge--success">✓ Added</span>
-                    {:else if canQuickAdd(entry)}
-                      <button
-                        class="btn btn--primary"
-                        onclick={(e: MouseEvent) => {
-                          e.stopPropagation();
-                          quickAddFromRegistry(entry);
-                        }}
-                        disabled={quickAdding === entry.name}
-                      >
-                        {quickAdding === entry.name ? "Adding…" : "Add"}
-                      </button>
                     {:else}
                       <button
                         class="btn btn--primary"
@@ -643,7 +568,7 @@
                           openRegistryForm(entry);
                         }}
                       >
-                        Configure
+                        Add
                       </button>
                     {/if}
                   </div>
