@@ -119,6 +119,9 @@ async function handleStreamingComplete(payload: StreamingCompletePayload): Promi
     if (conversationId !== activeConversationId) {
       unreadConversations.add(conversationId);
     }
+
+    // Retry title generation if still untitled (initial attempt at stream start may have failed)
+    autoGenerateTitle(conversationId);
   }
 }
 
@@ -164,10 +167,10 @@ async function autoGenerateTitle(conversationId: string): Promise<void> {
     const firstAssistant = msgs.find((m) => m.role === "assistant");
     if (!firstUser) return;
 
-    // Find the model used for this conversation (from the conversation record or a default)
     const model = conv?.model || "gpt-4o";
+    const hasAssistantContent = !!(firstAssistant?.content && firstAssistant.content.trim());
 
-    let title: string;
+    let title: string | undefined;
     try {
       title = await generateConversationTitle(
         firstUser.content,
@@ -175,19 +178,27 @@ async function autoGenerateTitle(conversationId: string): Promise<void> {
         model,
       );
     } catch {
-      const cleaned = firstUser.content
-        .replace(/\n+---\n📎\s*\[.*$/s, "")
-        .replace(/\n+📎\s*.*/g, "")
-        .trim();
-      if (!cleaned) return;
-      title = cleaned.length > 50 ? cleaned.slice(0, 49) + "…" : cleaned;
+      // Only fall back to first-line title if the assistant has already responded
+      // (i.e. this is the retry at stream-complete). On the first attempt at stream
+      // start, silently fail so the retry gets a chance with richer context.
+      if (hasAssistantContent) {
+        const cleaned = firstUser.content
+          .replace(/\n+---\n📎\s*\[.*$/s, "")
+          .replace(/\n+📎\s*.*/g, "")
+          .trim();
+        if (cleaned) {
+          title = cleaned.length > 50 ? cleaned.slice(0, 49) + "…" : cleaned;
+        }
+      }
     }
 
-    try {
-      await updateConversation(conversationId, title);
-      setConversationTitle(conversationId, title);
-    } catch (e) {
-      logFrontend("warn", `Failed to set conversation title: ${e}`);
+    if (title) {
+      try {
+        await updateConversation(conversationId, title);
+        setConversationTitle(conversationId, title);
+      } catch (e) {
+        logFrontend("warn", `Failed to set conversation title: ${e}`);
+      }
     }
   } finally {
     titleGeneratingFor.delete(conversationId);
