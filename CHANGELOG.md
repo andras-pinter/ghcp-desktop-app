@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.2.1] — 2026-04-10
+
+### Bug Fixes
+
+- **ui:** resolve code block layout collision with global .code-block class (c6da26a)
+
 ## [0.2.0] — 2026-04-10
 
 ### Features
