@@ -286,7 +286,6 @@
             <span class="streaming-orb"></span>
             <span class="streaming-phrase">{streamingPhrase}</span>
           </div>
-          <div class="streaming-scroll-runway" aria-hidden="true"></div>
         {/if}
         {#if webResults.length > 0}
           <nav class="web-results" aria-label="Web sources">
@@ -408,12 +407,6 @@
     gap: 8px;
     margin-top: 12px;
     min-height: 24px;
-  }
-
-  /* Runway below the indicator absorbs content growth so the
-     indicator doesn't bounce at the viewport edge. */
-  .streaming-scroll-runway {
-    height: 0.5em;
   }
 
   .streaming-orb {
