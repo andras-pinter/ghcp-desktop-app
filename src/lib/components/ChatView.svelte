@@ -209,6 +209,12 @@
     if (streaming && scrollRafId === null) {
       scrollRafId = requestAnimationFrame(scrollFollowLoop);
     }
+    return () => {
+      if (scrollRafId !== null) {
+        cancelAnimationFrame(scrollRafId);
+        scrollRafId = null;
+      }
+    };
   });
 
   onMount(async () => {

@@ -114,6 +114,12 @@
       isRevealing = true;
       revealRafId = requestAnimationFrame(revealTick);
     }
+    return () => {
+      if (revealRafId !== null) {
+        cancelAnimationFrame(revealRafId);
+        revealRafId = null;
+      }
+    };
   });
 
   // When streaming ends, keep flushing if there are unrevealed chars.
