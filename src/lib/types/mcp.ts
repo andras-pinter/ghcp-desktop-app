@@ -1,5 +1,7 @@
+/** Transport protocol for an MCP server connection. */
 export type McpTransport = "http" | "stdio";
 
+/** Live connection status of an MCP server. */
 export type McpServerStatus = "disconnected" | "connecting" | "connected" | "error";
 
 /** MCP server configuration (matches Rust McpServerConfig). */

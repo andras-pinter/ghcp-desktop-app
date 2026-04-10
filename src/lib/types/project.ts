@@ -1,3 +1,4 @@
+/** A named project that groups conversations and pinned files (mirrors Rust Project). */
 export interface Project {
   id: string;
   name: string;
@@ -7,6 +8,7 @@ export interface Project {
   updatedAt: string;
 }
 
+/** Metadata for a file pinned inside a project. */
 export interface ProjectFile {
   id: string;
   projectId: string;
