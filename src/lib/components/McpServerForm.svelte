@@ -218,20 +218,6 @@
 </script>
 
 <div class="panel-body-narrow">
-  {#if initialRegistry && !isEditing}
-    <div class="banner banner--info prefill-notice">
-      From MCP Registry: <strong>{initialRegistry.displayName}</strong>
-      {#if initialRegistry.isStdioOnly && !initialRegistry.packages.length}
-        <span class="prefill-sub"
-          >— This is a stdio-only server. You'll need to provide the binary path.</span
-        >
-      {/if}
-      {#if initialRegistry.description}
-        <p class="prefill-sub">{initialRegistry.description}</p>
-      {/if}
-    </div>
-  {/if}
-
   <form
     class="server-form"
     onsubmit={(e) => {
@@ -336,16 +322,6 @@
 </div>
 
 <style>
-  .prefill-notice {
-    margin-bottom: var(--spacing-lg);
-  }
-  .prefill-sub {
-    font-size: var(--font-size-xs);
-    color: var(--color-text-tertiary);
-    display: block;
-    margin-top: var(--spacing-xs);
-  }
-
   .server-form {
     display: flex;
     flex-direction: column;
