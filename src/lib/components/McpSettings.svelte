@@ -516,10 +516,10 @@
                             {#each entry.packages as pkg (pkg.identifier + "-cmd")}
                               {#if pkg.registryType === "npm"}
                                 {@const cmd = `npx -y ${pkg.identifier}${pkg.version ? `@${pkg.version}` : ""}`}
-                                <div class="code-block">
+                                <div class="code-snippet">
                                   <code>{cmd}</code>
                                   <button
-                                    class="code-block-copy"
+                                    class="code-snippet-copy"
                                     onclick={() => copyCommand(cmd)}
                                     aria-label="Copy command"
                                     >{copiedCommand === cmd ? "Copied!" : "Copy"}</button
@@ -527,10 +527,10 @@
                                 </div>
                               {:else if pkg.registryType === "pypi"}
                                 {@const cmd = `uvx ${pkg.identifier}${pkg.version ? `==${pkg.version}` : ""}`}
-                                <div class="code-block">
+                                <div class="code-snippet">
                                   <code>{cmd}</code>
                                   <button
-                                    class="code-block-copy"
+                                    class="code-snippet-copy"
                                     onclick={() => copyCommand(cmd)}
                                     aria-label="Copy command"
                                     >{copiedCommand === cmd ? "Copied!" : "Copy"}</button
@@ -538,10 +538,10 @@
                                 </div>
                               {:else if pkg.registryType === "nuget"}
                                 {@const cmd = `dotnet tool run ${pkg.identifier}`}
-                                <div class="code-block">
+                                <div class="code-snippet">
                                   <code>{cmd}</code>
                                   <button
-                                    class="code-block-copy"
+                                    class="code-snippet-copy"
                                     onclick={() => copyCommand(cmd)}
                                     aria-label="Copy command"
                                     >{copiedCommand === cmd ? "Copied!" : "Copy"}</button
@@ -790,13 +790,13 @@
     gap: var(--spacing-xs);
   }
 
-  .code-block-copy {
+  .code-snippet-copy {
     width: auto;
     padding: var(--spacing-sm) var(--spacing-md);
     font-size: var(--font-size-xs);
     font-weight: var(--font-weight-medium);
   }
-  .code-block-copy:hover {
+  .code-snippet-copy:hover {
     color: var(--color-accent-copper);
     background: color-mix(in srgb, var(--color-accent-copper) 8%, transparent);
   }
