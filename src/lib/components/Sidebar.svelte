@@ -6,6 +6,8 @@
     removeConversation,
     toggleFavourite,
     renameConversation,
+    isStreaming,
+    hasUnread,
   } from "$lib/stores/conversations.svelte";
   import { formatDateGroup, truncate } from "$lib/utils/format";
   import ConfirmDialog from "./ConfirmDialog.svelte";
@@ -343,7 +345,14 @@
         title={conv.title ?? "Untitled"}
         aria-label="Open conversation: {conv.title ?? 'Untitled'}"
       >
-        <span class="conv-title">{truncate(conv.title ?? "Untitled", 32)}</span>
+        {#if isStreaming(conv.id)}
+          <span class="conv-status conv-status--streaming" aria-label="Streaming"></span>
+        {:else if hasUnread(conv.id)}
+          <span class="conv-status conv-status--unread" aria-label="Unread"></span>
+        {/if}
+        <span class="conv-title" class:conv-title--unread={hasUnread(conv.id)}
+          >{truncate(conv.title ?? "Untitled", 32)}</span
+        >
         <span class="conv-actions">
           <span
             class="conv-action-btn"
@@ -581,6 +590,10 @@
     min-width: 0;
   }
 
+  .conv-title--unread {
+    font-weight: 650;
+  }
+
   /* ── Inline action icons (star + trash) ── */
 
   .conv-actions {
@@ -711,5 +724,36 @@
     padding: var(--spacing-sm);
     border-top: 1px solid var(--color-border-secondary);
     flex-shrink: 0;
+  }
+
+  /* ── Conversation status dots ── */
+
+  .conv-status {
+    flex-shrink: 0;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    margin-right: 6px;
+  }
+
+  .conv-status--streaming {
+    background: var(--color-status-streaming, #22c55e);
+    animation: status-pulse 1.2s ease-in-out infinite;
+  }
+
+  .conv-status--unread {
+    background: var(--color-status-unread, #3b82f6);
+  }
+
+  @keyframes status-pulse {
+    0%,
+    100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.4;
+      transform: scale(0.75);
+    }
   }
 </style>

@@ -2,6 +2,7 @@
 
 /* eslint-disable svelte/prefer-svelte-reactivity -- Date is used imperatively for ISO timestamps, not reactively */
 
+import { SvelteSet, SvelteMap } from "svelte/reactivity";
 import type { Conversation } from "$lib/types/conversation";
 import type { Message } from "$lib/types/message";
 import {
@@ -16,13 +17,239 @@ import {
   getDraft,
   saveDraft as saveDraftCmd,
   deleteDraft as deleteDraftCmd,
+  stopStreaming,
+  generateConversationTitle,
+  updateConversation,
+  logFrontend,
 } from "$lib/utils/commands";
+import {
+  onStreamingToken,
+  onStreamingComplete,
+  onStreamingError,
+  type StreamingTokenPayload,
+  type StreamingCompletePayload,
+  type StreamingErrorPayload,
+} from "$lib/utils/events";
+import type { UnlistenFn } from "@tauri-apps/api/event";
 
 let conversations = $state<Conversation[]>([]);
 let activeConversationId = $state<string | null>(null);
 let messages = $state<Message[]>([]);
 let loadingConversations = $state(false);
 let loadingMessages = $state(false);
+
+// ── Per-conversation streaming state (global, not per-component) ──
+
+/** Conversation IDs currently streaming a response. */
+const streamingConversations = new SvelteSet<string>();
+
+/** Conversation IDs with unread assistant responses (streaming finished, user hasn't viewed). */
+const unreadConversations = new SvelteSet<string>();
+
+/** Buffered streaming content per conversation (for background streams). */
+interface StreamingBuffer {
+  messageId: string;
+  content: string;
+  thinkingContent: string;
+}
+const streamingBuffers = new SvelteMap<string, StreamingBuffer>();
+
+/** Track which conversation is being title-generated to avoid duplicates. */
+const titleGeneratingFor = new Set<string>();
+
+/** Global event listener unlisten handles (registered once at store init). */
+let unlistenToken: UnlistenFn | undefined;
+let unlistenComplete: UnlistenFn | undefined;
+let unlistenError: UnlistenFn | undefined;
+
+// ── Global event listeners ──────────────────────────────────────
+
+/** Initialize global streaming event listeners. Call once after app startup. */
+export async function initStreamingListeners(): Promise<void> {
+  unlistenToken = await onStreamingToken(handleStreamingToken);
+  unlistenComplete = await onStreamingComplete(handleStreamingComplete);
+  unlistenError = await onStreamingError(handleStreamingError);
+}
+
+/** Tear down global streaming event listeners. */
+export function destroyStreamingListeners(): void {
+  unlistenToken?.();
+  unlistenComplete?.();
+  unlistenError?.();
+}
+
+function handleStreamingToken(payload: StreamingTokenPayload): void {
+  const { conversationId, token } = payload;
+  const buffer = streamingBuffers.get(conversationId);
+  if (!buffer) return;
+
+  buffer.content += token;
+  // Force reactivity update on the map
+  streamingBuffers.set(conversationId, buffer);
+
+  // If this is the active conversation, also update the in-memory messages array
+  if (conversationId === activeConversationId) {
+    const msg = messages.find((m) => m.id === buffer.messageId);
+    if (msg && msg.role === "assistant") {
+      msg.content = buffer.content;
+      // eslint-disable-next-line no-self-assign -- trigger Svelte 5 reactivity on mutation
+      messages = messages;
+    }
+  }
+}
+
+async function handleStreamingComplete(payload: StreamingCompletePayload): Promise<void> {
+  const { conversationId } = payload;
+  const buffer = streamingBuffers.get(conversationId);
+  streamingConversations.delete(conversationId);
+  streamingBuffers.delete(conversationId);
+
+  if (buffer && buffer.content) {
+    // Persist the completed assistant message to DB
+    await updateMsgCmd(buffer.messageId, buffer.content, buffer.thinkingContent || null);
+
+    // If this is the active conversation, sync the messages array
+    if (conversationId === activeConversationId) {
+      messages = messages.map((m) =>
+        m.id === buffer.messageId ? { ...m, content: buffer.content } : m,
+      );
+    }
+
+    // Mark as unread if user is NOT viewing this conversation
+    if (conversationId !== activeConversationId) {
+      unreadConversations.add(conversationId);
+    }
+
+    // Retry title generation if still untitled (initial attempt at stream start may have failed)
+    autoGenerateTitle(conversationId);
+  }
+}
+
+async function handleStreamingError(payload: StreamingErrorPayload): Promise<void> {
+  const { conversationId, error } = payload;
+  const buffer = streamingBuffers.get(conversationId);
+  streamingConversations.delete(conversationId);
+  streamingBuffers.delete(conversationId);
+
+  if (buffer) {
+    const errContent = `⚠️ Error: ${error}`;
+    await updateMsgCmd(buffer.messageId, errContent);
+
+    if (conversationId === activeConversationId) {
+      messages = messages.map((m) =>
+        m.id === buffer.messageId ? { ...m, content: errContent } : m,
+      );
+    }
+
+    if (conversationId !== activeConversationId) {
+      unreadConversations.add(conversationId);
+    }
+  }
+}
+
+// ── Title generation (moved from ChatView to support background streams) ──
+
+async function autoGenerateTitle(conversationId: string): Promise<void> {
+  const conv = conversations.find((c) => c.id === conversationId);
+  if (conv?.title || titleGeneratingFor.has(conversationId)) return;
+
+  titleGeneratingFor.add(conversationId);
+  try {
+    // Load messages for this conversation if needed (may not be active)
+    let msgs: Message[];
+    if (conversationId === activeConversationId) {
+      msgs = messages;
+    } else {
+      msgs = await getMessages(conversationId);
+    }
+
+    const firstUser = msgs.find((m) => m.role === "user");
+    const firstAssistant = msgs.find((m) => m.role === "assistant");
+    if (!firstUser) return;
+
+    const model = conv?.model || "gpt-4o";
+    const hasAssistantContent = !!(firstAssistant?.content && firstAssistant.content.trim());
+
+    let title: string | undefined;
+    try {
+      title = await generateConversationTitle(
+        firstUser.content,
+        firstAssistant?.content ?? "",
+        model,
+      );
+    } catch {
+      // Only fall back to first-line title if the assistant has already responded
+      // (i.e. this is the retry at stream-complete). On the first attempt at stream
+      // start, silently fail so the retry gets a chance with richer context.
+      if (hasAssistantContent) {
+        const cleaned = firstUser.content
+          .replace(/\n+---\n📎\s*\[.*$/s, "")
+          .replace(/\n+📎\s*.*/g, "")
+          .trim();
+        if (cleaned) {
+          title = cleaned.length > 50 ? cleaned.slice(0, 49) + "…" : cleaned;
+        }
+      }
+    }
+
+    if (title) {
+      try {
+        await updateConversation(conversationId, title);
+        setConversationTitle(conversationId, title);
+      } catch (e) {
+        logFrontend("warn", `Failed to set conversation title: ${e}`);
+      }
+    }
+  } finally {
+    titleGeneratingFor.delete(conversationId);
+  }
+}
+
+// ── Streaming lifecycle ─────────────────────────────────────────
+
+/** Register a conversation as actively streaming with a placeholder assistant message. */
+export function startStreaming(conversationId: string, assistantMessageId: string): void {
+  streamingConversations.add(conversationId);
+  streamingBuffers.set(conversationId, {
+    messageId: assistantMessageId,
+    content: "",
+    thinkingContent: "",
+  });
+
+  // Generate title immediately — don't wait for streaming to finish
+  autoGenerateTitle(conversationId);
+}
+
+/** Check if a specific conversation is currently streaming. */
+export function isStreaming(conversationId: string): boolean {
+  return streamingConversations.has(conversationId);
+}
+
+/** Check if a specific conversation has unread responses. */
+export function hasUnread(conversationId: string): boolean {
+  return unreadConversations.has(conversationId);
+}
+
+/** Mark a conversation as read (clear unread indicator). */
+export function markAsRead(conversationId: string): void {
+  unreadConversations.delete(conversationId);
+}
+
+/** Get the streaming assistant message ID for a conversation (if streaming). */
+export function getStreamingMessageId(conversationId: string): string | null {
+  return streamingBuffers.get(conversationId)?.messageId ?? null;
+}
+
+/** Get buffered content for a conversation (used when switching to a streaming conversation). */
+export function getStreamingBuffer(conversationId: string): StreamingBuffer | undefined {
+  return streamingBuffers.get(conversationId);
+}
+
+/** Clean up streaming state for a conversation (e.g., on send failure before events fire). */
+export function cancelStreamingState(conversationId: string): void {
+  streamingConversations.delete(conversationId);
+  streamingBuffers.delete(conversationId);
+}
 
 // ── Initialization ──────────────────────────────────────────────
 
@@ -54,9 +281,24 @@ export async function newConversation(model: string): Promise<Conversation> {
 export async function switchConversation(id: string): Promise<void> {
   if (activeConversationId === id) return;
   activeConversationId = id;
+
+  // Mark as read when user switches to this conversation
+  markAsRead(id);
+
   loadingMessages = true;
   try {
     messages = await getMessages(id);
+
+    // If this conversation is actively streaming, sync from the buffer
+    const buffer = streamingBuffers.get(id);
+    if (buffer) {
+      const lastMsg = messages.find((m) => m.id === buffer.messageId);
+      if (lastMsg) {
+        lastMsg.content = buffer.content;
+        // eslint-disable-next-line no-self-assign -- trigger Svelte 5 reactivity
+        messages = messages;
+      }
+    }
   } catch (e) {
     console.error("Failed to load messages:", e);
     messages = [];
@@ -90,8 +332,20 @@ export async function toggleFavourite(id: string): Promise<void> {
   );
 }
 
-/** Delete a conversation. If it was active, clear the view. */
+/** Delete a conversation. If it was active, clear the view. Cancels streaming if active. */
 export async function removeConversation(id: string): Promise<void> {
+  // Cancel streaming if this conversation is actively streaming
+  if (streamingConversations.has(id)) {
+    try {
+      await stopStreaming(id);
+    } catch {
+      // ignore
+    }
+    streamingConversations.delete(id);
+    streamingBuffers.delete(id);
+  }
+  unreadConversations.delete(id);
+
   await deleteConvCmd(id);
   conversations = conversations.filter((c) => c.id !== id);
   if (activeConversationId === id) {
@@ -135,7 +389,8 @@ export async function updateMessageContent(
   await updateMsgCmd(id, content, thinkingContent);
 }
 
-/** Append a token to the last assistant message (streaming). In-memory only. */
+/** Append a token to the last assistant message (streaming). In-memory only.
+ *  @deprecated Use the store-level streaming listeners instead. Kept for backward compat. */
 export function appendStreamingToken(token: string): void {
   const last = messages[messages.length - 1];
   if (last && last.role === "assistant") {
@@ -205,6 +460,14 @@ export function getConversationStore() {
     },
     get hasConversations() {
       return conversations.length > 0;
+    },
+    /** Set of conversation IDs currently streaming (reactive). */
+    get streamingConversations(): SvelteSet<string> {
+      return streamingConversations;
+    },
+    /** Set of conversation IDs with unread responses (reactive). */
+    get unreadConversations(): SvelteSet<string> {
+      return unreadConversations;
     },
   };
 }

@@ -3,7 +3,7 @@
 use copilot_api::CopilotClient;
 use mcp_client::McpManager;
 use rusqlite::Connection;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::Mutex;
 use tauri::{AppHandle, Manager};
 use tokio::sync::Mutex as TokioMutex;
@@ -16,8 +16,9 @@ pub struct AppState {
     pub db: Mutex<Connection>,
     /// Copilot API client (handles auth + streaming + models).
     pub copilot: CopilotClient,
-    /// Flag to cancel an in-flight streaming response.
-    pub cancel_stream: TokioMutex<Option<tokio::sync::watch::Sender<bool>>>,
+    /// Per-conversation cancellation senders for in-flight streaming responses.
+    /// Key is the conversation ID; multiple conversations can stream concurrently.
+    pub active_streams: TokioMutex<HashMap<String, tokio::sync::watch::Sender<bool>>>,
     /// Shared HTTP client for web research (hardened with SSRF protection).
     pub http_client: web_research::HttpClient,
     /// MCP connection manager (handles multiple server connections).
@@ -47,7 +48,7 @@ impl AppState {
         Ok(Self {
             db: Mutex::new(conn),
             copilot: CopilotClient::new(),
-            cancel_stream: TokioMutex::new(None),
+            active_streams: TokioMutex::new(HashMap::new()),
             http_client: web_research::new_client()?,
             mcp: McpManager::new(),
             allowed_file_paths: Mutex::new(HashSet::new()),
