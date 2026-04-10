@@ -319,6 +319,60 @@
       </div>
     </div>
   </form>
+
+  {#if initialRegistry && !isEditing}
+    {@const authRemote = initialRegistry.remotes.find((r) => r.requiresAuth)}
+    {#if authRemote?.authDescription || initialRegistry.description || initialRegistry.websiteUrl || initialRegistry.repoUrl}
+      <section class="setup-guide">
+        <h3 class="setup-heading">Setup Guide</h3>
+
+        {#if authRemote?.authDescription}
+          <div class="setup-step">
+            <span class="setup-label">Authentication</span>
+            <p class="setup-text">{authRemote.authDescription}</p>
+          </div>
+        {:else if authRemote}
+          <div class="setup-step">
+            <span class="setup-label">Authentication</span>
+            <p class="setup-text">
+              This server requires authentication. Add your API key or token in the Auth Header
+              field above (e.g. <code>Bearer your-token</code>).
+            </p>
+          </div>
+        {/if}
+
+        {#if initialRegistry.description}
+          <div class="setup-step">
+            <span class="setup-label">About</span>
+            <p class="setup-text">{initialRegistry.description}</p>
+          </div>
+        {/if}
+
+        <div class="setup-links">
+          {#if initialRegistry.websiteUrl}
+            <a
+              href={initialRegistry.websiteUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              class="setup-link"
+            >
+              Website ↗
+            </a>
+          {/if}
+          {#if initialRegistry.repoUrl}
+            <a
+              href={initialRegistry.repoUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              class="setup-link"
+            >
+              Repository ↗
+            </a>
+          {/if}
+        </div>
+      </section>
+    {/if}
+  {/if}
 </div>
 
 <style>
@@ -344,5 +398,64 @@
   .actions-right {
     display: flex;
     gap: var(--spacing-sm);
+  }
+
+  .setup-guide {
+    margin-top: var(--spacing-xl);
+    padding-top: var(--spacing-lg);
+    border-top: 1px solid var(--color-border);
+  }
+
+  .setup-heading {
+    font-family: var(--font-display);
+    font-size: var(--font-size-base);
+    font-weight: 600;
+    color: var(--color-text-secondary);
+    margin-bottom: var(--spacing-md);
+  }
+
+  .setup-step {
+    margin-bottom: var(--spacing-md);
+  }
+
+  .setup-label {
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    color: var(--color-text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    display: block;
+    margin-bottom: var(--spacing-xs);
+  }
+
+  .setup-text {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    line-height: 1.5;
+    margin: 0;
+  }
+
+  .setup-text code {
+    font-family: var(--font-mono);
+    font-size: var(--font-size-xs);
+    background: var(--color-bg-tertiary);
+    padding: 0.1em 0.4em;
+    border-radius: var(--radius-sm);
+  }
+
+  .setup-links {
+    display: flex;
+    gap: var(--spacing-md);
+    margin-top: var(--spacing-sm);
+  }
+
+  .setup-link {
+    font-size: var(--font-size-sm);
+    color: var(--color-accent);
+    text-decoration: none;
+  }
+
+  .setup-link:hover {
+    text-decoration: underline;
   }
 </style>
