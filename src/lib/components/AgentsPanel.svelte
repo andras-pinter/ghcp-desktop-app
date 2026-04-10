@@ -49,6 +49,7 @@
   let formMcpIds = new SvelteSet<string>();
   let formSaving = $state(false);
   let formError = $state<string | null>(null);
+  let formValid = $derived(formName.trim().length > 0 && formPrompt.trim().length > 0);
   let emojiPickerOpen = $state(false);
 
   const AGENT_EMOJIS = [
@@ -826,7 +827,7 @@
         <!-- Form actions -->
         <div class="form-actions">
           <button class="btn" onclick={cancelForm} disabled={formSaving}>Cancel</button>
-          <button class="btn btn--primary" onclick={handleSave} disabled={formSaving}>
+          <button class="btn btn--primary" onclick={handleSave} disabled={formSaving || !formValid}>
             {#if formSaving}
               <span class="spinner spinner--sm"></span> Saving…
             {:else}
