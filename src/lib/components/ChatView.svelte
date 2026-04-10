@@ -202,7 +202,7 @@
 
     scrollInterval = setInterval(() => {
       if (streaming && chatContainer && !userScrolledAway) {
-        chatContainer.scrollTo({ top: chatContainer.scrollHeight, behavior: "smooth" });
+        chatContainer.scrollTo({ top: chatContainer.scrollHeight, behavior: "instant" });
       }
     }, 100);
 
