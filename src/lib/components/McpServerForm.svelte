@@ -217,144 +217,122 @@
   }
 </script>
 
-<div class="panel">
-  <header class="panel-header" data-tauri-drag-region>
-    <button class="panel-back" onclick={onBack} aria-label="Go back">
-      <svg width="18" height="18" viewBox="0 0 16 16" fill="none">
-        <path
-          d="M10 3L5 8l5 5"
-          stroke="currentColor"
-          stroke-width="1.5"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        />
-      </svg>
-    </button>
-    <h2 class="panel-title">{isEditing ? "Edit Server" : "Add MCP Server"}</h2>
-  </header>
+<div class="panel-body-narrow">
+  {#if initialRegistry && !isEditing}
+    <div class="banner banner--info prefill-notice">
+      From MCP Registry: <strong>{initialRegistry.displayName}</strong>
+      {#if initialRegistry.isStdioOnly && !initialRegistry.packages.length}
+        <span class="prefill-sub"
+          >— This is a stdio-only server. You'll need to provide the binary path.</span
+        >
+      {/if}
+      {#if initialRegistry.description}
+        <p class="prefill-sub">{initialRegistry.description}</p>
+      {/if}
+    </div>
+  {/if}
 
-  <div class="panel-body-narrow">
-    {#if initialRegistry && !isEditing}
-      <div class="banner banner--info prefill-notice">
-        From MCP Registry: <strong>{initialRegistry.displayName}</strong>
-        {#if initialRegistry.isStdioOnly && !initialRegistry.packages.length}
-          <span class="prefill-sub"
-            >— This is a stdio-only server. You'll need to provide the binary path.</span
-          >
-        {/if}
-        {#if initialRegistry.description}
-          <p class="prefill-sub">{initialRegistry.description}</p>
-        {/if}
+  <form
+    class="server-form"
+    onsubmit={(e) => {
+      e.preventDefault();
+      submitForm();
+    }}
+  >
+    <label class="form-field">
+      <span class="form-label">Name</span>
+      <input
+        class="form-input"
+        type="text"
+        bind:value={formName}
+        placeholder="My MCP Server"
+        required
+      />
+    </label>
+
+    <fieldset class="form-field fieldset-reset">
+      <legend class="form-label">Transport</legend>
+      <div class="form-radio-group">
+        <label>
+          <input type="radio" bind:group={formTransport} value="http" /> HTTP
+        </label>
+        <label>
+          <input type="radio" bind:group={formTransport} value="stdio" /> Stdio
+        </label>
       </div>
-    {/if}
+    </fieldset>
 
-    <form
-      class="server-form"
-      onsubmit={(e) => {
-        e.preventDefault();
-        submitForm();
-      }}
-    >
+    {#if formTransport === "http"}
       <label class="form-field">
-        <span class="form-label">Name</span>
+        <span class="form-label">URL</span>
         <input
           class="form-input"
-          type="text"
-          bind:value={formName}
-          placeholder="My MCP Server"
+          type="url"
+          bind:value={formUrl}
+          placeholder="https://example.com/mcp"
           required
         />
       </label>
+      <label class="form-field">
+        <span class="form-label">Auth Header (optional)</span>
+        <input
+          class="form-input"
+          type="text"
+          bind:value={formAuthHeader}
+          placeholder="Bearer your-token"
+        />
+      </label>
+    {:else}
+      <label class="form-field">
+        <span class="form-label">Binary Path</span>
+        <input
+          class="form-input"
+          type="text"
+          bind:value={formBinaryPath}
+          placeholder="npx or /usr/local/bin/mcp-server"
+          required
+        />
+        <span class="form-hint">
+          A command name (e.g., npx, uvx) or absolute path to the MCP server binary.
+        </span>
+      </label>
+      <label class="form-field">
+        <span class="form-label">Arguments (JSON array, optional)</span>
+        <input class="form-input" type="text" bind:value={formArgs} placeholder={argsPlaceholder} />
+      </label>
+    {/if}
 
-      <fieldset class="form-field fieldset-reset">
-        <legend class="form-label">Transport</legend>
-        <div class="form-radio-group">
-          <label>
-            <input type="radio" bind:group={formTransport} value="http" /> HTTP
-          </label>
-          <label>
-            <input type="radio" bind:group={formTransport} value="stdio" /> Stdio
-          </label>
-        </div>
-      </fieldset>
+    {#if formError}
+      <div class="form-error">{formError}</div>
+    {/if}
 
-      {#if formTransport === "http"}
-        <label class="form-field">
-          <span class="form-label">URL</span>
-          <input
-            class="form-input"
-            type="url"
-            bind:value={formUrl}
-            placeholder="https://example.com/mcp"
-            required
-          />
-        </label>
-        <label class="form-field">
-          <span class="form-label">Auth Header (optional)</span>
-          <input
-            class="form-input"
-            type="text"
-            bind:value={formAuthHeader}
-            placeholder="Bearer your-token"
-          />
-        </label>
-      {:else}
-        <label class="form-field">
-          <span class="form-label">Binary Path</span>
-          <input
-            class="form-input"
-            type="text"
-            bind:value={formBinaryPath}
-            placeholder="npx or /usr/local/bin/mcp-server"
-            required
-          />
-          <span class="form-hint">
-            A command name (e.g., npx, uvx) or absolute path to the MCP server binary.
-          </span>
-        </label>
-        <label class="form-field">
-          <span class="form-label">Arguments (JSON array, optional)</span>
-          <input
-            class="form-input"
-            type="text"
-            bind:value={formArgs}
-            placeholder={argsPlaceholder}
-          />
-        </label>
-      {/if}
-
-      {#if formError}
-        <div class="form-error">{formError}</div>
-      {/if}
-
-      {#if testResult}
-        <div
-          class="banner"
-          class:banner--success={testResult.success}
-          class:banner--error={!testResult.success}
-        >
-          {testResult.success ? "✓" : "✗"}
-          {testResult.message}
-        </div>
-      {/if}
-
-      <div class="form-actions form-actions--split">
-        <button type="button" class="btn" onclick={handleTest} disabled={testing || !formValid}>
-          {testing ? "Testing..." : "Test Connection"}
-        </button>
-        <div class="actions-right">
-          <button type="button" class="btn" onclick={onBack}>Cancel</button>
-          <button type="submit" class="btn btn--primary" disabled={submitting || !formValid}>
-            {#if submitting}
-              Saving...
-            {:else}
-              {isEditing ? "Save Changes" : "Add Server"}
-            {/if}
-          </button>
-        </div>
+    {#if testResult}
+      <div
+        class="banner"
+        class:banner--success={testResult.success}
+        class:banner--error={!testResult.success}
+      >
+        {testResult.success ? "✓" : "✗"}
+        {testResult.message}
       </div>
-    </form>
-  </div>
+    {/if}
+
+    <div class="form-actions form-actions--split">
+      <button type="button" class="btn" onclick={handleTest} disabled={testing || !formValid}>
+        {testing ? "Testing..." : "Test Connection"}
+      </button>
+      <div class="actions-right">
+        <button type="button" class="btn" onclick={onBack}>Cancel</button>
+        <button type="submit" class="btn btn--primary" disabled={submitting || !formValid}>
+          {#if submitting}
+            Saving...
+          {:else}
+            {isEditing ? "Save Changes" : "Add Server"}
+          {/if}
+        </button>
+      </div>
+    </div>
+  </form>
 </div>
 
 <style>
