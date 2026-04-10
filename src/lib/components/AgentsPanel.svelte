@@ -1,5 +1,6 @@
 <script lang="ts">
   import { SvelteSet } from "svelte/reactivity";
+  import { stripMarkdown, truncateMarkdown } from "$lib/utils/format";
   import {
     getAgentStore,
     initAgents,
@@ -324,10 +325,7 @@
     }
   }
 
-  function truncatePrompt(text: string, max: number = 100): string {
-    if (text.length <= max) return text;
-    return text.slice(0, max).trimEnd() + "…";
-  }
+  const truncatePrompt = (text: string, max: number = 100) => truncateMarkdown(text, max);
 
   function sourceLabel(agent: Agent): string | null {
     if (agent.sourceType === "registry_aitmpl") return "registry";
@@ -408,6 +406,7 @@
                   e.stopPropagation();
                   toggleExpandAgent(defaultAgent.id);
                 }}
+                aria-expanded={expandedAgentId === defaultAgent.id}
                 aria-label={expandedAgentId === defaultAgent.id
                   ? "Collapse details"
                   : "Expand details"}>▶</button
@@ -421,7 +420,7 @@
             {/if}
             {#if expandedAgentId === defaultAgent.id}
               <div class="card-detail">
-                <div class="agent-prompt-full markdown-prose">
+                <div class="detail-content-scroll markdown-prose">
                   {@html renderMarkdown(defaultAgent.systemPrompt)}
                 </div>
               </div>
@@ -450,6 +449,7 @@
                     e.stopPropagation();
                     toggleExpandAgent(agent.id);
                   }}
+                  aria-expanded={expandedAgentId === agent.id}
                   aria-label={expandedAgentId === agent.id ? "Collapse details" : "Expand details"}
                   >▶</button
                 >
@@ -480,7 +480,7 @@
               {/if}
               {#if expandedAgentId === agent.id}
                 <div class="card-detail">
-                  <div class="agent-prompt-full markdown-prose">
+                  <div class="detail-content-scroll markdown-prose">
                     {@html renderMarkdown(agent.systemPrompt)}
                   </div>
                   {#if agent.sourceUrl}
@@ -525,7 +525,7 @@
                 oninput={(e) => handleRegistrySearch(e.currentTarget.value)}
               />
               {#if agentStore.registrySearching}
-                <span class="search-spinner-inline">⟳</span>
+                <span class="search-spinner">⟳</span>
               {/if}
             </div>
 
@@ -537,7 +537,7 @@
               <div class="registry-results" role="list">
                 {#each agentStore.registryResults as item (item.id + item.source + item.kind)}
                   <article
-                    class="card card--flat"
+                    class="card registry-card"
                     role="listitem"
                     ondblclick={() => toggleExpandRegistry(item)}
                     title="Double-click to expand"
@@ -550,6 +550,7 @@
                           e.stopPropagation();
                           toggleExpandRegistry(item);
                         }}
+                        aria-expanded={expandedRegistryKey === registryKey(item)}
                         aria-label={expandedRegistryKey === registryKey(item)
                           ? "Collapse"
                           : "Expand"}>▶</button
@@ -569,16 +570,16 @@
                       {/if}
                     </div>
                     {#if expandedRegistryKey !== registryKey(item) && item.description}
-                      <p class="card-desc">{item.description}</p>
+                      <p class="card-desc">{stripMarkdown(item.description)}</p>
                     {/if}
                     {#if expandedRegistryKey === registryKey(item)}
-                      <div class="card-detail registry-expanded markdown-prose">
+                      <div class="card-detail detail-content-scroll markdown-prose">
                         {@html renderMarkdown(
                           stripFrontmatter(item.content ?? item.description ?? ""),
                         )}
                       </div>
                     {/if}
-                    <div class="card-actions registry-actions">
+                    <div class="card-actions">
                       {#if isAgentAlreadyInstalled(item)}
                         <span class="badge badge--success">✓ Installed</span>
                       {:else if installedId === item.id}
@@ -669,7 +670,7 @@
             {:else if agentStore.gitDiscoveredFiles.length > 0}
               <div class="git-results" role="list">
                 {#each agentStore.gitDiscoveredFiles as file (file.path)}
-                  <article class="card card--flat git-file-card" role="listitem">
+                  <article class="card git-file-card" role="listitem">
                     <div class="git-file-info">
                       <span class="git-file-path">{file.path}</span>
                     </div>
@@ -841,90 +842,12 @@
 </div>
 
 <style>
-  /* ── Component-specific overrides ── */
-
-  .panel-loading {
-    text-align: center;
-    color: var(--color-text-secondary);
-    padding: var(--spacing-2xl);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: var(--spacing-sm);
-    font-size: var(--font-size-sm);
-    font-style: italic;
-  }
-
   /* ── Agent list layout ── */
 
   .agents-list {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-sm);
-  }
-
-  .section-empty {
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-sm);
-    font-style: italic;
-    padding: var(--spacing-md) 0;
-  }
-
-  /* ── Expand / Collapse toggle ── */
-
-  .expand-btn {
-    all: unset;
-    font-size: 10px;
-    color: var(--color-text-tertiary);
-    flex-shrink: 0;
-    cursor: pointer;
-    padding: 4px 6px;
-    border-radius: var(--radius-sm);
-    transition:
-      transform 0.2s ease,
-      color 0.15s,
-      background 0.15s;
-    line-height: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .expand-btn:hover {
-    color: var(--color-text-secondary);
-    background: var(--color-bg-tertiary, rgba(0, 0, 0, 0.05));
-  }
-  .expand-btn.expanded {
-    transform: rotate(90deg);
-    color: var(--color-accent-copper);
-  }
-
-  /* ── Expanded detail content ── */
-
-  .agent-prompt-full {
-    font-size: var(--font-size-xs);
-    color: var(--color-text-secondary);
-    word-break: break-word;
-    line-height: var(--line-height-relaxed);
-    max-height: 300px;
-    overflow-y: auto;
-    margin: 0;
-  }
-
-  .detail-row {
-    display: flex;
-    gap: var(--spacing-xs);
-    font-size: var(--font-size-xs);
-    color: var(--color-text-tertiary);
-    margin-top: var(--spacing-xs);
-  }
-
-  .detail-link {
-    color: var(--color-accent-copper);
-    text-decoration: none;
-    word-break: break-all;
-  }
-  .detail-link:hover {
-    text-decoration: underline;
   }
 
   /* ── Form layout ── */
@@ -1070,156 +993,5 @@
   .check-item-status {
     font-size: var(--font-size-2xs);
     flex-shrink: 0;
-  }
-
-  /* ── Catalog Sections (Registry + Git) ── */
-
-  .catalog-section {
-    margin-top: var(--spacing-lg);
-  }
-
-  .collapsible-heading {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-xs);
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: var(--spacing-xs) 0;
-    width: 100%;
-    text-align: left;
-    color: var(--color-text-primary);
-  }
-  .collapsible-heading:hover {
-    color: var(--color-accent-copper, var(--color-accent));
-  }
-
-  .collapse-arrow {
-    font-size: 10px;
-    transition: transform 0.2s ease;
-    color: var(--color-text-tertiary);
-  }
-  .collapse-arrow.expanded {
-    transform: rotate(90deg);
-  }
-
-  .section-heading.inline {
-    font-size: var(--font-size-sm);
-    font-weight: var(--font-weight-semibold);
-    color: inherit;
-    margin: 0;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-
-  .section-content {
-    padding: var(--spacing-sm) 0;
-  }
-
-  .section-desc {
-    font-size: var(--font-size-xs);
-    color: var(--color-text-secondary);
-    margin: 0 0 var(--spacing-sm);
-    line-height: var(--leading-relaxed, 1.6);
-  }
-
-  .search-row {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-sm);
-    margin-bottom: var(--spacing-sm);
-  }
-
-  .search-row .form-input {
-    flex: 1;
-  }
-
-  .search-spinner-inline {
-    animation: spin 0.8s linear infinite;
-    color: var(--color-text-tertiary);
-  }
-
-  .git-row {
-    display: flex;
-    gap: var(--spacing-sm);
-    margin-bottom: var(--spacing-sm);
-  }
-
-  .git-row .form-input {
-    flex: 1;
-  }
-
-  .registry-results,
-  .git-results {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-sm);
-  }
-
-  .source-link {
-    font-size: var(--font-size-xs);
-    color: var(--color-accent);
-    text-decoration: none;
-    margin-left: auto;
-  }
-  .source-link:hover {
-    text-decoration: underline;
-  }
-
-  .registry-expanded {
-    font-size: var(--font-size-xs);
-    color: var(--color-text-secondary);
-    line-height: var(--line-height-relaxed);
-    max-height: 300px;
-    overflow-y: auto;
-  }
-
-  .registry-actions {
-    justify-content: flex-end;
-    margin-top: var(--spacing-xs);
-  }
-
-  .git-file-card {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-
-  .git-file-info {
-    flex: 1;
-    min-width: 0;
-  }
-
-  .git-file-path {
-    font-size: var(--font-size-xs);
-    font-family: var(--font-mono);
-    color: var(--color-text-primary);
-    word-break: break-all;
-  }
-
-  /* ── Git Import Progress ── */
-
-  .git-progress-area {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-xs);
-    padding: var(--spacing-sm) 0;
-  }
-
-  .git-progress-info {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-xs);
-    font-size: var(--font-size-sm);
-    color: var(--color-text-secondary);
-  }
-
-  .registry-loading {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-sm);
-    font-size: var(--font-size-sm);
-    color: var(--color-text-secondary);
-    font-style: italic;
   }
 </style>

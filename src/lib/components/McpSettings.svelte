@@ -1,8 +1,8 @@
 <script lang="ts">
+  import { stripMarkdown } from "$lib/utils/format";
   import {
     getMcpState,
     initMcp,
-    addServer,
     removeServer,
     connectServer,
     disconnectServer,
@@ -13,7 +13,7 @@
     searchRegistry,
   } from "$lib/stores/mcp.svelte";
   import { approveMcpBinary } from "$lib/utils/commands";
-  import type { McpConnectionInfo, McpServerConfig, RegistryServer } from "$lib/types/mcp";
+  import type { McpConnectionInfo, RegistryServer } from "$lib/types/mcp";
   import McpServerForm from "./McpServerForm.svelte";
   import ConfirmDialog from "./ConfirmDialog.svelte";
   import { onMount, onDestroy } from "svelte";
@@ -34,8 +34,7 @@
         kind: "form";
         editInfo?: McpConnectionInfo;
         registryEntry?: RegistryServer;
-      }
-    | { kind: "detail"; entry: RegistryServer };
+      };
 
   let view = $state<ViewState>({ kind: "list" });
 
@@ -43,7 +42,8 @@
 
   let testingServer = $state<string | null>(null);
   let testResult = $state<{ serverId: string; success: boolean; message: string } | null>(null);
-  let expandedTools = $state<string | null>(null);
+  let expandedServerId = $state<string | null>(null);
+  let expandedRegistryName = $state<string | null>(null);
   let registrySearch = $state("");
   let searchDebounce: ReturnType<typeof setTimeout> | null = null;
   let copiedCommand = $state<string | null>(null);
@@ -95,78 +95,15 @@
     view = { kind: "form", registryEntry: entry };
   }
 
-  /** Build a config and add the server in one click — no form needed. */
-  let quickAdding = $state(false);
-  async function quickAddFromRegistry(entry: RegistryServer) {
-    quickAdding = true;
-    try {
-      const config: McpServerConfig = {
-        id: `mcp-${Date.now()}`,
-        name: entry.name,
-        transport: "stdio",
-        url: null,
-        binaryPath: null,
-        args: null,
-        authHeader: null,
-        fromCatalog: false,
-        enabled: true,
-      };
-
-      // Determine transport + command from packages / remotes
-      const npmPkg = entry.packages.find((p) => p.registryType === "npm");
-      const pypiPkg = entry.packages.find((p) => p.registryType === "pypi");
-      const nugetPkg = entry.packages.find((p) => p.registryType === "nuget");
-
-      if (npmPkg) {
-        const pkgRef = npmPkg.version
-          ? `${npmPkg.identifier}@${npmPkg.version}`
-          : npmPkg.identifier;
-        config.binaryPath = "npx";
-        config.args = JSON.stringify(["-y", pkgRef, ...npmPkg.arguments]);
-      } else if (pypiPkg) {
-        const pkgRef = pypiPkg.version
-          ? `${pypiPkg.identifier}==${pypiPkg.version}`
-          : pypiPkg.identifier;
-        config.binaryPath = "uvx";
-        config.args = JSON.stringify([pkgRef, ...pypiPkg.arguments]);
-      } else if (nugetPkg) {
-        config.binaryPath = "dotnet";
-        config.args = JSON.stringify(["tool", "run", nugetPkg.identifier, ...nugetPkg.arguments]);
-      } else if (!entry.isStdioOnly && entry.remotes.length > 0) {
-        // HTTP server — use the first remote
-        config.transport = "http";
-        config.url = entry.remotes[0]?.url ?? null;
-      } else {
-        // No package info and no remote — fall back to form
-        openRegistryForm(entry);
-        quickAdding = false;
-        return;
-      }
-
-      await addServer(config);
-      view = { kind: "list" };
-    } catch {
-      // On failure, fall back to form so user can adjust
-      openRegistryForm(entry);
-    } finally {
-      quickAdding = false;
-    }
-  }
-
-  /** Can this registry entry be one-click added (has packages or HTTP remote)? */
-  function canQuickAdd(entry: RegistryServer): boolean {
-    return (
-      entry.packages.some((p) => ["npm", "pypi", "nuget"].includes(p.registryType)) ||
-      (!entry.isStdioOnly && entry.remotes.length > 0)
-    );
-  }
-
-  function openDetail(entry: RegistryServer) {
-    view = { kind: "detail", entry };
+  function toggleExpandRegistry(entry: RegistryServer) {
+    expandedRegistryName = expandedRegistryName === entry.name ? null : entry.name;
   }
 
   function returnToList() {
     view = { kind: "list" };
+    expandedRegistryName = null;
+    testResult = null;
+    testingServer = null;
   }
 
   async function handleConnect(serverId: string, isRetry = false) {
@@ -258,12 +195,12 @@
     pendingRemoveId = null;
   }
 
-  async function toggleTools(serverId: string) {
-    if (expandedTools === serverId) {
-      expandedTools = null;
+  async function toggleExpandServer(serverId: string) {
+    if (expandedServerId === serverId) {
+      expandedServerId = null;
     } else {
       await loadTools(serverId);
-      expandedTools = serverId;
+      expandedServerId = serverId;
     }
   }
 
@@ -275,22 +212,23 @@
     );
   }
 
+  function transportDesc(info: McpConnectionInfo): string {
+    const t = info.config.transport.toUpperCase();
+    if (info.config.transport === "http" && info.config.url) return `${t} · ${info.config.url}`;
+    if (info.config.transport === "stdio" && info.config.binaryPath)
+      return `${t} · ${info.config.binaryPath}`;
+    return t;
+  }
+
   onDestroy(() => {
     if (searchDebounce) clearTimeout(searchDebounce);
   });
 </script>
 
 {#if view.kind === "form"}
-  <McpServerForm
-    editInfo={view.editInfo ?? null}
-    registryEntry={view.registryEntry ?? null}
-    onBack={returnToList}
-  />
-{:else if view.kind === "detail"}
-  <!-- Registry Server Detail View -->
   <div class="panel">
     <header class="panel-header" data-tauri-drag-region>
-      <button class="panel-back" onclick={returnToList} aria-label="Back to list">
+      <button class="panel-back" onclick={returnToList} aria-label="Go back">
         <svg width="18" height="18" viewBox="0 0 16 16" fill="none">
           <path
             d="M10 3L5 8l5 5"
@@ -301,192 +239,13 @@
           />
         </svg>
       </button>
-      <h2 class="panel-title">{view.entry.displayName}</h2>
-      {#if !isRegistryAdded(view.entry)}
-        <button
-          class="btn"
-          onclick={() => {
-            if (view.kind === "detail") openRegistryForm(view.entry);
-          }}
-        >
-          + Add Server
-        </button>
-      {:else}
-        <span class="badge badge--neutral">Added ✓</span>
-      {/if}
+      <h2 class="panel-title">MCP Servers</h2>
     </header>
-
-    <div class="panel-body">
-      <div class="detail-body">
-        <!-- Description -->
-        {#if view.entry.description}
-          <p class="detail-description">{view.entry.description}</p>
-        {/if}
-
-        <!-- Meta row -->
-        <div class="detail-meta">
-          {#if view.entry.version}
-            <span class="badge badge--copper">v{view.entry.version}</span>
-          {/if}
-          {#if view.entry.isStdioOnly}
-            <span class="badge badge--mono">STDIO</span>
-          {:else}
-            <span class="badge badge--copper">HTTP</span>
-          {/if}
-          <span class="badge badge--mono">{view.entry.name}</span>
-        </div>
-
-        <!-- Remotes -->
-        {#if view.entry.remotes.length > 0}
-          <section class="detail-section">
-            <h3 class="section-heading">Remote Endpoints</h3>
-            {#each view.entry.remotes as remote (remote.url ?? remote.transportType)}
-              <div class="detail-card">
-                <span class="detail-label">{remote.transportType}</span>
-                {#if remote.url}
-                  <code class="detail-code">{remote.url}</code>
-                {/if}
-                {#if remote.requiresAuth}
-                  <span class="detail-auth-note"
-                    >🔑 {remote.authDescription ?? "Auth required"}</span
-                  >
-                {/if}
-              </div>
-            {/each}
-          </section>
-        {/if}
-
-        <!-- Packages -->
-        {#if view.entry.packages.length > 0}
-          <section class="detail-section">
-            <h3 class="section-heading">Install Packages</h3>
-            {#each view.entry.packages as pkg (pkg.identifier)}
-              <div class="detail-card">
-                <span class="detail-label">{pkg.registryType}</span>
-                <code class="detail-code"
-                  >{pkg.identifier}{pkg.version ? `@${pkg.version}` : ""}</code
-                >
-              </div>
-            {/each}
-          </section>
-        {/if}
-
-        <!-- Run Command (package-based stdio servers — one-click add) -->
-        {#if view.entry.isStdioOnly && view.entry.packages.length > 0}
-          <section class="detail-section">
-            <h3 class="section-heading">Run Command</h3>
-            <p class="setup-hint">
-              Click <strong>Add Server</strong> below to configure automatically. Requires
-              <code class="inline-code"
-                >{view.entry.packages.find((p) => p.registryType === "npm")
-                  ? "npx"
-                  : view.entry.packages.find((p) => p.registryType === "pypi")
-                    ? "uvx"
-                    : "dotnet"}</code
-              > in your PATH.
-            </p>
-            <div class="setup-commands">
-              {#each view.entry.packages as pkg (pkg.identifier + "-guide")}
-                {#if pkg.registryType === "npm"}
-                  {@const cmd = `npx -y ${pkg.identifier}${pkg.version ? `@${pkg.version}` : ""}`}
-                  <div class="code-block">
-                    <code>{cmd}</code>
-                    <button
-                      class="code-block-copy"
-                      onclick={() => copyCommand(cmd)}
-                      aria-label="Copy command">{copiedCommand === cmd ? "Copied!" : "Copy"}</button
-                    >
-                  </div>
-                {:else if pkg.registryType === "pypi"}
-                  {@const cmd = `uvx ${pkg.identifier}${pkg.version ? `==${pkg.version}` : ""}`}
-                  <div class="code-block">
-                    <code>{cmd}</code>
-                    <button
-                      class="code-block-copy"
-                      onclick={() => copyCommand(cmd)}
-                      aria-label="Copy command">{copiedCommand === cmd ? "Copied!" : "Copy"}</button
-                    >
-                  </div>
-                {:else if pkg.registryType === "nuget"}
-                  {@const cmd = `dotnet tool run ${pkg.identifier}`}
-                  <div class="code-block">
-                    <code>{cmd}</code>
-                    <button
-                      class="code-block-copy"
-                      onclick={() => copyCommand(cmd)}
-                      aria-label="Copy command">{copiedCommand === cmd ? "Copied!" : "Copy"}</button
-                    >
-                  </div>
-                {/if}
-              {/each}
-            </div>
-          </section>
-        {:else if view.entry.isStdioOnly}
-          <!-- Stdio with no packages — manual setup -->
-          <section class="detail-section">
-            <h3 class="section-heading">Setup</h3>
-            <p class="setup-hint">
-              This server requires a manually installed binary. Check the repository link for
-              installation instructions, then click <strong>Configure Server</strong> below.
-            </p>
-          </section>
-        {:else if view.entry.remotes.length > 0 && view.entry.remotes.some((r) => r.requiresAuth)}
-          <!-- HTTP with auth — needs manual API key -->
-          <section class="detail-section">
-            <h3 class="section-heading">Setup</h3>
-            <p class="setup-hint">
-              This server requires authentication. Obtain an API key from the provider, then click
-              <strong>Configure Server</strong> below to add it.
-            </p>
-          </section>
-        {/if}
-
-        <!-- Links -->
-        {#if view.entry.repoUrl || view.entry.websiteUrl}
-          <section class="detail-section">
-            <h3 class="section-heading">Links</h3>
-            <div class="detail-links">
-              {#if view.entry.repoUrl}
-                <a href={view.entry.repoUrl} target="_blank" rel="noopener" class="detail-link">
-                  📦 Repository
-                </a>
-              {/if}
-              {#if view.entry.websiteUrl}
-                <a href={view.entry.websiteUrl} target="_blank" rel="noopener" class="detail-link">
-                  🌐 Website
-                </a>
-              {/if}
-            </div>
-          </section>
-        {/if}
-
-        <!-- Bottom CTA -->
-        {#if !isRegistryAdded(view.entry)}
-          {#if canQuickAdd(view.entry)}
-            <button
-              class="btn btn--primary detail-cta"
-              disabled={quickAdding}
-              onclick={() => {
-                if (view.kind === "detail") quickAddFromRegistry(view.entry);
-              }}
-            >
-              {quickAdding ? "Adding…" : "+ Add Server"}
-            </button>
-          {:else}
-            <button
-              class="btn btn--primary detail-cta"
-              onclick={() => {
-                if (view.kind === "detail") openRegistryForm(view.entry);
-              }}
-            >
-              + Configure Server
-            </button>
-          {/if}
-        {:else}
-          <div class="detail-already-added">✓ This server is already configured</div>
-        {/if}
-      </div>
-    </div>
+    <McpServerForm
+      editInfo={view.editInfo ?? null}
+      registryEntry={view.registryEntry ?? null}
+      onBack={returnToList}
+    />
   </div>
 {:else}
   <div class="panel">
@@ -504,15 +263,15 @@
         </svg>
       </button>
       <h2 class="panel-title">MCP Servers</h2>
-      <button class="btn" onclick={openAddForm}>+ Add Custom</button>
+      <button class="btn" onclick={openAddForm}>+ New Server</button>
     </header>
 
     <div class="panel-body">
       {#if mcp.loading}
-        <div class="mcp-loading">Loading MCP servers...</div>
+        <div class="panel-loading">Loading MCP servers...</div>
       {:else}
         <!-- Configured Servers -->
-        <section class="mcp-section">
+        <section class="panel-section">
           <h3 class="section-heading">Configured Servers</h3>
 
           {#if mcp.servers.length === 0}
@@ -522,8 +281,25 @@
           {/if}
 
           {#each mcp.servers as info (info.config.id)}
-            <div class="card">
+            <article
+              class="card"
+              role="listitem"
+              ondblclick={() => toggleExpandServer(info.config.id)}
+              title="Double-click to expand"
+            >
               <div class="card-header">
+                <button
+                  class="expand-btn"
+                  class:expanded={expandedServerId === info.config.id}
+                  onclick={(e: MouseEvent) => {
+                    e.stopPropagation();
+                    toggleExpandServer(info.config.id);
+                  }}
+                  aria-expanded={expandedServerId === info.config.id}
+                  aria-label={expandedServerId === info.config.id
+                    ? "Collapse details"
+                    : "Expand details"}>▶</button
+                >
                 <span
                   class="status {info.status === 'connected'
                     ? 'status--connected'
@@ -535,58 +311,39 @@
                   aria-label={`Server ${info.status}`}><span class="status-dot"></span></span
                 >
                 <strong class="card-title">{info.config.name}</strong>
+                <span class="badge badge--neutral">{info.config.transport.toUpperCase()}</span>
                 <div class="card-actions">
-                  {#if info.status === "connected"}
-                    <button class="btn" onclick={() => handleDisconnect(info.config.id)}>
-                      Disconnect
-                    </button>
-                  {:else if info.status === "connecting"}
-                    <button class="btn" disabled>Connecting...</button>
-                  {:else}
-                    <button class="btn" onclick={() => handleConnect(info.config.id)}>
-                      Connect
-                    </button>
-                  {/if}
                   <button
-                    class="btn"
+                    class="btn btn--sm"
                     onclick={() => handleTest(info)}
                     disabled={testingServer === info.config.id}
                   >
-                    {testingServer === info.config.id ? "Testing..." : "Test"}
+                    {testingServer === info.config.id ? "Testing…" : "Test"}
                   </button>
-                  <button class="btn" onclick={() => openEditForm(info)}>Edit</button>
-                  <button class="btn btn--danger" onclick={() => handleRemove(info.config.id)}>
+                  {#if info.status === "connected"}
+                    <button class="btn btn--sm" onclick={() => handleDisconnect(info.config.id)}>
+                      Disconnect
+                    </button>
+                  {:else if info.status === "connecting"}
+                    <button class="btn btn--sm" disabled>Connecting…</button>
+                  {:else}
+                    <button class="btn btn--sm" onclick={() => handleConnect(info.config.id)}>
+                      Connect
+                    </button>
+                  {/if}
+                  <button class="btn btn--sm" onclick={() => openEditForm(info)}>Edit</button>
+                  <button
+                    class="btn btn--sm btn--danger"
+                    onclick={() => handleRemove(info.config.id)}
+                  >
                     Remove
                   </button>
                 </div>
               </div>
 
-              <div class="card-meta">
-                <span class="badge badge--neutral"
-                  >Transport: {info.config.transport.toUpperCase()}</span
-                >
-                {#if info.config.transport === "http" && info.config.url}
-                  <span class="badge badge--neutral url-tag" title={info.config.url}>
-                    {info.config.url}
-                  </span>
-                {/if}
-                {#if info.config.transport === "stdio" && info.config.binaryPath}
-                  <span class="badge badge--neutral">Binary: {info.config.binaryPath}</span>
-                {/if}
-                <span class="badge badge--neutral">
-                  Tools: {info.toolCount}
-                  {#if info.status === "connected" && info.toolCount > 0}
-                    <button
-                      class="tools-toggle"
-                      onclick={() => toggleTools(info.config.id)}
-                      aria-label="Toggle tools list"
-                      aria-expanded={expandedTools === info.config.id}
-                    >
-                      {expandedTools === info.config.id ? "▼" : "▶"}
-                    </button>
-                  {/if}
-                </span>
-              </div>
+              {#if expandedServerId !== info.config.id}
+                <p class="card-desc">{transportDesc(info)}</p>
+              {/if}
 
               {#if info.error}
                 <div class="banner banner--error server-error">⚠ {info.error}</div>
@@ -603,24 +360,45 @@
                 </div>
               {/if}
 
-              {#if expandedTools === info.config.id && info.tools}
-                <div class="tools-list">
-                  {#each info.tools as tool (tool.name)}
-                    <div class="tool-item">
-                      <span class="tool-name">{tool.name}</span>
-                      {#if tool.description}
-                        <span class="tool-desc">{tool.description}</span>
-                      {/if}
+              {#if expandedServerId === info.config.id}
+                <div class="card-detail">
+                  <div class="card-meta">
+                    <span class="badge badge--neutral"
+                      >Transport: {info.config.transport.toUpperCase()}</span
+                    >
+                    {#if info.config.transport === "http" && info.config.url}
+                      <span class="badge badge--neutral url-tag" title={info.config.url}>
+                        {info.config.url}
+                      </span>
+                    {/if}
+                    {#if info.config.transport === "stdio" && info.config.binaryPath}
+                      <span class="badge badge--neutral">Binary: {info.config.binaryPath}</span>
+                    {/if}
+                    <span class="badge badge--neutral">
+                      Tools: {info.toolCount}
+                    </span>
+                  </div>
+
+                  {#if info.status === "connected" && info.tools && info.tools.length > 0}
+                    <div class="tools-list">
+                      {#each info.tools as tool (tool.name)}
+                        <div class="tool-item">
+                          <span class="tool-name">{tool.name}</span>
+                          {#if tool.description}
+                            <span class="tool-desc">{tool.description}</span>
+                          {/if}
+                        </div>
+                      {/each}
                     </div>
-                  {/each}
+                  {/if}
                 </div>
               {/if}
-            </div>
+            </article>
           {/each}
         </section>
 
         <!-- MCP Registry -->
-        <section class="mcp-section">
+        <section class="panel-section">
           <h3 class="section-heading">
             MCP Registry
             {#if mcp.registry.length > 0 && !mcp.registryLoading}
@@ -636,7 +414,7 @@
             >. Search by name to find specific servers.
           </p>
 
-          <div class="search-field">
+          <div class="search-row">
             <input
               type="text"
               value={registrySearch}
@@ -654,32 +432,165 @@
               <span class="spinner spinner--sm"></span> Fetching from registry...
             </div>
           {:else if mcp.registry.length > 0}
-            <div class="registry-list">
-              {#each mcp.registry as entry (entry.name)}
-                <button
-                  class="card card--clickable registry-entry"
-                  onclick={() => openDetail(entry)}
-                  type="button"
+            <div class="registry-results" role="list">
+              {#each mcp.registry as entry, i (entry.name + "-" + i)}
+                {@const isExpanded = expandedRegistryName === entry.name}
+                {@const isAdded = isRegistryAdded(entry)}
+                <article
+                  class="card registry-card"
+                  role="listitem"
+                  ondblclick={() => toggleExpandRegistry(entry)}
+                  title="Double-click to expand"
                 >
-                  <div class="card-header registry-info">
+                  <div class="card-header">
+                    <button
+                      class="expand-btn"
+                      class:expanded={isExpanded}
+                      onclick={(e: MouseEvent) => {
+                        e.stopPropagation();
+                        toggleExpandRegistry(entry);
+                      }}
+                      aria-expanded={isExpanded}
+                      aria-label={isExpanded ? "Collapse" : "Expand"}>▶</button
+                    >
                     <strong class="card-title">{entry.displayName}</strong>
                     {#if entry.isStdioOnly}
                       <span class="badge badge--mono">STDIO</span>
                     {:else}
                       <span class="badge badge--copper">HTTP</span>
                     {/if}
+                    <span class="badge badge--neutral">{entry.name}</span>
                   </div>
-                  {#if entry.description}
-                    <p class="card-desc registry-desc">{entry.description}</p>
+                  {#if !isExpanded && entry.description}
+                    <p class="card-desc">{stripMarkdown(entry.description)}</p>
                   {/if}
-                  <div class="registry-actions">
-                    {#if isRegistryAdded(entry)}
-                      <span class="registry-added">Added ✓</span>
+                  {#if isExpanded}
+                    <div class="card-detail">
+                      {#if entry.description}
+                        <p class="detail-description">{entry.description}</p>
+                      {/if}
+
+                      {#if entry.version}
+                        <div class="detail-meta">
+                          <span class="badge badge--copper">v{entry.version}</span>
+                        </div>
+                      {/if}
+
+                      {#if entry.remotes.length > 0}
+                        <div class="detail-section">
+                          <h4 class="detail-label">Remote Endpoints</h4>
+                          {#each entry.remotes as remote (remote.url ?? remote.transportType)}
+                            <div class="detail-card">
+                              <span class="detail-label">{remote.transportType}</span>
+                              {#if remote.url}
+                                <code class="detail-code">{remote.url}</code>
+                              {/if}
+                              {#if remote.requiresAuth}
+                                <span class="detail-auth-note"
+                                  >🔑 {remote.authDescription ?? "Auth required"}</span
+                                >
+                              {/if}
+                            </div>
+                          {/each}
+                        </div>
+                      {/if}
+
+                      {#if entry.packages.length > 0}
+                        <div class="detail-section">
+                          <h4 class="detail-label">Packages</h4>
+                          {#each entry.packages as pkg (pkg.identifier)}
+                            <div class="detail-card">
+                              <span class="detail-label">{pkg.registryType}</span>
+                              <code class="detail-code"
+                                >{pkg.identifier}{pkg.version ? `@${pkg.version}` : ""}</code
+                              >
+                            </div>
+                          {/each}
+                        </div>
+                      {/if}
+
+                      {#if entry.isStdioOnly && entry.packages.length > 0}
+                        <div class="detail-section">
+                          <h4 class="detail-label">Run Command</h4>
+                          <div class="setup-commands">
+                            {#each entry.packages as pkg (pkg.identifier + "-cmd")}
+                              {#if pkg.registryType === "npm"}
+                                {@const cmd = `npx -y ${pkg.identifier}${pkg.version ? `@${pkg.version}` : ""}`}
+                                <div class="code-block">
+                                  <code>{cmd}</code>
+                                  <button
+                                    class="code-block-copy"
+                                    onclick={() => copyCommand(cmd)}
+                                    aria-label="Copy command"
+                                    >{copiedCommand === cmd ? "Copied!" : "Copy"}</button
+                                  >
+                                </div>
+                              {:else if pkg.registryType === "pypi"}
+                                {@const cmd = `uvx ${pkg.identifier}${pkg.version ? `==${pkg.version}` : ""}`}
+                                <div class="code-block">
+                                  <code>{cmd}</code>
+                                  <button
+                                    class="code-block-copy"
+                                    onclick={() => copyCommand(cmd)}
+                                    aria-label="Copy command"
+                                    >{copiedCommand === cmd ? "Copied!" : "Copy"}</button
+                                  >
+                                </div>
+                              {:else if pkg.registryType === "nuget"}
+                                {@const cmd = `dotnet tool run ${pkg.identifier}`}
+                                <div class="code-block">
+                                  <code>{cmd}</code>
+                                  <button
+                                    class="code-block-copy"
+                                    onclick={() => copyCommand(cmd)}
+                                    aria-label="Copy command"
+                                    >{copiedCommand === cmd ? "Copied!" : "Copy"}</button
+                                  >
+                                </div>
+                              {/if}
+                            {/each}
+                          </div>
+                        </div>
+                      {/if}
+
+                      {#if entry.repoUrl || entry.websiteUrl}
+                        <div class="detail-links">
+                          {#if entry.repoUrl}
+                            <a
+                              href={entry.repoUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              class="detail-link">📦 Repository</a
+                            >
+                          {/if}
+                          {#if entry.websiteUrl}
+                            <a
+                              href={entry.websiteUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              class="detail-link">🌐 Website</a
+                            >
+                          {/if}
+                        </div>
+                      {/if}
+                    </div>
+                  {/if}
+                  <div class="card-actions">
+                    {#if isAdded}
+                      <span class="badge badge--success">✓ Added</span>
                     {:else}
-                      <span class="registry-arrow">→</span>
+                      <button
+                        class="btn btn--primary"
+                        onclick={(e: MouseEvent) => {
+                          e.stopPropagation();
+                          openRegistryForm(entry);
+                        }}
+                      >
+                        Add & Configure
+                      </button>
                     {/if}
                   </div>
-                </button>
+                </article>
               {/each}
               {#if mcp.hasMoreRegistry}
                 <button
@@ -717,33 +628,7 @@
 />
 
 <style>
-  /* ── Component-specific layout overrides ── */
-
-  .mcp-loading {
-    text-align: center;
-    color: var(--color-text-secondary);
-    padding: var(--spacing-2xl);
-  }
-
-  .mcp-section {
-    margin-bottom: var(--spacing-xl);
-  }
-
-  .section-desc {
-    font-size: var(--font-size-xs);
-    color: var(--color-text-secondary);
-    margin: 0 0 var(--spacing-sm) 0;
-  }
-  .section-desc a {
-    color: var(--color-accent-copper);
-    text-decoration: underline;
-  }
-
-  .section-empty {
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-sm);
-    font-style: italic;
-  }
+  /* ── MCP-specific layout overrides ── */
 
   /* ── Server card overrides ── */
 
@@ -765,16 +650,6 @@
     max-width: 300px;
     overflow: hidden;
     text-overflow: ellipsis;
-  }
-
-  .tools-toggle {
-    background: none;
-    border: none;
-    color: var(--color-accent-copper);
-    cursor: pointer;
-    font-size: var(--font-size-xs);
-    padding: 0;
-    margin-left: var(--spacing-xs);
   }
 
   .tools-list {
@@ -811,31 +686,6 @@
     letter-spacing: 0;
   }
 
-  .search-field {
-    margin-bottom: var(--spacing-sm);
-  }
-
-  .search-field .form-input {
-    padding-left: var(--spacing-sm);
-    padding-right: var(--spacing-2xl);
-  }
-
-  .registry-loading {
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-sm);
-    font-style: italic;
-    padding: var(--spacing-md) 0;
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-sm);
-  }
-
-  .registry-list {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-xs);
-  }
-
   .load-more-btn {
     width: 100%;
     padding: var(--spacing-sm);
@@ -862,54 +712,7 @@
     opacity: 0.7;
   }
 
-  .registry-entry {
-    text-align: left;
-    font-family: var(--font-body);
-    width: 100%;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--spacing-sm);
-    padding: var(--spacing-sm) var(--spacing-md);
-  }
-
-  .registry-info {
-    flex: 1;
-    min-width: 0;
-  }
-
-  .registry-desc {
-    width: 100%;
-    margin: 0;
-  }
-
-  .registry-actions {
-    flex-shrink: 0;
-  }
-
-  .registry-added {
-    font-size: var(--font-size-xs);
-    color: var(--color-text-tertiary);
-    font-style: italic;
-  }
-
-  .registry-arrow {
-    font-size: var(--font-size-sm);
-    color: var(--color-text-tertiary);
-    transition: transform var(--transition-fast);
-  }
-  .registry-entry:hover .registry-arrow {
-    transform: translateX(2px);
-    color: var(--color-accent-copper);
-  }
-
-  /* ── Detail View ── */
-
-  .detail-body {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-lg);
-  }
+  /* ── Registry Detail (inline expanded) ── */
 
   .detail-description {
     font-size: var(--font-size-sm);
@@ -987,21 +790,6 @@
     gap: var(--spacing-xs);
   }
 
-  .setup-hint {
-    font-size: var(--font-size-sm);
-    color: var(--color-text-secondary);
-    margin: 0 0 var(--spacing-sm);
-    line-height: var(--leading-relaxed);
-  }
-
-  .inline-code {
-    font-family: var(--font-mono);
-    font-size: 0.9em;
-    background: var(--color-bg-tertiary);
-    padding: 1px 5px;
-    border-radius: var(--radius-sm);
-  }
-
   .code-block-copy {
     width: auto;
     padding: var(--spacing-sm) var(--spacing-md);
@@ -1011,19 +799,5 @@
   .code-block-copy:hover {
     color: var(--color-accent-copper);
     background: color-mix(in srgb, var(--color-accent-copper) 8%, transparent);
-  }
-
-  /* ── Detail CTA ── */
-
-  .detail-cta {
-    width: 100%;
-  }
-
-  .detail-already-added {
-    text-align: center;
-    font-size: var(--font-size-sm);
-    color: var(--color-text-tertiary);
-    font-style: italic;
-    padding: var(--spacing-sm);
   }
 </style>

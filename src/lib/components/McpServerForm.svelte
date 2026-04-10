@@ -217,157 +217,174 @@
   }
 </script>
 
-<div class="panel">
-  <header class="panel-header" data-tauri-drag-region>
-    <button class="panel-back" onclick={onBack} aria-label="Go back">
-      <svg width="18" height="18" viewBox="0 0 16 16" fill="none">
-        <path
-          d="M10 3L5 8l5 5"
-          stroke="currentColor"
-          stroke-width="1.5"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        />
-      </svg>
-    </button>
-    <h2 class="panel-title">{isEditing ? "Edit Server" : "Add MCP Server"}</h2>
-  </header>
+<div class="panel-body-narrow">
+  <form
+    class="server-form"
+    onsubmit={(e) => {
+      e.preventDefault();
+      submitForm();
+    }}
+  >
+    <label class="form-field">
+      <span class="form-label">Name</span>
+      <input
+        class="form-input"
+        type="text"
+        bind:value={formName}
+        placeholder="My MCP Server"
+        required
+      />
+    </label>
 
-  <div class="panel-body-narrow">
-    {#if initialRegistry && !isEditing}
-      <div class="banner banner--info prefill-notice">
-        From MCP Registry: <strong>{initialRegistry.displayName}</strong>
-        {#if initialRegistry.isStdioOnly && !initialRegistry.packages.length}
-          <span class="prefill-sub"
-            >— This is a stdio-only server. You'll need to provide the binary path.</span
-          >
-        {/if}
-        {#if initialRegistry.description}
-          <p class="prefill-sub">{initialRegistry.description}</p>
-        {/if}
+    <fieldset class="form-field fieldset-reset">
+      <legend class="form-label">Transport</legend>
+      <div class="form-radio-group">
+        <label>
+          <input type="radio" bind:group={formTransport} value="http" /> HTTP
+        </label>
+        <label>
+          <input type="radio" bind:group={formTransport} value="stdio" /> Stdio
+        </label>
       </div>
-    {/if}
+    </fieldset>
 
-    <form
-      class="server-form"
-      onsubmit={(e) => {
-        e.preventDefault();
-        submitForm();
-      }}
-    >
+    {#if formTransport === "http"}
       <label class="form-field">
-        <span class="form-label">Name</span>
+        <span class="form-label">URL</span>
         <input
           class="form-input"
-          type="text"
-          bind:value={formName}
-          placeholder="My MCP Server"
+          type="url"
+          bind:value={formUrl}
+          placeholder="https://example.com/mcp"
           required
         />
       </label>
+      <label class="form-field">
+        <span class="form-label">Auth Header (optional)</span>
+        <input
+          class="form-input"
+          type="text"
+          bind:value={formAuthHeader}
+          placeholder="Bearer your-token"
+        />
+      </label>
+    {:else}
+      <label class="form-field">
+        <span class="form-label">Binary Path</span>
+        <input
+          class="form-input"
+          type="text"
+          bind:value={formBinaryPath}
+          placeholder="npx or /usr/local/bin/mcp-server"
+          required
+        />
+        <span class="form-hint">
+          A command name (e.g., npx, uvx) or absolute path to the MCP server binary.
+        </span>
+      </label>
+      <label class="form-field">
+        <span class="form-label">Arguments (JSON array, optional)</span>
+        <input class="form-input" type="text" bind:value={formArgs} placeholder={argsPlaceholder} />
+      </label>
+    {/if}
 
-      <fieldset class="form-field fieldset-reset">
-        <legend class="form-label">Transport</legend>
-        <div class="form-radio-group">
-          <label>
-            <input type="radio" bind:group={formTransport} value="http" /> HTTP
-          </label>
-          <label>
-            <input type="radio" bind:group={formTransport} value="stdio" /> Stdio
-          </label>
-        </div>
-      </fieldset>
+    {#if formError}
+      <div class="form-error">{formError}</div>
+    {/if}
 
-      {#if formTransport === "http"}
-        <label class="form-field">
-          <span class="form-label">URL</span>
-          <input
-            class="form-input"
-            type="url"
-            bind:value={formUrl}
-            placeholder="https://example.com/mcp"
-            required
-          />
-        </label>
-        <label class="form-field">
-          <span class="form-label">Auth Header (optional)</span>
-          <input
-            class="form-input"
-            type="text"
-            bind:value={formAuthHeader}
-            placeholder="Bearer your-token"
-          />
-        </label>
-      {:else}
-        <label class="form-field">
-          <span class="form-label">Binary Path</span>
-          <input
-            class="form-input"
-            type="text"
-            bind:value={formBinaryPath}
-            placeholder="npx or /usr/local/bin/mcp-server"
-            required
-          />
-          <span class="form-hint">
-            A command name (e.g., npx, uvx) or absolute path to the MCP server binary.
-          </span>
-        </label>
-        <label class="form-field">
-          <span class="form-label">Arguments (JSON array, optional)</span>
-          <input
-            class="form-input"
-            type="text"
-            bind:value={formArgs}
-            placeholder={argsPlaceholder}
-          />
-        </label>
-      {/if}
-
-      {#if formError}
-        <div class="form-error">{formError}</div>
-      {/if}
-
-      {#if testResult}
-        <div
-          class="banner"
-          class:banner--success={testResult.success}
-          class:banner--error={!testResult.success}
-        >
-          {testResult.success ? "✓" : "✗"}
-          {testResult.message}
-        </div>
-      {/if}
-
-      <div class="form-actions form-actions--split">
-        <button type="button" class="btn" onclick={handleTest} disabled={testing || !formValid}>
-          {testing ? "Testing..." : "Test Connection"}
-        </button>
-        <div class="actions-right">
-          <button type="button" class="btn" onclick={onBack}>Cancel</button>
-          <button type="submit" class="btn btn--primary" disabled={submitting || !formValid}>
-            {#if submitting}
-              Saving...
-            {:else}
-              {isEditing ? "Save Changes" : "Add Server"}
-            {/if}
-          </button>
-        </div>
+    {#if testResult}
+      <div
+        class="banner"
+        class:banner--success={testResult.success}
+        class:banner--error={!testResult.success}
+      >
+        {testResult.success ? "✓" : "✗"}
+        {testResult.message}
       </div>
-    </form>
-  </div>
+    {/if}
+
+    <div class="form-actions form-actions--split">
+      <button type="button" class="btn" onclick={handleTest} disabled={testing || !formValid}>
+        {testing ? "Testing..." : "Test Connection"}
+      </button>
+      <div class="actions-right">
+        <button type="button" class="btn" onclick={onBack}>Cancel</button>
+        <button type="submit" class="btn btn--primary" disabled={submitting || !formValid}>
+          {#if submitting}
+            Saving...
+          {:else}
+            {isEditing ? "Save Changes" : "Add Server"}
+          {/if}
+        </button>
+      </div>
+    </div>
+  </form>
+
+  {#if initialRegistry && !isEditing}
+    {@const authRemote = initialRegistry.remotes.find((r) => r.requiresAuth)}
+    {#if authRemote?.authDescription || initialRegistry.description || initialRegistry.websiteUrl || initialRegistry.repoUrl}
+      <details class="setup-guide">
+        <summary class="setup-summary">
+          <span class="setup-arrow">▶</span>
+          More Info
+        </summary>
+
+        <div class="setup-body">
+          {#if authRemote?.authDescription}
+            <div class="detail-section">
+              <div class="detail-label">🔑 Authentication</div>
+              <div class="detail-value">{authRemote.authDescription}</div>
+            </div>
+          {:else if authRemote}
+            <div class="detail-section">
+              <div class="detail-label">🔑 Authentication</div>
+              <div class="detail-value">
+                This server requires authentication. Add your API key or token in the Auth Header
+                field above (e.g. <code>Bearer your-token</code>).
+              </div>
+            </div>
+          {/if}
+
+          {#if initialRegistry.description}
+            <div class="detail-section">
+              <div class="detail-label">About</div>
+              <div class="detail-value">{initialRegistry.description}</div>
+            </div>
+          {/if}
+
+          {#if initialRegistry.websiteUrl || initialRegistry.repoUrl}
+            <div class="detail-section">
+              <div class="setup-links">
+                {#if initialRegistry.repoUrl}
+                  <a
+                    href={initialRegistry.repoUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="detail-link"
+                  >
+                    📦 Repository
+                  </a>
+                {/if}
+                {#if initialRegistry.websiteUrl}
+                  <a
+                    href={initialRegistry.websiteUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="detail-link"
+                  >
+                    🌐 Website
+                  </a>
+                {/if}
+              </div>
+            </div>
+          {/if}
+        </div>
+      </details>
+    {/if}
+  {/if}
 </div>
 
 <style>
-  .prefill-notice {
-    margin-bottom: var(--spacing-lg);
-  }
-  .prefill-sub {
-    font-size: var(--font-size-xs);
-    color: var(--color-text-tertiary);
-    display: block;
-    margin-top: var(--spacing-xs);
-  }
-
   .server-form {
     display: flex;
     flex-direction: column;
@@ -390,5 +407,62 @@
   .actions-right {
     display: flex;
     gap: var(--spacing-sm);
+  }
+
+  .setup-guide {
+    margin-top: var(--spacing-xl);
+  }
+
+  .setup-guide[open] .setup-arrow {
+    transform: rotate(90deg);
+  }
+
+  .setup-summary {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    cursor: pointer;
+    list-style: none;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-secondary);
+    padding: var(--spacing-xs) 0;
+    user-select: none;
+  }
+
+  .setup-summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .setup-summary:hover {
+    color: var(--color-text-primary);
+  }
+
+  .setup-arrow {
+    font-size: var(--font-size-2xs);
+    color: var(--color-text-tertiary);
+    transition: transform var(--transition-fast);
+  }
+
+  .setup-body {
+    margin-top: var(--spacing-sm);
+    padding: var(--spacing-sm);
+    background: var(--color-bg-primary);
+    border: 1px solid var(--color-border-primary);
+    border-radius: var(--radius-sm);
+    animation: fadeIn 150ms ease both;
+  }
+
+  .setup-body code {
+    font-family: var(--font-mono);
+    font-size: var(--font-size-xs);
+    background: var(--color-bg-tertiary);
+    padding: 0.1em 0.4em;
+    border-radius: var(--radius-sm);
+  }
+
+  .setup-links {
+    display: flex;
+    gap: var(--spacing-md);
   }
 </style>
