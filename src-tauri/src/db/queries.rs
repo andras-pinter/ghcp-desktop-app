@@ -266,7 +266,8 @@ pub fn next_sort_order(conn: &Connection, conversation_id: &str) -> Result<i64, 
         params![conversation_id],
         |row| row.get(0),
     )?;
-    Ok(max.unwrap_or(-1) + 1)
+    let current = max.unwrap_or(-1);
+    Ok(current.saturating_add(1))
 }
 
 // ── Drafts ──────────────────────────────────────────────────────

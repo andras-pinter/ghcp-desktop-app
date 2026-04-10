@@ -1,11 +1,14 @@
+/** The role a message plays in the conversation (user, assistant, system, or tool). */
 export type MessageRole = "user" | "assistant" | "system" | "tool";
 
+/** Metadata for a file attached to a chat message. */
 export interface MessageAttachment {
   name: string;
   type: string;
   size: number;
 }
 
+/** A persisted chat message (mirrors Rust Message). */
 export interface Message {
   id: string;
   conversationId: string;

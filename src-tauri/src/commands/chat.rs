@@ -368,41 +368,51 @@ pub async fn send_message(
             event = rx.recv() => {
                 match event {
                     Some(StreamEvent::Token(token)) => {
-                        let _ = app.emit("streaming-token", StreamingTokenPayload {
+                        if let Err(e) = app.emit("streaming-token", StreamingTokenPayload {
                             conversation_id: conv_id.clone(),
                             token,
-                        });
+                        }) {
+                            log::debug!("Failed to emit streaming-token: {e}");
+                        }
                     }
                     Some(StreamEvent::RoleSet) => {
                         // First chunk — role established, no action needed
                     }
                     Some(StreamEvent::Done) => {
-                        let _ = app.emit("streaming-complete", StreamingCompletePayload {
+                        if let Err(e) = app.emit("streaming-complete", StreamingCompletePayload {
                             conversation_id: conv_id.clone(),
-                        });
+                        }) {
+                            log::debug!("Failed to emit streaming-complete: {e}");
+                        }
                         break;
                     }
                     Some(StreamEvent::Error(err)) => {
-                        let _ = app.emit("streaming-error", StreamingErrorPayload {
+                        if let Err(e) = app.emit("streaming-error", StreamingErrorPayload {
                             conversation_id: conv_id.clone(),
                             error: err,
-                        });
+                        }) {
+                            log::debug!("Failed to emit streaming-error: {e}");
+                        }
                         break;
                     }
                     None => {
                         // Channel closed
-                        let _ = app.emit("streaming-complete", StreamingCompletePayload {
+                        if let Err(e) = app.emit("streaming-complete", StreamingCompletePayload {
                             conversation_id: conv_id.clone(),
-                        });
+                        }) {
+                            log::debug!("Failed to emit streaming-complete: {e}");
+                        }
                         break;
                     }
                 }
             }
             _ = cancel_rx.changed() => {
                 if *cancel_rx.borrow() {
-                    let _ = app.emit("streaming-complete", StreamingCompletePayload {
+                    if let Err(e) = app.emit("streaming-complete", StreamingCompletePayload {
                         conversation_id: conv_id.clone(),
-                    });
+                    }) {
+                        log::debug!("Failed to emit streaming-complete on cancel: {e}");
+                    }
                     break;
                 }
             }

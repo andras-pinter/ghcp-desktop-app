@@ -96,10 +96,13 @@ pub fn run(force_logout: bool) {
                 .item(&quit)
                 .build()?;
 
-            let icon = app
-                .default_window_icon()
-                .cloned()
-                .expect("default window icon must be set");
+            let icon = match app.default_window_icon().cloned() {
+                Some(icon) => icon,
+                None => {
+                    log::warn!("No default window icon set — tray icon will be empty");
+                    tauri::image::Image::new(&[], 0, 0)
+                }
+            };
 
             let _tray = TrayIconBuilder::new()
                 .icon(icon)
@@ -138,7 +141,9 @@ pub fn run(force_logout: bool) {
                         tauri::WindowEvent::CloseRequested { api, .. } => {
                             save_window_state(&app_handle_dd);
                             api.prevent_close();
-                            let _ = win_clone.hide();
+                            if let Err(e) = win_clone.hide() {
+                                log::debug!("Failed to hide window on close: {e}");
+                            }
                         }
                         tauri::WindowEvent::DragDrop(tauri::DragDropEvent::Drop {
                             paths, ..
@@ -268,10 +273,16 @@ pub fn run(force_logout: bool) {
 /// Show the main window and activate the app (macOS needs app-level activation).
 fn show_and_focus(app: &tauri::AppHandle) {
     #[cfg(target_os = "macos")]
-    let _ = app.show();
+    if let Err(e) = app.show() {
+        log::debug!("Failed to show app: {e}");
+    }
     if let Some(win) = app.get_webview_window("main") {
-        let _ = win.show();
-        let _ = win.set_focus();
+        if let Err(e) = win.show() {
+            log::debug!("Failed to show main window: {e}");
+        }
+        if let Err(e) = win.set_focus() {
+            log::debug!("Failed to focus main window: {e}");
+        }
     }
 }
 

@@ -7,7 +7,7 @@ import {
   pollAuthToken as pollAuthTokenCmd,
   doLogout,
 } from "$lib/utils/commands";
-import type { DeviceCodeResponse, GitHubUser } from "$lib/types/auth";
+import type { AuthenticateResult, GitHubUser } from "$lib/types/auth";
 
 let authenticated = $state(false);
 let user = $state<GitHubUser | null>(null);
@@ -40,8 +40,8 @@ export async function initAuth(): Promise<void> {
   });
 }
 
-/** Start the device flow — returns device code info for the UI. */
-export async function startDeviceFlow(): Promise<DeviceCodeResponse> {
+/** Start the device flow — returns auth result with device code + UI info. */
+export async function startDeviceFlow(): Promise<AuthenticateResult> {
   return authenticate();
 }
 

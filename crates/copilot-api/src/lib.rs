@@ -38,7 +38,7 @@ pub use auth::{AuthError, DeviceFlowAuth, GITHUB_CLIENT_ID};
 pub use client::{ClientError, CopilotClient, StreamEvent};
 pub use keychain::KeychainError;
 pub use types::{
-    AuthState, ChatMessage, ChatRequest, ChatResponse, CopilotTokenResponse, DeviceCodeResponse,
-    GitHubUser, MessageRole, Model, ModelsResponse, OAuthTokenResponse, StreamingChatResponse,
-    StreamingChoice, StreamingDelta,
+    AuthState, ChatMessage, ChatRequest, ChatResponse, CopilotTokenResponse, DeviceCodeInfo,
+    DeviceCodeResponse, GitHubUser, MessageRole, Model, ModelsResponse, OAuthTokenResponse,
+    StreamingChatResponse, StreamingChoice, StreamingDelta,
 };

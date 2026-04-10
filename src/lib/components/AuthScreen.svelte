@@ -1,10 +1,11 @@
 <script lang="ts">
   import { startDeviceFlow, pollAuthToken } from "$lib/stores/auth.svelte";
-  import type { DeviceCodeResponse } from "$lib/types/auth";
+  import type { DeviceCodeInfo } from "$lib/types/auth";
   import { open } from "@tauri-apps/plugin-shell";
   import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 
-  let deviceCode = $state<DeviceCodeResponse | null>(null);
+  let pollingKey = $state<string | null>(null);
+  let deviceCode = $state<DeviceCodeInfo | null>(null);
   let error = $state<string | null>(null);
   let polling = $state(false);
   let copied = $state(false);
@@ -12,7 +13,9 @@
   async function handleSignIn() {
     error = null;
     try {
-      deviceCode = await startDeviceFlow();
+      const result = await startDeviceFlow();
+      pollingKey = result.deviceCode;
+      deviceCode = result.info;
       // Copy device code to clipboard for easy pasting
       await writeText(deviceCode.user_code);
       copied = true;
@@ -30,7 +33,7 @@
   }
 
   async function startPolling() {
-    if (!deviceCode) return;
+    if (!deviceCode || !pollingKey) return;
     polling = true;
 
     const interval = Math.max((deviceCode.interval || 5) * 1000, 1000);
@@ -41,7 +44,7 @@
       if (!polling) break;
 
       try {
-        await pollAuthToken(deviceCode.device_code);
+        await pollAuthToken(pollingKey);
         // Success — auth store will update, App.svelte will transition
         polling = false;
         return;

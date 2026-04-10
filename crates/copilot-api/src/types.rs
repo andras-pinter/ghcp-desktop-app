@@ -8,9 +8,12 @@ use serde::{Deserialize, Serialize};
 // ── OAuth Device Flow ──────────────────────────────────────────────
 
 /// Response from `POST https://github.com/login/device/code`.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+///
+/// **Not `Serialize`** — contains `device_code` (polling secret) that must
+/// not be sent to the frontend. Use [`DeviceCodeInfo`] for the IPC boundary.
+#[derive(Debug, Clone, Deserialize)]
 pub struct DeviceCodeResponse {
-    /// The device verification code (used for polling).
+    /// The device verification code (used for polling — internal only).
     pub device_code: String,
     /// The user-facing code to enter at `verification_uri`.
     pub user_code: String,
@@ -20,6 +23,32 @@ pub struct DeviceCodeResponse {
     pub expires_in: u64,
     /// Minimum seconds between poll attempts.
     pub interval: u64,
+}
+
+/// User-facing subset of [`DeviceCodeResponse`] safe to send to the frontend.
+///
+/// Excludes `device_code` (the secret used for token polling).
+#[derive(Debug, Clone, Serialize)]
+pub struct DeviceCodeInfo {
+    /// The user-facing code to enter at `verification_uri`.
+    pub user_code: String,
+    /// The URL the user visits to enter the code.
+    pub verification_uri: String,
+    /// Seconds until the device code expires.
+    pub expires_in: u64,
+    /// Minimum seconds between poll attempts.
+    pub interval: u64,
+}
+
+impl From<&DeviceCodeResponse> for DeviceCodeInfo {
+    fn from(resp: &DeviceCodeResponse) -> Self {
+        Self {
+            user_code: resp.user_code.clone(),
+            verification_uri: resp.verification_uri.clone(),
+            expires_in: resp.expires_in,
+            interval: resp.interval,
+        }
+    }
 }
 
 /// Successful response from polling `POST https://github.com/login/oauth/access_token`.

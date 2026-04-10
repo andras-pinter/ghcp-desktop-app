@@ -883,7 +883,6 @@ and **events** (`listen()`/`emit()`). This is the only bridge between the two la
 - `git-import-progress` — progress updates during git skill/agent import (total, fetched, phase)
 - `context-summarized` — older messages were condensed into a summary to manage context window
 - `tray-new-chat` — user clicked "New Chat" in system tray menu
-- `update-available` — new version found
 
 ---
 
@@ -903,7 +902,12 @@ copilot-desktop/
 ├── tsconfig.json                 # TypeScript configuration
 ├── eslint.config.js              # ESLint flat config
 ├── .prettierrc                   # Prettier formatting config
+├── .prettierignore               # Prettier ignore patterns
+├── .githooks/                    # Git hooks (post-merge)
+│   └── post-merge                # Auto-run pnpm install after merges
 ├── src/                          # ── Svelte Frontend ──
+│   ├── main.ts                   # Svelte app bootstrap (mount to #app)
+│   ├── vite-env.d.ts             # Vite client type declarations
 │   ├── app.css                   # Global styles, CSS custom properties (theme)
 │   ├── App.svelte                # Root component (sidebar + main panel layout)
 │   ├── lib/
@@ -922,6 +926,7 @@ copilot-desktop/
 │   │   │   ├── SkillsPanel.svelte       # Skills browser (local + registry + git import, toggle on/off)
 │   │   │   ├── McpSettings.svelte       # MCP server management (add, configure, test, browse registry)
 │   │   │   ├── McpServerForm.svelte    # MCP server add/edit form with registry pre-fill
+│   │   │   ├── ConfirmDialog.svelte    # Reusable confirmation dialog modal
 │   │   │   ├── UpdateBanner.svelte      # Auto-update notification + download progress
 │   │   │   └── SearchOverlay.svelte     # In-conversation Cmd+F search overlay
 │   │   ├── stores/               # Svelte 5 runes-based stores (reactive state)
@@ -1022,6 +1027,8 @@ copilot-desktop/
 │   └── config.toml               # Cargo aliases (xtask)
 ├── CHANGELOG.md                   # Auto-generated from conventional commits (cargo xtask changelog)
 ├── AGENTS.md
+├── STYLE-GUIDE.md                 # Warm Ink design system reference (tokens, components, per-panel guides)
+├── LICENSE                        # Project license
 └── README.md
 ```
 
@@ -1228,6 +1235,7 @@ an MCP server binary. This is the **only** exception to the no-subprocess rule:
 | `tauri-plugin-shell` | Limited shell access (MCP stdio only, scoped) |
 | `tauri-plugin-clipboard-manager` | Copy to clipboard from code blocks |
 | `tauri-plugin-store` | Lightweight key-value persistence for non-sensitive UI preferences (e.g., window position, sidebar width). SQLite `config` table handles all app settings; `tauri-plugin-store` is for ephemeral/UI-state that doesn't warrant a SQL write. |
+| `tauri-plugin-process` | App process management (relaunch after auto-update) |
 | `reqwest` | HTTP client (enable `stream` feature for SSE) |
 | `serde` / `serde_json` | JSON serialization (shared types Rust ↔ frontend) |
 | `tokio` | Async runtime |
@@ -1239,6 +1247,13 @@ an MCP server binary. This is the **only** exception to the no-subprocess rule:
 | `log` / `env_logger` | Logging |
 | `dom_smoothie` | Readable content extraction (Readability algorithm) for URL fetching |
 | `url` | URL parsing and validation |
+| `uuid` | UUID generation (conversation, message, project, agent IDs) |
+| `base64` | Base64 encoding/decoding (file content transfer between frontend and backend) |
+| `chrono` | Date/time handling (ISO 8601 timestamps, changelog generation) |
+| `futures-util` | Async stream combinators (SSE streaming, web fetching) |
+| `async-trait` | Async fn in traits (registry provider trait) |
+| `serde_norway` | YAML parsing (SKILL.md frontmatter deserialization) |
+| `zip` | ZIP archive reading (DOCX/XLSX/PPTX text extraction) |
 | `rmcp` | Official MCP Rust SDK (Model Context Protocol, spec version 2025-03-26+) |
 
 ### Frontend (npm packages)
@@ -1257,12 +1272,14 @@ an MCP server binary. This is the **only** exception to the no-subprocess rule:
 | `@tauri-apps/plugin-shell` | Frontend bindings for shell plugin |
 | `@tauri-apps/plugin-clipboard-manager` | Frontend bindings for clipboard plugin |
 | `@tauri-apps/plugin-store` | Frontend bindings for store plugin (ephemeral UI state only) |
+| `@tauri-apps/plugin-process` | Frontend bindings for process plugin (app relaunch after update) |
 | `@fontsource-variable/plus-jakarta-sans` | Plus Jakarta Sans variable font (body text, UI) |
 | `@fontsource/instrument-serif` | Instrument Serif font (display titles, editorial headings) |
 | `marked` | Markdown parsing (fast, CommonMark-compliant) |
 | `shiki` | Syntax highlighting (VS Code quality, WASM-based) |
 | `dompurify` | HTML sanitization for rendered markdown |
 | `vitest` | Frontend unit testing |
+| `svelte-check` | Svelte type checker (validates `.svelte` files with TypeScript) |
 | `eslint` | Code linting |
 | `prettier` | Code formatting |
 | `prettier-plugin-svelte` | Prettier support for `.svelte` files |
@@ -1564,8 +1581,8 @@ All persistent data is stored in a single SQLite database in the app data direct
 CREATE TABLE conversations (
     id TEXT PRIMARY KEY,           -- UUID
     title TEXT,                    -- Auto-generated or user-edited
-    agent_id TEXT REFERENCES agents(id),
-    project_id TEXT REFERENCES projects(id),
+    agent_id TEXT,                  -- Soft reference to agents(id)
+    project_id TEXT,                -- Soft reference to projects(id)
     model TEXT,                    -- Model used (e.g., "gpt-4o")
     is_favourite INTEGER DEFAULT 0, -- 1 if pinned to top of sidebar
     created_at TEXT NOT NULL,      -- ISO 8601
@@ -1641,10 +1658,11 @@ CREATE TABLE skills (
     source_type TEXT DEFAULT 'builtin', -- "builtin", "mcp", "registry_skills_sh", "registry_aitmpl", "git"
     source_url TEXT,               -- Registry permalink or git URL (NULL for built-in/MCP)
     instructions TEXT,             -- Markdown body from SKILL.md (injected into system prompt when active)
-    mcp_server_id TEXT REFERENCES mcp_servers(id),  -- NULL for non-MCP skills
+    mcp_server_id TEXT,             -- Soft reference to mcp_servers(id); NULL for non-MCP skills
     config TEXT,                   -- JSON config blob
     enabled INTEGER DEFAULT 1,
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL,
+    updated_at TEXT                -- Added in migration v2
 );
 
 -- MCP server configurations
@@ -1696,6 +1714,8 @@ CREATE INDEX idx_skills_source ON skills(source);
 
 INSERT INTO config (key, value) VALUES ('schema_version', '3');
 ```
+
+> *Note: The schema above reflects the **final state** after all migrations (v1→v2→v3). See `src-tauri/src/db/migrations.rs` for the incremental ALTER TABLE statements that evolve the schema across versions.*
 
 ### Persistence Rules
 

@@ -297,7 +297,11 @@ pub async fn update_mcp_server(
 
     // Update in manager
     let id = config.id.clone();
-    let _ = state.mcp.update_config(&id, config).await;
+    state
+        .mcp
+        .update_config(&id, config)
+        .await
+        .map_err(|e| e.to_string())?;
 
     Ok(())
 }
