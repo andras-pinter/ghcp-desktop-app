@@ -1,51 +1,51 @@
 {
   "$schema": "https://raw.githubusercontent.com/nicegui/tauri-v2-schema/main/schema.json",
-  "productName": "Chuck",
-  "version": "0.1.0",
-  "identifier": "com.chuck-app.dev",
-  "build": {
-    "beforeDevCommand": "pnpm dev",
-    "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "pnpm build",
-    "frontendDist": "../dist"
-  },
   "app": {
-    "windows": [
-      {
-        "title": "Chuck",
-        "width": 1200,
-        "height": 800,
-        "minWidth": 700,
-        "minHeight": 500,
-        "center": true,
-        "decorations": true,
-        "resizable": true,
-        "titleBarStyle": "Overlay",
-        "hiddenTitle": true,
-        "acceptFirstMouse": true
-      }
-    ],
     "security": {
       "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: https://avatars.githubusercontent.com; connect-src ipc: http://ipc.localhost"
-    }
+    },
+    "windows": [
+      {
+        "acceptFirstMouse": true,
+        "center": true,
+        "decorations": true,
+        "height": 800,
+        "hiddenTitle": true,
+        "minHeight": 500,
+        "minWidth": 700,
+        "resizable": true,
+        "title": "Chuck",
+        "titleBarStyle": "Overlay",
+        "width": 1200
+      }
+    ]
+  },
+  "build": {
+    "beforeBuildCommand": "pnpm build",
+    "beforeDevCommand": "pnpm dev",
+    "devUrl": "http://localhost:1420",
+    "frontendDist": "../dist"
   },
   "bundle": {
     "active": true,
-    "targets": "all",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "targets": "all"
   },
+  "identifier": "com.chuck-app.dev",
   "plugins": {
     "updater": {
-      "pubkey": "PLACEHOLDER_PUBKEY_GENERATE_WITH_CARGO_TAURI_SIGNER_GENERATE",
       "endpoints": [
         "https://github.com/andras-pinter/ghcp-desktop-app/releases/latest/download/latest.json"
-      ]
+      ],
+      "pubkey": "PLACEHOLDER_PUBKEY_GENERATE_WITH_CARGO_TAURI_SIGNER_GENERATE"
     }
-  }
+  },
+  "productName": "Chuck",
+  "version": "0.2.0"
 }
