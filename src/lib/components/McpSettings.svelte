@@ -34,8 +34,7 @@
         kind: "form";
         editInfo?: McpConnectionInfo;
         registryEntry?: RegistryServer;
-      }
-    | { kind: "detail"; entry: RegistryServer };
+      };
 
   let view = $state<ViewState>({ kind: "list" });
 
@@ -44,9 +43,11 @@
   let testingServer = $state<string | null>(null);
   let testResult = $state<{ serverId: string; success: boolean; message: string } | null>(null);
   let expandedTools = $state<string | null>(null);
+  let expandedRegistryName = $state<string | null>(null);
   let registrySearch = $state("");
   let searchDebounce: ReturnType<typeof setTimeout> | null = null;
   let copiedCommand = $state<string | null>(null);
+  let quickAdding = $state<string | null>(null);
 
   async function copyCommand(text: string) {
     try {
@@ -95,10 +96,8 @@
     view = { kind: "form", registryEntry: entry };
   }
 
-  /** Build a config and add the server in one click — no form needed. */
-  let quickAdding = $state(false);
   async function quickAddFromRegistry(entry: RegistryServer) {
-    quickAdding = true;
+    quickAdding = entry.name;
     try {
       const config: McpServerConfig = {
         id: `mcp-${Date.now()}`,
@@ -139,17 +138,15 @@
       } else {
         // No package info and no remote — fall back to form
         openRegistryForm(entry);
-        quickAdding = false;
+        quickAdding = null;
         return;
       }
 
       await addServer(config);
-      view = { kind: "list" };
     } catch {
-      // On failure, fall back to form so user can adjust
       openRegistryForm(entry);
     } finally {
-      quickAdding = false;
+      quickAdding = null;
     }
   }
 
@@ -161,12 +158,12 @@
     );
   }
 
-  function openDetail(entry: RegistryServer) {
-    view = { kind: "detail", entry };
+  function toggleExpandRegistry(entry: RegistryServer) {
+    expandedRegistryName = expandedRegistryName === entry.name ? null : entry.name;
   }
 
   function returnToList() {
-    view = { kind: "list" };
+    expandedRegistryName = null;
   }
 
   async function handleConnect(serverId: string, isRetry = false) {
@@ -286,208 +283,6 @@
     registryEntry={view.registryEntry ?? null}
     onBack={returnToList}
   />
-{:else if view.kind === "detail"}
-  <!-- Registry Server Detail View -->
-  <div class="panel">
-    <header class="panel-header" data-tauri-drag-region>
-      <button class="panel-back" onclick={returnToList} aria-label="Back to list">
-        <svg width="18" height="18" viewBox="0 0 16 16" fill="none">
-          <path
-            d="M10 3L5 8l5 5"
-            stroke="currentColor"
-            stroke-width="1.5"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-        </svg>
-      </button>
-      <h2 class="panel-title">{view.entry.displayName}</h2>
-      {#if !isRegistryAdded(view.entry)}
-        <button
-          class="btn"
-          onclick={() => {
-            if (view.kind === "detail") openRegistryForm(view.entry);
-          }}
-        >
-          + Add Server
-        </button>
-      {:else}
-        <span class="badge badge--neutral">Added ✓</span>
-      {/if}
-    </header>
-
-    <div class="panel-body">
-      <div class="detail-body">
-        <!-- Description -->
-        {#if view.entry.description}
-          <p class="detail-description">{view.entry.description}</p>
-        {/if}
-
-        <!-- Meta row -->
-        <div class="detail-meta">
-          {#if view.entry.version}
-            <span class="badge badge--copper">v{view.entry.version}</span>
-          {/if}
-          {#if view.entry.isStdioOnly}
-            <span class="badge badge--mono">STDIO</span>
-          {:else}
-            <span class="badge badge--copper">HTTP</span>
-          {/if}
-          <span class="badge badge--mono">{view.entry.name}</span>
-        </div>
-
-        <!-- Remotes -->
-        {#if view.entry.remotes.length > 0}
-          <section class="detail-section">
-            <h3 class="section-heading">Remote Endpoints</h3>
-            {#each view.entry.remotes as remote (remote.url ?? remote.transportType)}
-              <div class="detail-card">
-                <span class="detail-label">{remote.transportType}</span>
-                {#if remote.url}
-                  <code class="detail-code">{remote.url}</code>
-                {/if}
-                {#if remote.requiresAuth}
-                  <span class="detail-auth-note"
-                    >🔑 {remote.authDescription ?? "Auth required"}</span
-                  >
-                {/if}
-              </div>
-            {/each}
-          </section>
-        {/if}
-
-        <!-- Packages -->
-        {#if view.entry.packages.length > 0}
-          <section class="detail-section">
-            <h3 class="section-heading">Install Packages</h3>
-            {#each view.entry.packages as pkg (pkg.identifier)}
-              <div class="detail-card">
-                <span class="detail-label">{pkg.registryType}</span>
-                <code class="detail-code"
-                  >{pkg.identifier}{pkg.version ? `@${pkg.version}` : ""}</code
-                >
-              </div>
-            {/each}
-          </section>
-        {/if}
-
-        <!-- Run Command (package-based stdio servers — one-click add) -->
-        {#if view.entry.isStdioOnly && view.entry.packages.length > 0}
-          <section class="detail-section">
-            <h3 class="section-heading">Run Command</h3>
-            <p class="setup-hint">
-              Click <strong>Add Server</strong> below to configure automatically. Requires
-              <code class="inline-code"
-                >{view.entry.packages.find((p) => p.registryType === "npm")
-                  ? "npx"
-                  : view.entry.packages.find((p) => p.registryType === "pypi")
-                    ? "uvx"
-                    : "dotnet"}</code
-              > in your PATH.
-            </p>
-            <div class="setup-commands">
-              {#each view.entry.packages as pkg (pkg.identifier + "-guide")}
-                {#if pkg.registryType === "npm"}
-                  {@const cmd = `npx -y ${pkg.identifier}${pkg.version ? `@${pkg.version}` : ""}`}
-                  <div class="code-block">
-                    <code>{cmd}</code>
-                    <button
-                      class="code-block-copy"
-                      onclick={() => copyCommand(cmd)}
-                      aria-label="Copy command">{copiedCommand === cmd ? "Copied!" : "Copy"}</button
-                    >
-                  </div>
-                {:else if pkg.registryType === "pypi"}
-                  {@const cmd = `uvx ${pkg.identifier}${pkg.version ? `==${pkg.version}` : ""}`}
-                  <div class="code-block">
-                    <code>{cmd}</code>
-                    <button
-                      class="code-block-copy"
-                      onclick={() => copyCommand(cmd)}
-                      aria-label="Copy command">{copiedCommand === cmd ? "Copied!" : "Copy"}</button
-                    >
-                  </div>
-                {:else if pkg.registryType === "nuget"}
-                  {@const cmd = `dotnet tool run ${pkg.identifier}`}
-                  <div class="code-block">
-                    <code>{cmd}</code>
-                    <button
-                      class="code-block-copy"
-                      onclick={() => copyCommand(cmd)}
-                      aria-label="Copy command">{copiedCommand === cmd ? "Copied!" : "Copy"}</button
-                    >
-                  </div>
-                {/if}
-              {/each}
-            </div>
-          </section>
-        {:else if view.entry.isStdioOnly}
-          <!-- Stdio with no packages — manual setup -->
-          <section class="detail-section">
-            <h3 class="section-heading">Setup</h3>
-            <p class="setup-hint">
-              This server requires a manually installed binary. Check the repository link for
-              installation instructions, then click <strong>Configure Server</strong> below.
-            </p>
-          </section>
-        {:else if view.entry.remotes.length > 0 && view.entry.remotes.some((r) => r.requiresAuth)}
-          <!-- HTTP with auth — needs manual API key -->
-          <section class="detail-section">
-            <h3 class="section-heading">Setup</h3>
-            <p class="setup-hint">
-              This server requires authentication. Obtain an API key from the provider, then click
-              <strong>Configure Server</strong> below to add it.
-            </p>
-          </section>
-        {/if}
-
-        <!-- Links -->
-        {#if view.entry.repoUrl || view.entry.websiteUrl}
-          <section class="detail-section">
-            <h3 class="section-heading">Links</h3>
-            <div class="detail-links">
-              {#if view.entry.repoUrl}
-                <a href={view.entry.repoUrl} target="_blank" rel="noopener" class="detail-link">
-                  📦 Repository
-                </a>
-              {/if}
-              {#if view.entry.websiteUrl}
-                <a href={view.entry.websiteUrl} target="_blank" rel="noopener" class="detail-link">
-                  🌐 Website
-                </a>
-              {/if}
-            </div>
-          </section>
-        {/if}
-
-        <!-- Bottom CTA -->
-        {#if !isRegistryAdded(view.entry)}
-          {#if canQuickAdd(view.entry)}
-            <button
-              class="btn btn--primary detail-cta"
-              disabled={quickAdding}
-              onclick={() => {
-                if (view.kind === "detail") quickAddFromRegistry(view.entry);
-              }}
-            >
-              {quickAdding ? "Adding…" : "+ Add Server"}
-            </button>
-          {:else}
-            <button
-              class="btn btn--primary detail-cta"
-              onclick={() => {
-                if (view.kind === "detail") openRegistryForm(view.entry);
-              }}
-            >
-              + Configure Server
-            </button>
-          {/if}
-        {:else}
-          <div class="detail-already-added">✓ This server is already configured</div>
-        {/if}
-      </div>
-    </div>
-  </div>
 {:else}
   <div class="panel">
     <!-- Header -->
@@ -654,32 +449,187 @@
               <span class="spinner spinner--sm"></span> Fetching from registry...
             </div>
           {:else if mcp.registry.length > 0}
-            <div class="registry-list">
+            <div class="registry-results" role="list">
               {#each mcp.registry as entry (entry.name)}
-                <button
-                  class="card card--clickable registry-entry"
-                  onclick={() => openDetail(entry)}
-                  type="button"
+                {@const isExpanded = expandedRegistryName === entry.name}
+                {@const isAdded = isRegistryAdded(entry)}
+                <article
+                  class="card registry-card"
+                  role="listitem"
+                  ondblclick={() => toggleExpandRegistry(entry)}
+                  title="Double-click to expand"
                 >
-                  <div class="card-header registry-info">
+                  <div class="card-header">
+                    <button
+                      class="expand-btn"
+                      class:expanded={isExpanded}
+                      onclick={(e: MouseEvent) => {
+                        e.stopPropagation();
+                        toggleExpandRegistry(entry);
+                      }}
+                      aria-label={isExpanded ? "Collapse" : "Expand"}>▶</button
+                    >
                     <strong class="card-title">{entry.displayName}</strong>
                     {#if entry.isStdioOnly}
                       <span class="badge badge--mono">STDIO</span>
                     {:else}
                       <span class="badge badge--copper">HTTP</span>
                     {/if}
-                  </div>
-                  {#if entry.description}
-                    <p class="card-desc registry-desc">{entry.description}</p>
-                  {/if}
-                  <div class="registry-actions">
-                    {#if isRegistryAdded(entry)}
-                      <span class="registry-added">Added ✓</span>
-                    {:else}
-                      <span class="registry-arrow">→</span>
+                    <span class="badge badge--neutral">{entry.name}</span>
+                    {#if entry.repoUrl}
+                      <a
+                        href={entry.repoUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="source-link"
+                        aria-label="View repository"
+                        onclick={(e: MouseEvent) => e.stopPropagation()}
+                      >
+                        ↗
+                      </a>
                     {/if}
+                    <div class="card-actions">
+                      {#if isAdded}
+                        <span class="badge badge--success">✓ Added</span>
+                      {:else if canQuickAdd(entry)}
+                        <button
+                          class="btn btn--primary"
+                          onclick={(e: MouseEvent) => {
+                            e.stopPropagation();
+                            quickAddFromRegistry(entry);
+                          }}
+                          disabled={quickAdding === entry.name}
+                        >
+                          {quickAdding === entry.name ? "Adding…" : "Add"}
+                        </button>
+                      {:else}
+                        <button
+                          class="btn btn--primary"
+                          onclick={(e: MouseEvent) => {
+                            e.stopPropagation();
+                            openRegistryForm(entry);
+                          }}
+                        >
+                          Configure
+                        </button>
+                      {/if}
+                    </div>
                   </div>
-                </button>
+                  {#if !isExpanded && entry.description}
+                    <p class="card-desc">{entry.description}</p>
+                  {/if}
+                  {#if isExpanded}
+                    <div class="card-detail">
+                      {#if entry.description}
+                        <p class="detail-description">{entry.description}</p>
+                      {/if}
+
+                      {#if entry.version}
+                        <div class="detail-meta">
+                          <span class="badge badge--copper">v{entry.version}</span>
+                        </div>
+                      {/if}
+
+                      {#if entry.remotes.length > 0}
+                        <div class="detail-section">
+                          <h4 class="detail-label">Remote Endpoints</h4>
+                          {#each entry.remotes as remote (remote.url ?? remote.transportType)}
+                            <div class="detail-card">
+                              <span class="detail-label">{remote.transportType}</span>
+                              {#if remote.url}
+                                <code class="detail-code">{remote.url}</code>
+                              {/if}
+                              {#if remote.requiresAuth}
+                                <span class="detail-auth-note"
+                                  >🔑 {remote.authDescription ?? "Auth required"}</span
+                                >
+                              {/if}
+                            </div>
+                          {/each}
+                        </div>
+                      {/if}
+
+                      {#if entry.packages.length > 0}
+                        <div class="detail-section">
+                          <h4 class="detail-label">Packages</h4>
+                          {#each entry.packages as pkg (pkg.identifier)}
+                            <div class="detail-card">
+                              <span class="detail-label">{pkg.registryType}</span>
+                              <code class="detail-code"
+                                >{pkg.identifier}{pkg.version ? `@${pkg.version}` : ""}</code
+                              >
+                            </div>
+                          {/each}
+                        </div>
+                      {/if}
+
+                      {#if entry.isStdioOnly && entry.packages.length > 0}
+                        <div class="detail-section">
+                          <h4 class="detail-label">Run Command</h4>
+                          <div class="setup-commands">
+                            {#each entry.packages as pkg (pkg.identifier + "-cmd")}
+                              {#if pkg.registryType === "npm"}
+                                {@const cmd = `npx -y ${pkg.identifier}${pkg.version ? `@${pkg.version}` : ""}`}
+                                <div class="code-block">
+                                  <code>{cmd}</code>
+                                  <button
+                                    class="code-block-copy"
+                                    onclick={() => copyCommand(cmd)}
+                                    aria-label="Copy command"
+                                    >{copiedCommand === cmd ? "Copied!" : "Copy"}</button
+                                  >
+                                </div>
+                              {:else if pkg.registryType === "pypi"}
+                                {@const cmd = `uvx ${pkg.identifier}${pkg.version ? `==${pkg.version}` : ""}`}
+                                <div class="code-block">
+                                  <code>{cmd}</code>
+                                  <button
+                                    class="code-block-copy"
+                                    onclick={() => copyCommand(cmd)}
+                                    aria-label="Copy command"
+                                    >{copiedCommand === cmd ? "Copied!" : "Copy"}</button
+                                  >
+                                </div>
+                              {:else if pkg.registryType === "nuget"}
+                                {@const cmd = `dotnet tool run ${pkg.identifier}`}
+                                <div class="code-block">
+                                  <code>{cmd}</code>
+                                  <button
+                                    class="code-block-copy"
+                                    onclick={() => copyCommand(cmd)}
+                                    aria-label="Copy command"
+                                    >{copiedCommand === cmd ? "Copied!" : "Copy"}</button
+                                  >
+                                </div>
+                              {/if}
+                            {/each}
+                          </div>
+                        </div>
+                      {/if}
+
+                      {#if entry.repoUrl || entry.websiteUrl}
+                        <div class="detail-links">
+                          {#if entry.repoUrl}
+                            <a
+                              href={entry.repoUrl}
+                              target="_blank"
+                              rel="noopener"
+                              class="detail-link">📦 Repository</a
+                            >
+                          {/if}
+                          {#if entry.websiteUrl}
+                            <a
+                              href={entry.websiteUrl}
+                              target="_blank"
+                              rel="noopener"
+                              class="detail-link">🌐 Website</a
+                            >
+                          {/if}
+                        </div>
+                      {/if}
+                    </div>
+                  {/if}
+                </article>
               {/each}
               {#if mcp.hasMoreRegistry}
                 <button
@@ -785,12 +735,6 @@
     letter-spacing: 0;
   }
 
-  .registry-list {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-xs);
-  }
-
   .load-more-btn {
     width: 100%;
     padding: var(--spacing-sm);
@@ -817,54 +761,7 @@
     opacity: 0.7;
   }
 
-  .registry-entry {
-    text-align: left;
-    font-family: var(--font-body);
-    width: 100%;
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--spacing-sm);
-    padding: var(--spacing-sm) var(--spacing-md);
-  }
-
-  .registry-info {
-    flex: 1;
-    min-width: 0;
-  }
-
-  .registry-desc {
-    width: 100%;
-    margin: 0;
-  }
-
-  .registry-actions {
-    flex-shrink: 0;
-  }
-
-  .registry-added {
-    font-size: var(--font-size-xs);
-    color: var(--color-text-tertiary);
-    font-style: italic;
-  }
-
-  .registry-arrow {
-    font-size: var(--font-size-sm);
-    color: var(--color-text-tertiary);
-    transition: transform var(--transition-fast);
-  }
-  .registry-entry:hover .registry-arrow {
-    transform: translateX(2px);
-    color: var(--color-accent-copper);
-  }
-
-  /* ── Detail View ── */
-
-  .detail-body {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-lg);
-  }
+  /* ── Registry Detail (inline expanded) ── */
 
   .detail-description {
     font-size: var(--font-size-sm);
@@ -942,21 +839,6 @@
     gap: var(--spacing-xs);
   }
 
-  .setup-hint {
-    font-size: var(--font-size-sm);
-    color: var(--color-text-secondary);
-    margin: 0 0 var(--spacing-sm);
-    line-height: var(--leading-relaxed);
-  }
-
-  .inline-code {
-    font-family: var(--font-mono);
-    font-size: 0.9em;
-    background: var(--color-bg-tertiary);
-    padding: 1px 5px;
-    border-radius: var(--radius-sm);
-  }
-
   .code-block-copy {
     width: auto;
     padding: var(--spacing-sm) var(--spacing-md);
@@ -966,19 +848,5 @@
   .code-block-copy:hover {
     color: var(--color-accent-copper);
     background: color-mix(in srgb, var(--color-accent-copper) 8%, transparent);
-  }
-
-  /* ── Detail CTA ── */
-
-  .detail-cta {
-    width: 100%;
-  }
-
-  .detail-already-added {
-    text-align: center;
-    font-size: var(--font-size-sm);
-    color: var(--color-text-tertiary);
-    font-style: italic;
-    padding: var(--spacing-sm);
   }
 </style>
