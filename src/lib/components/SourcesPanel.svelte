@@ -253,69 +253,21 @@
   {:else}
     <!-- ── Source List ──────────────────────────────────────── -->
 
-    {#if store.sources.length > 0}
-      <div class="filter-bar">
-        <input
-          class="form-input"
-          type="text"
-          placeholder="Filter sources…"
-          bind:value={filterQuery}
-        />
-      </div>
-    {/if}
-
-    {#if filteredSources.length === 0 && store.sources.length === 0}
-      <div class="panel-empty">
-        <p class="section-empty">No additional git sources configured yet.</p>
-        <p class="section-empty">Add a repository URL to import skills and agents.</p>
-        <button class="btn btn--accent" onclick={openAdd}>+ Add Source</button>
-      </div>
-
-      <!-- Always show aitmpl.com built-in even when no git sources -->
-      <section class="panel-section builtin-section">
-        <h3 class="section-title">Built-in</h3>
-        <article class="card" class:card--disabled={!settings.aitmplEnabled}>
-          <div class="card-header">
-            <span class="builtin-icon">📦</span>
-            <strong class="card-title">aitmpl.com</strong>
-            <div class="card-actions">
-              <label class="toggle" aria-label="Toggle aitmpl.com registry">
-                <input
-                  type="checkbox"
-                  checked={settings.aitmplEnabled}
-                  onchange={() =>
-                    updateSetting(
-                      SETTING_KEYS.aitmplEnabled,
-                      settings.aitmplEnabled ? "false" : "true",
-                    )}
-                />
-                <span class="toggle-track"></span>
-              </label>
-            </div>
-          </div>
-          <div class="card-meta">
-            <span class="badge badge--mono">aitmpl.com</span>
-            <span class="source-stats">Community skill &amp; agent registry</span>
-          </div>
-        </article>
-      </section>
-    {:else if filteredSources.length === 0}
-      <p class="section-empty">No sources match "{filterQuery}"</p>
-    {:else}
-      <!-- Built-in aitmpl.com source (always shown, cannot be deleted) -->
+    {#snippet aitmplCard()}
       <article class="card" class:card--disabled={!settings.aitmplEnabled}>
         <div class="card-header">
           <span class="builtin-icon">📦</span>
           <strong class="card-title">aitmpl.com</strong>
+          <span class="badge badge--neutral">Built-in</span>
           <div class="card-actions">
             <label class="toggle" aria-label="Toggle aitmpl.com registry">
               <input
                 type="checkbox"
                 checked={settings.aitmplEnabled}
-                onchange={() =>
+                onchange={(e) =>
                   updateSetting(
                     SETTING_KEYS.aitmplEnabled,
-                    settings.aitmplEnabled ? "false" : "true",
+                    (e.target as HTMLInputElement).checked ? "true" : "false",
                   )}
               />
               <span class="toggle-track"></span>
@@ -327,7 +279,30 @@
           <span class="source-stats">Community skill &amp; agent registry</span>
         </div>
       </article>
+    {/snippet}
 
+    {#if store.sources.length > 0}
+      <div class="filter-bar">
+        <input
+          class="form-input"
+          type="text"
+          placeholder="Filter sources…"
+          bind:value={filterQuery}
+        />
+      </div>
+    {/if}
+
+    {@render aitmplCard()}
+
+    {#if filteredSources.length === 0 && store.sources.length === 0}
+      <div class="panel-empty">
+        <p class="section-empty">No additional git sources configured yet.</p>
+        <p class="section-empty">Add a repository URL to import skills and agents.</p>
+        <button class="btn btn--accent" onclick={openAdd}>+ Add Source</button>
+      </div>
+    {:else if filteredSources.length === 0}
+      <p class="section-empty">No sources match "{filterQuery}"</p>
+    {:else}
       {#each filteredSources as source (source.id)}
         <article class="card" class:card--disabled={!source.enabled}>
           <div class="card-header">
@@ -522,10 +497,6 @@
   .builtin-icon {
     flex-shrink: 0;
     font-size: var(--font-size-sm);
-  }
-
-  .builtin-section {
-    margin-top: var(--spacing-lg);
   }
 
   .source-stats {
