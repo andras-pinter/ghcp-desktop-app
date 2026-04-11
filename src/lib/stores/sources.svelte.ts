@@ -2,6 +2,7 @@
 
 import {
   getGitSources as getGitSourcesCmd,
+  getGitSource as getGitSourceCmd,
   createGitSource as createGitSourceCmd,
   updateGitSource as updateGitSourceCmd,
   deleteGitSource as deleteGitSourceCmd,
@@ -179,6 +180,12 @@ export function updateScanProgress(
   if (sourceId) {
     if (fetched >= total && total > 0) {
       delete syncProgress[sourceId];
+      // Refresh this source's metadata so lastSyncedAt is up to date
+      getGitSourceCmd(sourceId).then((updated) => {
+        if (updated) {
+          sources = sources.map((s) => (s.id === sourceId ? updated : s));
+        }
+      });
     } else {
       syncProgress[sourceId] = { total, fetched, phase };
     }
