@@ -11,6 +11,7 @@
     clearScanResult,
     renameSource,
   } from "$lib/stores/sources.svelte";
+  import { getSettings, updateSetting, SETTING_KEYS } from "$lib/stores/settings.svelte";
   import { onMount, onDestroy } from "svelte";
   import { listen, type UnlistenFn } from "@tauri-apps/api/event";
   import ConfirmDialog from "./ConfirmDialog.svelte";
@@ -22,6 +23,7 @@
   let { onBack }: Props = $props();
 
   const store = getSourceStore();
+  const settings = getSettings();
 
   type ViewState = { kind: "list" } | { kind: "add" };
 
@@ -264,13 +266,68 @@
 
     {#if filteredSources.length === 0 && store.sources.length === 0}
       <div class="panel-empty">
-        <p class="section-empty">No git sources configured yet.</p>
+        <p class="section-empty">No additional git sources configured yet.</p>
         <p class="section-empty">Add a repository URL to import skills and agents.</p>
         <button class="btn btn--accent" onclick={openAdd}>+ Add Source</button>
       </div>
+
+      <!-- Always show aitmpl.com built-in even when no git sources -->
+      <section class="panel-section builtin-section">
+        <h3 class="section-title">Built-in</h3>
+        <article class="card" class:card--disabled={!settings.aitmplEnabled}>
+          <div class="card-header">
+            <span class="builtin-icon">📦</span>
+            <strong class="card-title">aitmpl.com</strong>
+            <div class="card-actions">
+              <label class="toggle" aria-label="Toggle aitmpl.com registry">
+                <input
+                  type="checkbox"
+                  checked={settings.aitmplEnabled}
+                  onchange={() =>
+                    updateSetting(
+                      SETTING_KEYS.aitmplEnabled,
+                      settings.aitmplEnabled ? "false" : "true",
+                    )}
+                />
+                <span class="toggle-track"></span>
+              </label>
+            </div>
+          </div>
+          <div class="card-meta">
+            <span class="badge badge--mono">aitmpl.com</span>
+            <span class="source-stats">Community skill &amp; agent registry</span>
+          </div>
+        </article>
+      </section>
     {:else if filteredSources.length === 0}
       <p class="section-empty">No sources match "{filterQuery}"</p>
     {:else}
+      <!-- Built-in aitmpl.com source (always shown, cannot be deleted) -->
+      <article class="card" class:card--disabled={!settings.aitmplEnabled}>
+        <div class="card-header">
+          <span class="builtin-icon">📦</span>
+          <strong class="card-title">aitmpl.com</strong>
+          <div class="card-actions">
+            <label class="toggle" aria-label="Toggle aitmpl.com registry">
+              <input
+                type="checkbox"
+                checked={settings.aitmplEnabled}
+                onchange={() =>
+                  updateSetting(
+                    SETTING_KEYS.aitmplEnabled,
+                    settings.aitmplEnabled ? "false" : "true",
+                  )}
+              />
+              <span class="toggle-track"></span>
+            </label>
+          </div>
+        </div>
+        <div class="card-meta">
+          <span class="badge badge--mono">aitmpl.com</span>
+          <span class="source-stats">Community skill &amp; agent registry</span>
+        </div>
+      </article>
+
       {#each filteredSources as source (source.id)}
         <article class="card" class:card--disabled={!source.enabled}>
           <div class="card-header">
@@ -460,6 +517,15 @@
 
   .card--disabled {
     opacity: 0.6;
+  }
+
+  .builtin-icon {
+    flex-shrink: 0;
+    font-size: var(--font-size-sm);
+  }
+
+  .builtin-section {
+    margin-top: var(--spacing-lg);
   }
 
   .source-stats {

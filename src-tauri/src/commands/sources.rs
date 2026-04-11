@@ -252,15 +252,28 @@ pub async fn search_catalog(
     let state = app.state::<AppState>();
     let client = &state.http_client;
 
-    // 1) Fetch aitmpl.com results
-    let aitmpl_result =
-        crate::registry::search_registries(client, &query, limit.unwrap_or(200)).await;
-    let mut items: Vec<crate::registry::RegistryItem> = match aitmpl_result {
-        Ok(r) => r.items,
-        Err(e) => {
-            log::warn!("aitmpl.com search failed: {e}");
-            Vec::new()
+    // Check if aitmpl.com registry is enabled (default: true)
+    let aitmpl_enabled = {
+        let db = state.db.lock().map_err(|e| e.to_string())?;
+        queries::get_setting(&db, "aitmpl_enabled")
+            .map_err(|e| e.to_string())?
+            .map(|v| v != "false")
+            .unwrap_or(true)
+    };
+
+    // 1) Fetch aitmpl.com results (if enabled)
+    let mut items: Vec<crate::registry::RegistryItem> = if aitmpl_enabled {
+        let aitmpl_result =
+            crate::registry::search_registries(client, &query, limit.unwrap_or(200)).await;
+        match aitmpl_result {
+            Ok(r) => r.items,
+            Err(e) => {
+                log::warn!("aitmpl.com search failed: {e}");
+                Vec::new()
+            }
         }
+    } else {
+        Vec::new()
     };
 
     // Filter aitmpl results by kind if specified
