@@ -217,12 +217,28 @@ pub async fn sync_all_sources(app: AppHandle) -> Result<usize, String> {
     };
 
     let enabled: Vec<_> = sources.into_iter().filter(|s| s.enabled).collect();
-    let mut synced = 0;
+    let mut set = tokio::task::JoinSet::new();
 
-    for source in &enabled {
-        match scan_and_update_source(&app, source).await {
-            Ok(()) => synced += 1,
-            Err(e) => log::warn!("Failed to sync source '{}': {e}", source.name),
+    for source in enabled {
+        let app_handle = app.clone();
+        set.spawn(async move {
+            match scan_and_update_source(&app_handle, &source).await {
+                Ok(()) => {
+                    log::info!("Synced source '{}'", source.name);
+                    true
+                }
+                Err(e) => {
+                    log::warn!("Failed to sync source '{}': {e}", source.name);
+                    false
+                }
+            }
+        });
+    }
+
+    let mut synced = 0;
+    while let Some(result) = set.join_next().await {
+        if matches!(result, Ok(true)) {
+            synced += 1;
         }
     }
 
