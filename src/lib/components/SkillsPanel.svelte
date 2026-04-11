@@ -662,23 +662,34 @@
                 placeholder="Search skills (e.g. memory, web, code)…"
                 class="form-input"
               />
-              <select
-                class="form-input source-filter"
-                value={sourceFilter ?? ""}
-                onchange={(e) => handleSourceFilterChange(e.currentTarget.value)}
-                aria-label="Filter by source"
-              >
-                <option value="">All sources</option>
-                {#if settings.aitmplEnabled}
-                  <option value="aitmpl">aitmpl.com</option>
-                {/if}
-                {#each sourceStore.sources.filter((s) => s.enabled) as src (src.id)}
-                  <option value={src.id}>{src.name}</option>
-                {/each}
-              </select>
               {#if store.registrySearching}
                 <span class="search-spinner" role="status" aria-label="Searching">⟳</span>
               {/if}
+            </div>
+
+            <div class="source-pills" role="radiogroup" aria-label="Filter by source">
+              <button
+                class="source-pill"
+                class:active={!sourceFilter}
+                onclick={() => handleSourceFilterChange("")}
+                aria-pressed={!sourceFilter}>All</button
+              >
+              {#if settings.aitmplEnabled}
+                <button
+                  class="source-pill"
+                  class:active={sourceFilter === "aitmpl"}
+                  onclick={() => handleSourceFilterChange("aitmpl")}
+                  aria-pressed={sourceFilter === "aitmpl"}>aitmpl.com</button
+                >
+              {/if}
+              {#each sourceStore.sources.filter((s) => s.enabled) as src (src.id)}
+                <button
+                  class="source-pill"
+                  class:active={sourceFilter === src.id}
+                  onclick={() => handleSourceFilterChange(src.id)}
+                  aria-pressed={sourceFilter === src.id}>{src.name}</button
+                >
+              {/each}
             </div>
 
             {#if store.registrySearching && store.registryResults.length === 0}
