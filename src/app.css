@@ -1182,7 +1182,7 @@ textarea.form-input {
   position: absolute;
   right: var(--spacing-sm);
   top: 50%;
-  transform: translateY(-50%);
+  margin-top: -7px;
   width: 14px;
   height: 14px;
   border: 2px solid var(--color-border-primary);
@@ -1193,7 +1193,7 @@ textarea.form-input {
 
 @keyframes spin {
   to {
-    transform: translateY(-50%) rotate(360deg);
+    transform: rotate(360deg);
   }
 }
 
