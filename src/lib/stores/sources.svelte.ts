@@ -35,6 +35,9 @@ let scanResult = $state<SourceScanResult | null>(null);
 /** Progress during scan (emitted via git-import-progress event). */
 let scanProgress = $state<{ total: number; fetched: number; phase: string } | null>(null);
 
+/** Per-source sync progress (keyed by source ID). */
+const syncProgress: Record<string, { total: number; fetched: number; phase: string }> = $state({});
+
 /** Whether we're currently creating/scanning a new source. */
 let adding = $state(false);
 
@@ -166,8 +169,20 @@ export async function refreshItems(sourceId: string): Promise<void> {
 // ── Scan progress ───────────────────────────────────────────────
 
 /** Update scan progress (called from git-import-progress event listener). */
-export function updateScanProgress(total: number, fetched: number, phase: string): void {
+export function updateScanProgress(
+  total: number,
+  fetched: number,
+  phase: string,
+  sourceId?: string,
+): void {
   scanProgress = { total, fetched, phase };
+  if (sourceId) {
+    if (fetched >= total && total > 0) {
+      delete syncProgress[sourceId];
+    } else {
+      syncProgress[sourceId] = { total, fetched, phase };
+    }
+  }
 }
 
 /** Clear scan result and progress (e.g., after import or cancel). */
@@ -200,6 +215,9 @@ export function getSourceStore() {
     },
     get scanProgress() {
       return scanProgress;
+    },
+    get syncProgress() {
+      return syncProgress;
     },
     get adding() {
       return adding;

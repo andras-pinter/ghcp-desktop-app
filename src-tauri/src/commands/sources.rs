@@ -76,7 +76,7 @@ pub async fn create_git_source(
     }
 
     // Scan the repository for definition files
-    let files = scan_source(&app, &url).await?;
+    let files = scan_source(&app, &id, &url).await?;
 
     // Persist discovered items for catalog browsing
     persist_catalog_items(&app, &id, &files)?;
@@ -142,7 +142,7 @@ pub async fn sync_git_source(app: AppHandle, id: String) -> Result<SourceScanRes
     }
 
     // Scan the repository
-    let files = scan_source(&app, &url).await?;
+    let files = scan_source(&app, &id, &url).await?;
 
     // Update existing imported items if their content changed
     update_existing_items(&app, &id, &files)?;
@@ -480,16 +480,35 @@ pub fn install_catalog_item(app: AppHandle, item_id: String) -> Result<String, S
 // ── Internal helpers ────────────────────────────────────────────
 
 /// Scan a repository for definition files (skills + agents).
+/// Emits `git-import-progress` events with `source_id` attached.
 async fn scan_source(
     app: &AppHandle,
+    source_id: &str,
     url: &str,
 ) -> Result<Vec<crate::registry::GitSkillFile>, String> {
     let state = app.state::<AppState>();
     let client = &state.http_client;
     let token = copilot_api::DeviceFlowAuth::load_github_token().ok();
     let emitter = app.clone();
+    let sid = source_id.to_string();
     crate::registry::fetch_git_definitions(client, url, None, token.as_deref(), |p| {
-        let _ = emitter.emit("git-import-progress", &p);
+        #[derive(Serialize)]
+        #[serde(rename_all = "camelCase")]
+        struct ProgressWithSource {
+            total: usize,
+            fetched: usize,
+            phase: String,
+            source_id: String,
+        }
+        let _ = emitter.emit(
+            "git-import-progress",
+            &ProgressWithSource {
+                total: p.total,
+                fetched: p.fetched,
+                phase: p.phase.clone(),
+                source_id: sid.clone(),
+            },
+        );
     })
     .await
 }
@@ -599,7 +618,8 @@ fn update_existing_items(
     Ok(())
 }
 
-/// Silently scan and update a single source (used during auto-sync).
+/// Scan and update a single source (used during auto-sync).
+/// Emits progress events so the UI can show per-card activity.
 async fn scan_and_update_source(
     app: &AppHandle,
     source: &queries::GitSource,
@@ -607,11 +627,30 @@ async fn scan_and_update_source(
     let state = app.state::<AppState>();
     let client = &state.http_client;
     let token = copilot_api::DeviceFlowAuth::load_github_token().ok();
+    let emitter = app.clone();
+    let sid = source.id.clone();
 
-    // Scan without emitting progress (silent sync)
     let files =
-        crate::registry::fetch_git_definitions(client, &source.url, None, token.as_deref(), |_| {})
-            .await?;
+        crate::registry::fetch_git_definitions(client, &source.url, None, token.as_deref(), |p| {
+            #[derive(Serialize)]
+            #[serde(rename_all = "camelCase")]
+            struct ProgressWithSource {
+                total: usize,
+                fetched: usize,
+                phase: String,
+                source_id: String,
+            }
+            let _ = emitter.emit(
+                "git-import-progress",
+                &ProgressWithSource {
+                    total: p.total,
+                    fetched: p.fetched,
+                    phase: p.phase.clone(),
+                    source_id: sid.clone(),
+                },
+            );
+        })
+        .await?;
 
     // Update existing imported items if their content changed
     update_existing_items(app, &source.id, &files)?;

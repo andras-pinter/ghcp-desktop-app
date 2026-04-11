@@ -40,12 +40,19 @@
 
   onMount(async () => {
     if (!store.loaded) await initSources();
-    unlistenProgress = await listen<{ total: number; fetched: number; phase: string }>(
-      "git-import-progress",
-      (event) => {
-        updateScanProgress(event.payload.total, event.payload.fetched, event.payload.phase);
-      },
-    );
+    unlistenProgress = await listen<{
+      total: number;
+      fetched: number;
+      phase: string;
+      sourceId?: string;
+    }>("git-import-progress", (event) => {
+      updateScanProgress(
+        event.payload.total,
+        event.payload.fetched,
+        event.payload.phase,
+        event.payload.sourceId,
+      );
+    });
   });
 
   onDestroy(() => {
@@ -398,7 +405,10 @@
             <span class="badge badge--mono">{shortUrl(source.url)}</span>
             <span class="source-stats">
               {source.itemCount} item{source.itemCount !== 1 ? "s" : ""}
-              {#if source.lastSyncedAt}
+              {#if store.syncProgress[source.id]}
+                · syncing {store.syncProgress[source.id].fetched}/{store.syncProgress[source.id]
+                  .total}
+              {:else if source.lastSyncedAt}
                 · synced {timeAgo(source.lastSyncedAt)}
               {:else}
                 · never synced
