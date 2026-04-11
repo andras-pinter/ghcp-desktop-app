@@ -1629,6 +1629,11 @@ textarea.form-input {
 .search-row .form-input {
   flex: 1;
 }
+.search-row .source-filter {
+  flex: 0 0 auto;
+  width: auto;
+  max-width: 140px;
+}
 
 .search-spinner {
   animation: spin 0.8s linear infinite;

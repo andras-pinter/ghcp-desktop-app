@@ -15,6 +15,8 @@
   } from "$lib/stores/agents.svelte";
   import { getSkillStore, initSkills } from "$lib/stores/skills.svelte";
   import { getMcpState, initMcp } from "$lib/stores/mcp.svelte";
+  import { getSourceStore, initSources } from "$lib/stores/sources.svelte";
+  import { getSettings } from "$lib/stores/settings.svelte";
   import type { Agent } from "$lib/types/agent";
   import type { RegistryItem } from "$lib/types/registry";
   import { renderMarkdown, stripFrontmatter } from "$lib/utils/markdown";
@@ -30,6 +32,8 @@
   const agentStore = getAgentStore();
   const skillStore = getSkillStore();
   const mcpState = getMcpState();
+  const sourceStore = getSourceStore();
+  const settings = getSettings();
 
   // ── View state ──────────────────────────────────────────────
 
@@ -88,6 +92,18 @@
   let registrySearchDebounce: ReturnType<typeof setTimeout> | null = null;
   let installingId = $state<string | null>(null);
   let installedId = $state<string | null>(null);
+  let sourceFilter = $state<string | null>(null);
+
+  // Reset filter if selected source is disabled or deleted
+  $effect(() => {
+    if (
+      sourceFilter &&
+      sourceFilter !== "aitmpl" &&
+      !sourceStore.sources.some((s) => s.enabled && s.id === sourceFilter)
+    ) {
+      sourceFilter = null;
+    }
+  });
 
   // Expand/collapse for individual agent cards
   let expandedAgentId = $state<string | null>(null);
@@ -126,6 +142,7 @@
     if (!agentStore.loaded) initAgents();
     if (!skillStore.loaded) initSkills();
     if (mcpState.servers.length === 0) initMcp();
+    if (!sourceStore.loaded) initSources();
   });
 
   onDestroy(() => {
@@ -139,13 +156,21 @@
     registrySearchInput = query;
     if (registrySearchDebounce) clearTimeout(registrySearchDebounce);
     if (!query.trim()) {
-      // Restore prefetched browse results instead of clearing
-      prefetchAgentRegistry();
+      prefetchAgentRegistry(sourceFilter);
       return;
     }
     registrySearchDebounce = setTimeout(() => {
-      searchAgentRegistries(query.trim());
+      searchAgentRegistries(query.trim(), sourceFilter);
     }, 400);
+  }
+
+  function handleSourceFilterChange(value: string) {
+    sourceFilter = value || null;
+    if (registrySearchInput.trim()) {
+      searchAgentRegistries(registrySearchInput.trim(), sourceFilter);
+    } else {
+      prefetchAgentRegistry(sourceFilter);
+    }
   }
 
   async function handleRegistryInstall(item: RegistryItem) {
@@ -474,6 +499,7 @@
         >
           <span class="collapse-arrow" class:expanded={registryExpanded}>▶</span>
           <h3 class="section-heading inline">Browse Agent Catalog</h3>
+          <span class="section-hint">aitmpl.com + git sources</span>
         </button>
 
         {#if registryExpanded}
@@ -482,10 +508,24 @@
               <input
                 class="form-input"
                 type="search"
-                placeholder="Search agents on aitmpl.com…"
+                placeholder="Search agents…"
                 value={registrySearchInput}
                 oninput={(e) => handleRegistrySearch(e.currentTarget.value)}
               />
+              <select
+                class="form-input source-filter"
+                value={sourceFilter ?? ""}
+                onchange={(e) => handleSourceFilterChange(e.currentTarget.value)}
+                aria-label="Filter by source"
+              >
+                <option value="">All sources</option>
+                {#if settings.aitmplEnabled}
+                  <option value="aitmpl">aitmpl.com</option>
+                {/if}
+                {#each sourceStore.sources.filter((s) => s.enabled) as src (src.id)}
+                  <option value={src.id}>{src.name}</option>
+                {/each}
+              </select>
               {#if agentStore.registrySearching}
                 <span class="search-spinner">⟳</span>
               {/if}

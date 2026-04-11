@@ -241,27 +241,39 @@ pub fn get_source_items(
 }
 
 /// Search the unified catalog: aitmpl.com registry + git source items from enabled sources.
-/// Returns results as `RegistryItem` so the frontend handles a single type.
+/// Optional `source_id` filter: `"aitmpl"` for aitmpl.com only, a UUID for a specific git source,
+/// or `None` for all sources.
 #[tauri::command]
 pub async fn search_catalog(
     app: AppHandle,
     query: String,
     kind: Option<String>,
     limit: Option<u32>,
+    source_id: Option<String>,
 ) -> Result<crate::registry::RegistrySearchResult, String> {
     let state = app.state::<AppState>();
     let client = &state.http_client;
 
+    // Determine which sources to include based on the filter
+    let include_aitmpl = match source_id.as_deref() {
+        Some("aitmpl") => true,
+        Some(_) => false, // Specific git source — skip aitmpl
+        None => true,     // No filter — include all
+    };
+    let include_git = source_id.as_deref() != Some("aitmpl");
+
     // Check if aitmpl.com registry is enabled (default: true)
-    let aitmpl_enabled = {
+    let aitmpl_enabled = if include_aitmpl {
         let db = state.db.lock().map_err(|e| e.to_string())?;
         queries::get_setting(&db, "aitmpl_enabled")
             .map_err(|e| e.to_string())?
             .map(|v| v != "false")
             .unwrap_or(true)
+    } else {
+        false
     };
 
-    // 1) Fetch aitmpl.com results (if enabled)
+    // 1) Fetch aitmpl.com results (if enabled and included)
     let mut items: Vec<crate::registry::RegistryItem> = if aitmpl_enabled {
         let aitmpl_result =
             crate::registry::search_registries(client, &query, limit.unwrap_or(200)).await;
@@ -287,43 +299,63 @@ pub async fn search_catalog(
     }
 
     // 2) Fetch git source catalog items from enabled sources
-    // Merge both DB queries into a single lock scope to reduce mutex contention
-    let (git_items, source_names) = {
-        let db = state.db.lock().map_err(|e| e.to_string())?;
-        let q = if query.trim().is_empty() {
-            None
-        } else {
-            Some(query.as_str())
+    if include_git {
+        let git_source_filter = match source_id.as_deref() {
+            Some("aitmpl") | None => None,
+            Some(id) => Some(id),
         };
-        let catalog = queries::get_catalog_entries(&db, kind.as_deref(), q)
-            .map_err(|e| format!("Catalog query failed: {e}"))?;
-        let names: std::collections::HashMap<String, String> = queries::list_git_sources(&db)
-            .map_err(|e| e.to_string())?
-            .into_iter()
-            .map(|s| (s.id.clone(), s.name.clone()))
-            .collect();
-        (catalog, names)
-    };
 
-    // Convert git catalog items to RegistryItem (omit content to reduce IPC payload)
-    for gi in git_items {
-        let item_kind = match gi.kind.as_str() {
-            "agent" => crate::registry::RegistryItemKind::Agent,
-            _ => crate::registry::RegistryItemKind::Skill,
+        let (git_items, source_names) = {
+            let db = state.db.lock().map_err(|e| e.to_string())?;
+            let q = if query.trim().is_empty() {
+                None
+            } else {
+                Some(query.as_str())
+            };
+            let catalog = queries::get_catalog_entries(&db, kind.as_deref(), q, git_source_filter)
+                .map_err(|e| format!("Catalog query failed: {e}"))?;
+
+            // Only load the source name(s) we actually need
+            let names: std::collections::HashMap<String, String> =
+                if let Some(single_id) = git_source_filter {
+                    queries::get_git_source(&db, single_id)
+                        .map_err(|e| e.to_string())?
+                        .map(|s| {
+                            let mut m = std::collections::HashMap::new();
+                            m.insert(s.id.clone(), s.name.clone());
+                            m
+                        })
+                        .unwrap_or_default()
+                } else {
+                    queries::list_git_sources(&db)
+                        .map_err(|e| e.to_string())?
+                        .into_iter()
+                        .map(|s| (s.id.clone(), s.name.clone()))
+                        .collect()
+                };
+            (catalog, names)
         };
-        let sname = source_names.get(&gi.git_source_id).cloned();
-        items.push(crate::registry::RegistryItem {
-            id: gi.id,
-            name: gi.name,
-            description: gi.description,
-            source: crate::registry::RegistrySource::Git,
-            source_name: sname,
-            url: None,
-            installs: None,
-            kind: item_kind,
-            source_repo: None,
-            content: None,
-        });
+
+        // Convert git catalog items to RegistryItem (omit content to reduce IPC payload)
+        for gi in git_items {
+            let item_kind = match gi.kind.as_str() {
+                "agent" => crate::registry::RegistryItemKind::Agent,
+                _ => crate::registry::RegistryItemKind::Skill,
+            };
+            let sname = source_names.get(&gi.git_source_id).cloned();
+            items.push(crate::registry::RegistryItem {
+                id: gi.id,
+                name: gi.name,
+                description: gi.description,
+                source: crate::registry::RegistrySource::Git,
+                source_name: sname,
+                url: None,
+                installs: None,
+                kind: item_kind,
+                source_repo: None,
+                content: None,
+            });
+        }
     }
 
     // Sort: aitmpl items by installs (highest first), then git items alphabetically

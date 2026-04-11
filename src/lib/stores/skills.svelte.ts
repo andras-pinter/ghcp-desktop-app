@@ -51,37 +51,49 @@ export async function removeSkill(id: string): Promise<void> {
 /** Cached browse results so clearing search restores instantly. */
 let browseCache: RegistryItem[] = [];
 
+/** Pending request queued while a search is in-flight. */
+let pendingRequest: { query: string; sourceId?: string | null } | null = null;
+
 /** Prefetch popular skills from registries (browse mode with empty query). */
-export async function prefetchRegistry(): Promise<void> {
-  // If we have cached browse results, restore them instantly
-  if (browseCache.length > 0) {
+export async function prefetchRegistry(sourceId?: string | null): Promise<void> {
+  // If we have cached browse results and no source filter, restore instantly
+  if (browseCache.length > 0 && !sourceId) {
     registryQuery = "";
     registryResults = browseCache;
     registryTotal = browseCache.length;
     return;
   }
-  if (registrySearching) return;
+  if (registrySearching) {
+    pendingRequest = { query: "", sourceId };
+    return;
+  }
   registrySearching = true;
   try {
-    const result: RegistrySearchResult = await searchCatalogCmd("", "skill", 200);
-    browseCache = result.items;
+    const result: RegistrySearchResult = await searchCatalogCmd("", "skill", 200, sourceId);
+    if (!sourceId) {
+      browseCache = result.items;
+    }
     registryQuery = "";
-    registryResults = browseCache;
-    registryTotal = browseCache.length;
+    registryResults = result.items;
+    registryTotal = result.items.length;
   } catch (e) {
     logFrontend("warn", `Skills registry prefetch failed: ${e}`);
   } finally {
     registrySearching = false;
+    drainPendingRequest();
   }
 }
 
 /** Search registries and update results. */
-export async function searchRegistries(query: string): Promise<void> {
-  if (registrySearching) return;
+export async function searchRegistries(query: string, sourceId?: string | null): Promise<void> {
+  if (registrySearching) {
+    pendingRequest = { query, sourceId };
+    return;
+  }
   registryQuery = query;
   registrySearching = true;
   try {
-    const result: RegistrySearchResult = await searchCatalogCmd(query, "skill");
+    const result: RegistrySearchResult = await searchCatalogCmd(query, "skill", null, sourceId);
     registryResults = result.items;
     registryTotal = result.items.length;
   } catch (e) {
@@ -90,6 +102,19 @@ export async function searchRegistries(query: string): Promise<void> {
     registryTotal = null;
   } finally {
     registrySearching = false;
+    drainPendingRequest();
+  }
+}
+
+/** Fire the latest queued request after the current one finishes. */
+function drainPendingRequest(): void {
+  if (!pendingRequest) return;
+  const { query, sourceId } = pendingRequest;
+  pendingRequest = null;
+  if (query) {
+    searchRegistries(query, sourceId);
+  } else {
+    prefetchRegistry(sourceId);
   }
 }
 

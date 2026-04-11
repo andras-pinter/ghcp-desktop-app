@@ -10,6 +10,8 @@
     prefetchRegistry,
   } from "$lib/stores/skills.svelte";
   import { getMcpState } from "$lib/stores/mcp.svelte";
+  import { getSourceStore, initSources } from "$lib/stores/sources.svelte";
+  import { getSettings } from "$lib/stores/settings.svelte";
   import { renderMarkdown, stripFrontmatter } from "$lib/utils/markdown";
   import type { Skill } from "$lib/types/skill";
   import type { RegistryItem } from "$lib/types/registry";
@@ -24,6 +26,8 @@
 
   const store = getSkillStore();
   const mcp = getMcpState();
+  const sourceStore = getSourceStore();
+  const settings = getSettings();
 
   // ── Local state ─────────────────────────────────────────────
 
@@ -31,6 +35,18 @@
   let searchDebounce: ReturnType<typeof setTimeout> | null = null;
 
   let registryExpanded = $state(false);
+  let sourceFilter = $state<string | null>(null);
+
+  // Reset filter if selected source is disabled or deleted
+  $effect(() => {
+    if (
+      sourceFilter &&
+      sourceFilter !== "aitmpl" &&
+      !sourceStore.sources.some((s) => s.enabled && s.id === sourceFilter)
+    ) {
+      sourceFilter = null;
+    }
+  });
 
   let installingId = $state<string | null>(null);
   let installedId = $state<string | null>(null);
@@ -85,14 +101,23 @@
     searchDebounce = setTimeout(
       () => {
         if (value.trim()) {
-          searchRegistries(value.trim());
+          searchRegistries(value.trim(), sourceFilter);
         } else {
-          // Restore prefetched browse results instead of clearing
-          prefetchRegistry();
+          prefetchRegistry(sourceFilter);
         }
       },
       value.trim() ? 400 : 0,
     );
+  }
+
+  function handleSourceFilterChange(value: string) {
+    sourceFilter = value || null;
+    // Re-fetch with new filter (bypasses browse cache when filtered)
+    if (searchQuery.trim()) {
+      searchRegistries(searchQuery.trim(), sourceFilter);
+    } else {
+      prefetchRegistry(sourceFilter);
+    }
   }
 
   async function handleToggle(skill: Skill) {
@@ -240,6 +265,7 @@
 
   onMount(async () => {
     initSkills();
+    if (!sourceStore.loaded) initSources();
   });
 
   onDestroy(() => {
@@ -623,7 +649,7 @@
         >
           <span class="collapse-arrow" class:expanded={registryExpanded}>▶</span>
           <h3 class="section-heading inline">Browse Registries</h3>
-          <span class="section-hint">aitmpl.com</span>
+          <span class="section-hint">aitmpl.com + git sources</span>
         </button>
 
         {#if registryExpanded}
@@ -636,6 +662,20 @@
                 placeholder="Search skills (e.g. memory, web, code)…"
                 class="form-input"
               />
+              <select
+                class="form-input source-filter"
+                value={sourceFilter ?? ""}
+                onchange={(e) => handleSourceFilterChange(e.currentTarget.value)}
+                aria-label="Filter by source"
+              >
+                <option value="">All sources</option>
+                {#if settings.aitmplEnabled}
+                  <option value="aitmpl">aitmpl.com</option>
+                {/if}
+                {#each sourceStore.sources.filter((s) => s.enabled) as src (src.id)}
+                  <option value={src.id}>{src.name}</option>
+                {/each}
+              </select>
               {#if store.registrySearching}
                 <span class="search-spinner" role="status" aria-label="Searching">⟳</span>
               {/if}
