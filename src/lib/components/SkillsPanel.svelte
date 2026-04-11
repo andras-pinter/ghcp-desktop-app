@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { SvelteSet } from "svelte/reactivity";
   import { stripMarkdown } from "$lib/utils/format";
   import {
     getSkillStore,
@@ -36,7 +35,7 @@
   let searchDebounce: ReturnType<typeof setTimeout> | null = null;
 
   let registryExpanded = $state(false);
-  const selectedSources = new SvelteSet<string>();
+  const selectedSources = store.selectedSourceIds;
 
   // Remove stale source IDs if source is disabled or deleted
   $effect(() => {

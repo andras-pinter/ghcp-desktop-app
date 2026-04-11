@@ -92,7 +92,7 @@
   let registrySearchDebounce: ReturnType<typeof setTimeout> | null = null;
   let installingId = $state<string | null>(null);
   let installedId = $state<string | null>(null);
-  const selectedSources = new SvelteSet<string>();
+  const selectedSources = agentStore.selectedSourceIds;
 
   // Remove stale source IDs if source is disabled or deleted
   $effect(() => {

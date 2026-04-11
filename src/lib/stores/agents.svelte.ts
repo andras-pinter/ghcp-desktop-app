@@ -14,6 +14,7 @@ import {
 } from "$lib/utils/commands";
 import type { Agent } from "$lib/types/agent";
 import type { RegistryItem, RegistrySearchResult } from "$lib/types/registry";
+import { SvelteSet } from "svelte/reactivity";
 
 let agents = $state<Agent[]>([]);
 let loaded = $state(false);
@@ -23,6 +24,9 @@ let selectedAgentId = $state<string | null>(null);
 let registryResults = $state<RegistryItem[]>([]);
 let registrySearching = $state(false);
 let registryQuery = $state("");
+
+/** Source filter selection (persists across component mount/unmount). */
+const selectedSourceIds = new SvelteSet<string>();
 
 /** Load agents from the backend. Call once after auth. */
 export async function initAgents(): Promise<void> {
@@ -210,6 +214,9 @@ export function getAgentStore() {
     },
     get registryQuery() {
       return registryQuery;
+    },
+    get selectedSourceIds() {
+      return selectedSourceIds;
     },
   };
 }

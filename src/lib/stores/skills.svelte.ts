@@ -12,6 +12,7 @@ import {
 } from "$lib/utils/commands";
 import type { Skill } from "$lib/types/skill";
 import type { RegistryItem, RegistrySearchResult } from "$lib/types/registry";
+import { SvelteSet } from "svelte/reactivity";
 
 let skills = $state<Skill[]>([]);
 let loaded = $state(false);
@@ -21,6 +22,9 @@ let registryQuery = $state("");
 let registryResults = $state<RegistryItem[]>([]);
 let registrySearching = $state(false);
 let registryTotal = $state<number | null>(null);
+
+/** Source filter selection (persists across component mount/unmount). */
+const selectedSourceIds = new SvelteSet<string>();
 
 /** Load skills from the backend. Call once after auth. */
 export async function initSkills(): Promise<void> {
@@ -190,6 +194,9 @@ export function getSkillStore() {
     },
     get registryTotal() {
       return registryTotal;
+    },
+    get selectedSourceIds() {
+      return selectedSourceIds;
     },
   };
 }
