@@ -9,6 +9,7 @@
     isStreaming,
     hasUnread,
   } from "$lib/stores/conversations.svelte";
+  import { getSourceStore } from "$lib/stores/sources.svelte";
   import { formatDateGroup, truncate } from "$lib/utils/format";
   import ConfirmDialog from "./ConfirmDialog.svelte";
 
@@ -21,6 +22,7 @@
   let { collapsed, onNewChat, onNavigate }: Props = $props();
 
   const store = getConversationStore();
+  const sourceStore = getSourceStore();
 
   // Group conversations: favourites first, then by date
   let favourites = $derived(store.conversations.filter((c) => c.isFavourite));
@@ -292,19 +294,23 @@
         title="Git Sources"
         onclick={() => onNavigate?.("sources")}
       >
-        <svg
-          width="15"
-          height="15"
-          viewBox="0 0 16 16"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.5"
-        >
-          <line x1="8" y1="1" x2="8" y2="11" />
-          <circle cx="8" cy="12" r="2" />
-          <line x1="8" y1="5" x2="13" y2="3" />
-          <circle cx="13" cy="3" r="1.5" />
-        </svg>
+        {#if sourceStore.anySyncing}
+          <span class="spinner spinner--sm"></span>
+        {:else}
+          <svg
+            width="15"
+            height="15"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+          >
+            <line x1="8" y1="1" x2="8" y2="11" />
+            <circle cx="8" cy="12" r="2" />
+            <line x1="8" y1="5" x2="13" y2="3" />
+            <circle cx="13" cy="3" r="1.5" />
+          </svg>
+        {/if}
         <span class="nav-label">Sources</span>
       </button>
       <button

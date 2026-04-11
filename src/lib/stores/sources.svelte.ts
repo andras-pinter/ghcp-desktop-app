@@ -20,6 +20,9 @@ let loaded = $state(false);
 /** Per-source syncing flag (keyed by source ID). */
 const syncing: Record<string, boolean> = $state({});
 
+/** Whether syncAllEnabled is running. */
+let syncingAll = $state(false);
+
 /** Per-source expanded items (keyed by source ID). */
 const expandedItems: Record<string, SourceItem[]> = $state({});
 
@@ -105,12 +108,15 @@ export async function syncSource(id: string): Promise<SourceScanResult> {
 
 /** Auto-sync all enabled sources (silent, called on app launch). */
 export async function syncAllEnabled(): Promise<void> {
+  syncingAll = true;
   try {
     await syncAllSourcesCmd();
     // Refresh the full list to pick up updated metadata
     sources = await getGitSourcesCmd();
   } catch (e) {
     logFrontend("warn", `syncAllSources failed: ${e}`);
+  } finally {
+    syncingAll = false;
   }
 }
 
@@ -197,6 +203,9 @@ export function getSourceStore() {
     },
     get adding() {
       return adding;
+    },
+    get anySyncing() {
+      return syncingAll || Object.values(syncing).some(Boolean);
     },
   };
 }
