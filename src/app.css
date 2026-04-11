@@ -1714,12 +1714,6 @@ textarea.form-input {
   overflow-y: auto;
 }
 
-.install-count {
-  font-size: var(--font-size-2xs);
-  color: var(--color-text-tertiary);
-  margin-left: auto;
-}
-
 .source-link {
   font-size: var(--font-size-xs);
   color: var(--color-accent-copper);

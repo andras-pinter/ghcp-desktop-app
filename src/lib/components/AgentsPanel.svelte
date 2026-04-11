@@ -207,7 +207,12 @@
   }
 
   function registrySourceLabel(item: RegistryItem): string {
-    return item.sourceName ?? "Registry";
+    if (item.source === "aitmpl") return "🌐 " + (item.sourceName ?? "aitmpl.com");
+    return "🔀 " + (item.sourceName ?? "Git");
+  }
+
+  function registrySourceBadgeClass(item: RegistryItem): string {
+    return item.source === "aitmpl" ? "badge badge--copper" : "badge badge--neutral";
   }
 
   // ── Handlers ────────────────────────────────────────────────
@@ -578,7 +583,8 @@
                           : "Expand"}>▶</button
                       >
                       <strong class="card-title">{item.name}</strong>
-                      <span class="badge badge--neutral">{registrySourceLabel(item)}</span>
+                      <span class={registrySourceBadgeClass(item)}>{registrySourceLabel(item)}</span
+                      >
                       {#if item.url}
                         <a
                           href={item.url}

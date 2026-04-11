@@ -253,7 +253,12 @@
   }
 
   function registrySourceLabel(item: RegistryItem): string {
-    return item.sourceName ?? "Registry";
+    if (item.source === "aitmpl") return "🌐 " + (item.sourceName ?? "aitmpl.com");
+    return "🔀 " + (item.sourceName ?? "Git");
+  }
+
+  function registrySourceBadgeClass(item: RegistryItem): string {
+    return item.source === "aitmpl" ? "badge badge--copper" : "badge badge--neutral";
   }
 
   function isAlreadyInstalled(item: RegistryItem): boolean {
@@ -734,7 +739,8 @@
                           : "Expand"}>▶</button
                       >
                       <strong class="card-title">{item.name}</strong>
-                      <span class="badge badge--neutral">{registrySourceLabel(item)}</span>
+                      <span class={registrySourceBadgeClass(item)}>{registrySourceLabel(item)}</span
+                      >
                       {#if item.url}
                         <a
                           href={item.url}
@@ -747,7 +753,7 @@
                         </a>
                       {/if}
                       {#if item.installs !== null}
-                        <span class="install-count">{item.installs} installs</span>
+                        <span class="badge badge--neutral">⬇ {item.installs.toLocaleString()}</span>
                       {/if}
                     </div>
                     {#if expandedRegistryKey !== registryKey(item) && item.description}

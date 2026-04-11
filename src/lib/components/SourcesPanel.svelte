@@ -283,7 +283,9 @@
         </div>
         <div class="card-meta">
           <span class="badge badge--mono">aitmpl.com</span>
-          <span class="source-stats">Community skill &amp; agent registry</span>
+          <span class="badge badge--neutral source-meta-badge"
+            >Community skill &amp; agent registry</span
+          >
         </div>
       </article>
     {/snippet}
@@ -403,17 +405,21 @@
 
           <div class="card-meta">
             <span class="badge badge--mono">{shortUrl(source.url)}</span>
-            <span class="source-stats">
-              {source.itemCount} item{source.itemCount !== 1 ? "s" : ""}
-              {#if store.syncProgress[source.id]}
-                · syncing {store.syncProgress[source.id].fetched}/{store.syncProgress[source.id]
-                  .total}
-              {:else if source.lastSyncedAt}
-                · synced {timeAgo(source.lastSyncedAt)}
-              {:else}
-                · never synced
-              {/if}
-            </span>
+            <span class="badge badge--neutral source-meta-badge"
+              >📦 {source.itemCount} item{source.itemCount !== 1 ? "s" : ""}</span
+            >
+            {#if store.syncProgress[source.id]}
+              <span class="badge badge--copper source-meta-badge"
+                >⟳ syncing {store.syncProgress[source.id].fetched}/{store.syncProgress[source.id]
+                  .total}</span
+              >
+            {:else if source.lastSyncedAt}
+              <span class="badge badge--neutral source-meta-badge"
+                >✓ synced {timeAgo(source.lastSyncedAt)}</span
+              >
+            {:else}
+              <span class="badge badge--error source-meta-badge">⚠ never synced</span>
+            {/if}
           </div>
 
           {#if store.expandedIds.has(source.id)}
@@ -509,9 +515,8 @@
     font-size: var(--font-size-sm);
   }
 
-  .source-stats {
-    font-size: var(--font-size-2xs);
-    color: var(--color-text-tertiary);
+  .source-meta-badge {
+    gap: var(--spacing-2xs);
   }
 
   .inline-edit {
