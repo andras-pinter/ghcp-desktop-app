@@ -8,6 +8,7 @@
     syncSource,
     toggleExpand,
     updateScanProgress,
+    handleSyncComplete,
     clearScanResult,
     renameSource,
   } from "$lib/stores/sources.svelte";
@@ -37,6 +38,7 @@
   let editingNameValue = $state("");
 
   let unlistenProgress: UnlistenFn | undefined;
+  let unlistenComplete: UnlistenFn | undefined;
 
   onMount(async () => {
     if (!store.loaded) await initSources();
@@ -53,10 +55,14 @@
         event.payload.sourceId,
       );
     });
+    unlistenComplete = await listen<{ sourceId: string }>("git-source-sync-complete", (event) => {
+      handleSyncComplete(event.payload.sourceId);
+    });
   });
 
   onDestroy(() => {
     unlistenProgress?.();
+    unlistenComplete?.();
   });
 
   // ── Derived ───────────────────────────────────────────────────

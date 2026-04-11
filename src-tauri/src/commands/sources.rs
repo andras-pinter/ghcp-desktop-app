@@ -675,6 +675,19 @@ async fn scan_and_update_source(
     queries::update_git_source_synced(&db, &source.id, files.len() as i64)
         .map_err(|e| format!("Failed to update sync timestamp: {e}"))?;
 
+    // Notify frontend that this source's sync is fully committed to DB
+    #[derive(Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct SyncComplete {
+        source_id: String,
+    }
+    let _ = app.emit(
+        "git-source-sync-complete",
+        &SyncComplete {
+            source_id: source.id.clone(),
+        },
+    );
+
     Ok(())
 }
 
