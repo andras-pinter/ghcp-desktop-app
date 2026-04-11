@@ -1197,7 +1197,7 @@ pub fn get_catalog_entries(
     conn: &Connection,
     kind: Option<&str>,
     query: Option<&str>,
-    source_id: Option<&str>,
+    source_ids: Option<&[String]>,
 ) -> Result<Vec<GitSourceCatalogItem>, rusqlite::Error> {
     let mut sql = String::from(
         "SELECT i.id, i.git_source_id, i.path, i.kind, i.name, i.description, i.content, i.created_at, i.updated_at
@@ -1208,10 +1208,22 @@ pub fn get_catalog_entries(
     let mut param_values: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
     let mut param_idx = 1;
 
-    if let Some(sid) = source_id {
-        sql.push_str(&format!(" AND i.git_source_id = ?{param_idx}"));
-        param_values.push(Box::new(sid.to_string()));
-        param_idx += 1;
+    if let Some(ids) = source_ids {
+        if !ids.is_empty() {
+            let placeholders: Vec<String> = ids
+                .iter()
+                .enumerate()
+                .map(|(i, _)| format!("?{}", param_idx + i))
+                .collect();
+            sql.push_str(&format!(
+                " AND i.git_source_id IN ({})",
+                placeholders.join(", ")
+            ));
+            for id in ids {
+                param_values.push(Box::new(id.clone()));
+            }
+            param_idx += ids.len();
+        }
     }
 
     if let Some(k) = kind {

@@ -92,18 +92,21 @@
   let registrySearchDebounce: ReturnType<typeof setTimeout> | null = null;
   let installingId = $state<string | null>(null);
   let installedId = $state<string | null>(null);
-  let sourceFilter = $state<string | null>(null);
+  const selectedSources = new SvelteSet<string>();
 
-  // Reset filter if selected source is disabled or deleted
+  // Remove stale source IDs if source is disabled or deleted
   $effect(() => {
-    if (
-      sourceFilter &&
-      sourceFilter !== "aitmpl" &&
-      !sourceStore.sources.some((s) => s.enabled && s.id === sourceFilter)
-    ) {
-      sourceFilter = null;
+    for (const id of selectedSources) {
+      if (id !== "aitmpl" && !sourceStore.sources.some((s) => s.enabled && s.id === id)) {
+        selectedSources.delete(id);
+      }
     }
   });
+
+  /** Convert selection to array for the backend (empty = all). */
+  function sourceIdsParam(): string[] | null {
+    return selectedSources.size > 0 ? [...selectedSources] : null;
+  }
 
   // Expand/collapse for individual agent cards
   let expandedAgentId = $state<string | null>(null);
@@ -156,20 +159,26 @@
     registrySearchInput = query;
     if (registrySearchDebounce) clearTimeout(registrySearchDebounce);
     if (!query.trim()) {
-      prefetchAgentRegistry(sourceFilter);
+      prefetchAgentRegistry(sourceIdsParam());
       return;
     }
     registrySearchDebounce = setTimeout(() => {
-      searchAgentRegistries(query.trim(), sourceFilter);
+      searchAgentRegistries(query.trim(), sourceIdsParam());
     }, 400);
   }
 
   function handleSourceFilterChange(value: string) {
-    sourceFilter = value || null;
-    if (registrySearchInput.trim()) {
-      searchAgentRegistries(registrySearchInput.trim(), sourceFilter);
+    if (!value) {
+      selectedSources.clear();
+    } else if (selectedSources.has(value)) {
+      selectedSources.delete(value);
     } else {
-      prefetchAgentRegistry(sourceFilter);
+      selectedSources.add(value);
+    }
+    if (registrySearchInput.trim()) {
+      searchAgentRegistries(registrySearchInput.trim(), sourceIdsParam());
+    } else {
+      prefetchAgentRegistry(sourceIdsParam());
     }
   }
 
@@ -517,27 +526,27 @@
               {/if}
             </div>
 
-            <div class="source-pills" role="radiogroup" aria-label="Filter by source">
+            <div class="source-pills" role="group" aria-label="Filter by source">
               <button
                 class="source-pill"
-                class:active={!sourceFilter}
+                class:active={selectedSources.size === 0}
                 onclick={() => handleSourceFilterChange("")}
-                aria-pressed={!sourceFilter}>All</button
+                aria-pressed={selectedSources.size === 0}>All</button
               >
               {#if settings.aitmplEnabled}
                 <button
                   class="source-pill"
-                  class:active={sourceFilter === "aitmpl"}
+                  class:active={selectedSources.has("aitmpl")}
                   onclick={() => handleSourceFilterChange("aitmpl")}
-                  aria-pressed={sourceFilter === "aitmpl"}>aitmpl.com</button
+                  aria-pressed={selectedSources.has("aitmpl")}>aitmpl.com</button
                 >
               {/if}
               {#each sourceStore.sources.filter((s) => s.enabled) as src (src.id)}
                 <button
                   class="source-pill"
-                  class:active={sourceFilter === src.id}
+                  class:active={selectedSources.has(src.id)}
                   onclick={() => handleSourceFilterChange(src.id)}
-                  aria-pressed={sourceFilter === src.id}>{src.name}</button
+                  aria-pressed={selectedSources.has(src.id)}>{src.name}</button
                 >
               {/each}
             </div>

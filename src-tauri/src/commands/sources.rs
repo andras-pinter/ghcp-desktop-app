@@ -257,26 +257,43 @@ pub fn get_source_items(
 }
 
 /// Search the unified catalog: aitmpl.com registry + git source items from enabled sources.
-/// Optional `source_id` filter: `"aitmpl"` for aitmpl.com only, a UUID for a specific git source,
-/// or `None` for all sources.
+/// Optional `source_ids` filter: include `"aitmpl"` for aitmpl.com, UUIDs for specific git sources,
+/// or `None` / empty for all sources.
 #[tauri::command]
 pub async fn search_catalog(
     app: AppHandle,
     query: String,
     kind: Option<String>,
     limit: Option<u32>,
-    source_id: Option<String>,
+    source_ids: Option<Vec<String>>,
 ) -> Result<crate::registry::RegistrySearchResult, String> {
     let state = app.state::<AppState>();
     let client = &state.http_client;
 
     // Determine which sources to include based on the filter
-    let include_aitmpl = match source_id.as_deref() {
-        Some("aitmpl") => true,
-        Some(_) => false, // Specific git source — skip aitmpl
-        None => true,     // No filter — include all
+    let has_filter = source_ids.as_ref().is_some_and(|ids| !ids.is_empty());
+    let include_aitmpl = if has_filter {
+        source_ids.as_ref().unwrap().iter().any(|id| id == "aitmpl")
+    } else {
+        true // No filter — include all
     };
-    let include_git = source_id.as_deref() != Some("aitmpl");
+    let git_ids: Option<Vec<String>> = if has_filter {
+        let ids: Vec<String> = source_ids
+            .as_ref()
+            .unwrap()
+            .iter()
+            .filter(|id| *id != "aitmpl")
+            .cloned()
+            .collect();
+        if ids.is_empty() {
+            None
+        } else {
+            Some(ids)
+        }
+    } else {
+        None // No filter — include all git sources
+    };
+    let include_git = !has_filter || git_ids.is_some();
 
     // Check if aitmpl.com registry is enabled (default: true)
     let aitmpl_enabled = if include_aitmpl {
@@ -316,11 +333,6 @@ pub async fn search_catalog(
 
     // 2) Fetch git source catalog items from enabled sources
     if include_git {
-        let git_source_filter = match source_id.as_deref() {
-            Some("aitmpl") | None => None,
-            Some(id) => Some(id),
-        };
-
         let (git_items, source_names) = {
             let db = state.db.lock().map_err(|e| e.to_string())?;
             let q = if query.trim().is_empty() {
@@ -328,27 +340,25 @@ pub async fn search_catalog(
             } else {
                 Some(query.as_str())
             };
-            let catalog = queries::get_catalog_entries(&db, kind.as_deref(), q, git_source_filter)
+            let catalog = queries::get_catalog_entries(&db, kind.as_deref(), q, git_ids.as_deref())
                 .map_err(|e| format!("Catalog query failed: {e}"))?;
 
             // Only load the source name(s) we actually need
-            let names: std::collections::HashMap<String, String> =
-                if let Some(single_id) = git_source_filter {
-                    queries::get_git_source(&db, single_id)
-                        .map_err(|e| e.to_string())?
-                        .map(|s| {
-                            let mut m = std::collections::HashMap::new();
-                            m.insert(s.id.clone(), s.name.clone());
-                            m
-                        })
-                        .unwrap_or_default()
-                } else {
-                    queries::list_git_sources(&db)
-                        .map_err(|e| e.to_string())?
-                        .into_iter()
-                        .map(|s| (s.id.clone(), s.name.clone()))
-                        .collect()
-                };
+            let names: std::collections::HashMap<String, String> = match &git_ids {
+                Some(ids) if ids.len() == 1 => queries::get_git_source(&db, &ids[0])
+                    .map_err(|e| e.to_string())?
+                    .map(|s| {
+                        let mut m = std::collections::HashMap::new();
+                        m.insert(s.id.clone(), s.name.clone());
+                        m
+                    })
+                    .unwrap_or_default(),
+                _ => queries::list_git_sources(&db)
+                    .map_err(|e| e.to_string())?
+                    .into_iter()
+                    .map(|s| (s.id.clone(), s.name.clone()))
+                    .collect(),
+            };
             (catalog, names)
         };
 

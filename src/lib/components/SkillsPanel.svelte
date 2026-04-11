@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { SvelteSet } from "svelte/reactivity";
   import { stripMarkdown } from "$lib/utils/format";
   import {
     getSkillStore,
@@ -35,18 +36,21 @@
   let searchDebounce: ReturnType<typeof setTimeout> | null = null;
 
   let registryExpanded = $state(false);
-  let sourceFilter = $state<string | null>(null);
+  const selectedSources = new SvelteSet<string>();
 
-  // Reset filter if selected source is disabled or deleted
+  // Remove stale source IDs if source is disabled or deleted
   $effect(() => {
-    if (
-      sourceFilter &&
-      sourceFilter !== "aitmpl" &&
-      !sourceStore.sources.some((s) => s.enabled && s.id === sourceFilter)
-    ) {
-      sourceFilter = null;
+    for (const id of selectedSources) {
+      if (id !== "aitmpl" && !sourceStore.sources.some((s) => s.enabled && s.id === id)) {
+        selectedSources.delete(id);
+      }
     }
   });
+
+  /** Convert selection to array for the backend (empty = all). */
+  function sourceIdsParam(): string[] | null {
+    return selectedSources.size > 0 ? [...selectedSources] : null;
+  }
 
   let installingId = $state<string | null>(null);
   let installedId = $state<string | null>(null);
@@ -101,9 +105,9 @@
     searchDebounce = setTimeout(
       () => {
         if (value.trim()) {
-          searchRegistries(value.trim(), sourceFilter);
+          searchRegistries(value.trim(), sourceIdsParam());
         } else {
-          prefetchRegistry(sourceFilter);
+          prefetchRegistry(sourceIdsParam());
         }
       },
       value.trim() ? 400 : 0,
@@ -111,12 +115,19 @@
   }
 
   function handleSourceFilterChange(value: string) {
-    sourceFilter = value || null;
-    // Re-fetch with new filter (bypasses browse cache when filtered)
-    if (searchQuery.trim()) {
-      searchRegistries(searchQuery.trim(), sourceFilter);
+    if (!value) {
+      // "All" — clear selection
+      selectedSources.clear();
+    } else if (selectedSources.has(value)) {
+      selectedSources.delete(value);
     } else {
-      prefetchRegistry(sourceFilter);
+      selectedSources.add(value);
+    }
+    // Re-fetch with new filter
+    if (searchQuery.trim()) {
+      searchRegistries(searchQuery.trim(), sourceIdsParam());
+    } else {
+      prefetchRegistry(sourceIdsParam());
     }
   }
 
@@ -667,27 +678,27 @@
               {/if}
             </div>
 
-            <div class="source-pills" role="radiogroup" aria-label="Filter by source">
+            <div class="source-pills" role="group" aria-label="Filter by source">
               <button
                 class="source-pill"
-                class:active={!sourceFilter}
+                class:active={selectedSources.size === 0}
                 onclick={() => handleSourceFilterChange("")}
-                aria-pressed={!sourceFilter}>All</button
+                aria-pressed={selectedSources.size === 0}>All</button
               >
               {#if settings.aitmplEnabled}
                 <button
                   class="source-pill"
-                  class:active={sourceFilter === "aitmpl"}
+                  class:active={selectedSources.has("aitmpl")}
                   onclick={() => handleSourceFilterChange("aitmpl")}
-                  aria-pressed={sourceFilter === "aitmpl"}>aitmpl.com</button
+                  aria-pressed={selectedSources.has("aitmpl")}>aitmpl.com</button
                 >
               {/if}
               {#each sourceStore.sources.filter((s) => s.enabled) as src (src.id)}
                 <button
                   class="source-pill"
-                  class:active={sourceFilter === src.id}
+                  class:active={selectedSources.has(src.id)}
                   onclick={() => handleSourceFilterChange(src.id)}
-                  aria-pressed={sourceFilter === src.id}>{src.name}</button
+                  aria-pressed={selectedSources.has(src.id)}>{src.name}</button
                 >
               {/each}
             </div>

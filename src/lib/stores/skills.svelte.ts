@@ -52,25 +52,25 @@ export async function removeSkill(id: string): Promise<void> {
 let browseCache: RegistryItem[] = [];
 
 /** Pending request queued while a search is in-flight. */
-let pendingRequest: { query: string; sourceId?: string | null } | null = null;
+let pendingRequest: { query: string; sourceIds?: string[] | null } | null = null;
 
 /** Prefetch popular skills from registries (browse mode with empty query). */
-export async function prefetchRegistry(sourceId?: string | null): Promise<void> {
+export async function prefetchRegistry(sourceIds?: string[] | null): Promise<void> {
   // If we have cached browse results and no source filter, restore instantly
-  if (browseCache.length > 0 && !sourceId) {
+  if (browseCache.length > 0 && (!sourceIds || sourceIds.length === 0)) {
     registryQuery = "";
     registryResults = browseCache;
     registryTotal = browseCache.length;
     return;
   }
   if (registrySearching) {
-    pendingRequest = { query: "", sourceId };
+    pendingRequest = { query: "", sourceIds };
     return;
   }
   registrySearching = true;
   try {
-    const result: RegistrySearchResult = await searchCatalogCmd("", "skill", 200, sourceId);
-    if (!sourceId) {
+    const result: RegistrySearchResult = await searchCatalogCmd("", "skill", 200, sourceIds);
+    if (!sourceIds || sourceIds.length === 0) {
       browseCache = result.items;
     }
     registryQuery = "";
@@ -85,15 +85,15 @@ export async function prefetchRegistry(sourceId?: string | null): Promise<void> 
 }
 
 /** Search registries and update results. */
-export async function searchRegistries(query: string, sourceId?: string | null): Promise<void> {
+export async function searchRegistries(query: string, sourceIds?: string[] | null): Promise<void> {
   if (registrySearching) {
-    pendingRequest = { query, sourceId };
+    pendingRequest = { query, sourceIds };
     return;
   }
   registryQuery = query;
   registrySearching = true;
   try {
-    const result: RegistrySearchResult = await searchCatalogCmd(query, "skill", null, sourceId);
+    const result: RegistrySearchResult = await searchCatalogCmd(query, "skill", null, sourceIds);
     registryResults = result.items;
     registryTotal = result.items.length;
   } catch (e) {
@@ -109,12 +109,12 @@ export async function searchRegistries(query: string, sourceId?: string | null):
 /** Fire the latest queued request after the current one finishes. */
 function drainPendingRequest(): void {
   if (!pendingRequest) return;
-  const { query, sourceId } = pendingRequest;
+  const { query, sourceIds } = pendingRequest;
   pendingRequest = null;
   if (query) {
-    searchRegistries(query, sourceId);
+    searchRegistries(query, sourceIds);
   } else {
-    prefetchRegistry(sourceId);
+    prefetchRegistry(sourceIds);
   }
 }
 

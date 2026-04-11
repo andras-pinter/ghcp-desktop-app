@@ -95,24 +95,24 @@ export function getDefaultAgent(): Agent | undefined {
 let browseCache: RegistryItem[] = [];
 
 /** Pending request queued while a search is in-flight. */
-let pendingRequest: { query: string; sourceId?: string | null } | null = null;
+let pendingRequest: { query: string; sourceIds?: string[] | null } | null = null;
 
 /** Prefetch popular agents from registries (browse mode with empty query). */
-export async function prefetchAgentRegistry(sourceId?: string | null): Promise<void> {
+export async function prefetchAgentRegistry(sourceIds?: string[] | null): Promise<void> {
   // If we have cached browse results and no source filter, restore instantly
-  if (browseCache.length > 0 && !sourceId) {
+  if (browseCache.length > 0 && (!sourceIds || sourceIds.length === 0)) {
     registryQuery = "";
     registryResults = browseCache;
     return;
   }
   if (registrySearching) {
-    pendingRequest = { query: "", sourceId };
+    pendingRequest = { query: "", sourceIds };
     return;
   }
   registrySearching = true;
   try {
-    const result: RegistrySearchResult = await searchCatalogCmd("", "agent", 200, sourceId);
-    if (!sourceId) {
+    const result: RegistrySearchResult = await searchCatalogCmd("", "agent", 200, sourceIds);
+    if (!sourceIds || sourceIds.length === 0) {
       browseCache = result.items;
     }
     registryQuery = "";
@@ -128,16 +128,16 @@ export async function prefetchAgentRegistry(sourceId?: string | null): Promise<v
 /** Search registries for agents and update results. */
 export async function searchAgentRegistries(
   query: string,
-  sourceId?: string | null,
+  sourceIds?: string[] | null,
 ): Promise<void> {
   if (registrySearching) {
-    pendingRequest = { query, sourceId };
+    pendingRequest = { query, sourceIds };
     return;
   }
   registryQuery = query;
   registrySearching = true;
   try {
-    const result: RegistrySearchResult = await searchCatalogCmd(query, "agent", null, sourceId);
+    const result: RegistrySearchResult = await searchCatalogCmd(query, "agent", null, sourceIds);
     registryResults = result.items;
   } catch (e) {
     logFrontend("error", `Agent registry search failed: ${e}`);
@@ -151,12 +151,12 @@ export async function searchAgentRegistries(
 /** Fire the latest queued request after the current one finishes. */
 function drainPendingRequest(): void {
   if (!pendingRequest) return;
-  const { query, sourceId } = pendingRequest;
+  const { query, sourceIds } = pendingRequest;
   pendingRequest = null;
   if (query) {
-    searchAgentRegistries(query, sourceId);
+    searchAgentRegistries(query, sourceIds);
   } else {
-    prefetchAgentRegistry(sourceId);
+    prefetchAgentRegistry(sourceIds);
   }
 }
 
