@@ -12,6 +12,8 @@ import {
   getSourceItems as getSourceItemsCmd,
   logFrontend,
 } from "$lib/utils/commands";
+import { invalidateSkillCatalogCache } from "$lib/stores/skills.svelte";
+import { invalidateAgentCatalogCache } from "$lib/stores/agents.svelte";
 import type { GitSource, SourceItem, ImportItem, SourceScanResult } from "$lib/types/source";
 import { SvelteSet } from "svelte/reactivity";
 
@@ -76,6 +78,8 @@ export async function addSource(url: string, name?: string | null): Promise<Sour
 export async function toggleSource(id: string, enabled: boolean): Promise<void> {
   const updated = await updateGitSourceCmd(id, null, enabled);
   sources = sources.map((s) => (s.id === id ? updated : s));
+  invalidateSkillCatalogCache();
+  invalidateAgentCatalogCache();
 }
 
 /** Update a source's display name. */
@@ -91,6 +95,8 @@ export async function removeSource(id: string): Promise<void> {
   // Clean up expanded state
   delete expandedItems[id];
   expandedIds.delete(id);
+  invalidateSkillCatalogCache();
+  invalidateAgentCatalogCache();
 }
 
 // ── Sync ────────────────────────────────────────────────────────
@@ -189,6 +195,8 @@ export function updateScanProgress(
 /** Handle sync completion event — refresh source metadata from DB. */
 export function handleSyncComplete(sourceId: string): void {
   delete syncProgress[sourceId];
+  invalidateSkillCatalogCache();
+  invalidateAgentCatalogCache();
   getGitSourceCmd(sourceId).then((updated) => {
     if (updated) {
       sources = sources.map((s) => (s.id === sourceId ? updated : s));

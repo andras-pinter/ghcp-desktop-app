@@ -7,14 +7,11 @@
     removeSource,
     syncSource,
     toggleExpand,
-    updateScanProgress,
-    handleSyncComplete,
     clearScanResult,
     renameSource,
   } from "$lib/stores/sources.svelte";
   import { getSettings, updateSetting, SETTING_KEYS } from "$lib/stores/settings.svelte";
-  import { onMount, onDestroy } from "svelte";
-  import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+  import { onMount } from "svelte";
   import ConfirmDialog from "./ConfirmDialog.svelte";
 
   interface Props {
@@ -37,32 +34,8 @@
   let editingNameId = $state<string | null>(null);
   let editingNameValue = $state("");
 
-  let unlistenProgress: UnlistenFn | undefined;
-  let unlistenComplete: UnlistenFn | undefined;
-
   onMount(async () => {
     if (!store.loaded) await initSources();
-    unlistenProgress = await listen<{
-      total: number;
-      fetched: number;
-      phase: string;
-      sourceId?: string;
-    }>("git-import-progress", (event) => {
-      updateScanProgress(
-        event.payload.total,
-        event.payload.fetched,
-        event.payload.phase,
-        event.payload.sourceId,
-      );
-    });
-    unlistenComplete = await listen<{ sourceId: string }>("git-source-sync-complete", (event) => {
-      handleSyncComplete(event.payload.sourceId);
-    });
-  });
-
-  onDestroy(() => {
-    unlistenProgress?.();
-    unlistenComplete?.();
   });
 
   // ── Derived ───────────────────────────────────────────────────

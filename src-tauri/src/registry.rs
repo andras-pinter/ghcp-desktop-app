@@ -429,22 +429,48 @@ pub fn parse_content_lenient(content: &str, fallback_id: &str) -> (String, Strin
             // Extract name and description from YAML lines
             let mut name = None;
             let mut desc = None;
-            for line in yaml_str.lines() {
+            let lines: Vec<&str> = yaml_str.lines().collect();
+            let mut i = 0;
+            while i < lines.len() {
+                let line = lines[i];
                 if let Some(val) = line.strip_prefix("name:") {
-                    name = Some(val.trim().trim_matches('"').to_string());
+                    name = Some(val.trim().trim_matches('"').trim_matches('\'').to_string());
                 }
                 if desc.is_none() {
                     if let Some(val) = line.strip_prefix("description:") {
-                        // Take just the first line of description, truncated
-                        let d = val.trim().trim_matches('"');
-                        let clean = d.lines().next().unwrap_or(d);
-                        desc = Some(if clean.len() > 200 {
-                            format!("{}…", &clean[..197])
+                        let trimmed = val.trim();
+                        let raw = if trimmed.is_empty()
+                            || trimmed == ">"
+                            || trimmed == "|"
+                            || trimmed == ">-"
+                            || trimmed == "|-"
+                        {
+                            // Multi-line YAML: collect indented continuation lines
+                            let mut parts = Vec::new();
+                            while i + 1 < lines.len() {
+                                let next = lines[i + 1];
+                                if next.starts_with(' ') || next.starts_with('\t') {
+                                    parts.push(next.trim());
+                                    i += 1;
+                                } else {
+                                    break;
+                                }
+                            }
+                            parts.join(" ")
                         } else {
-                            clean.to_string()
-                        });
+                            trimmed.trim_matches('"').trim_matches('\'').to_string()
+                        };
+                        if !raw.is_empty() {
+                            let clean = raw.lines().next().unwrap_or(&raw);
+                            desc = Some(if clean.len() > 200 {
+                                format!("{}…", &clean[..197])
+                            } else {
+                                clean.to_string()
+                            });
+                        }
                     }
                 }
+                i += 1;
             }
 
             return (

@@ -174,6 +174,11 @@ export async function addManualSkill(
   return skill;
 }
 
+/** Invalidate the browse cache so next prefetch fetches fresh data. */
+export function invalidateSkillCatalogCache(): void {
+  browseCache = [];
+}
+
 /** Reactive getters. */
 export function getSkillStore() {
   return {

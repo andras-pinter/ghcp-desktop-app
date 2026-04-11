@@ -194,6 +194,11 @@ export async function installAgentFromRegistry(item: RegistryItem): Promise<Agen
 
 // ── Git Import ── (removed — git import now handled via Sources panel)
 
+/** Invalidate the browse cache so next prefetch fetches fresh data. */
+export function invalidateAgentCatalogCache(): void {
+  browseCache = [];
+}
+
 /** Reactive getters. */
 export function getAgentStore() {
   return {

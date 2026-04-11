@@ -20,7 +20,12 @@
   import { initAgents, prefetchAgentRegistry } from "$lib/stores/agents.svelte";
   import { initSkills, prefetchRegistry as prefetchSkillRegistry } from "$lib/stores/skills.svelte";
   import { initProjects } from "$lib/stores/projects.svelte";
-  import { initSources, syncAllEnabled } from "$lib/stores/sources.svelte";
+  import {
+    initSources,
+    syncAllEnabled,
+    updateScanProgress,
+    handleSyncComplete,
+  } from "$lib/stores/sources.svelte";
   import { initSettings, getSettings } from "$lib/stores/settings.svelte";
   import { initNetwork } from "$lib/stores/network.svelte";
   import { listen, type UnlistenFn } from "@tauri-apps/api/event";
@@ -108,6 +113,24 @@
     });
     trayCleanup.then((fn) => (unlistenTray = fn));
 
+    // Listen for git source progress + completion (global, not panel-scoped)
+    let unlistenProgress: UnlistenFn | undefined;
+    let unlistenComplete: UnlistenFn | undefined;
+    listen<{ total: number; fetched: number; phase: string; sourceId?: string }>(
+      "git-import-progress",
+      (event) => {
+        updateScanProgress(
+          event.payload.total,
+          event.payload.fetched,
+          event.payload.phase,
+          event.payload.sourceId,
+        );
+      },
+    ).then((fn) => (unlistenProgress = fn));
+    listen<{ sourceId: string }>("git-source-sync-complete", (event) => {
+      handleSyncComplete(event.payload.sourceId);
+    }).then((fn) => (unlistenComplete = fn));
+
     // Prevent Tauri webview from navigating when files are dragged/dropped
     // outside the designated drop zone. Only preventDefault — do NOT
     // stopPropagation, so InputArea's own handlers still fire.
@@ -118,6 +141,8 @@
       document.removeEventListener("dragover", preventDragNav);
       document.removeEventListener("drop", preventDragNav);
       unlistenTray?.();
+      unlistenProgress?.();
+      unlistenComplete?.();
       if (registeredHotkey) {
         unregister(registeredHotkey);
       }
