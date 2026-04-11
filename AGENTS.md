@@ -372,14 +372,15 @@ and **events** (`listen()`/`emit()`). This is the only bridge between the two la
 | `projects.rs` | `get_projects` — list projects; `get_project` — single by ID; `create_project` — new project; `update_project` — edit instructions/name; `delete_project` — remove project; `get_project_files` — list files; `add_project_file` — attach file (BLOB); `get_project_file_content` — read file content; `remove_project_file` — detach file; `get_project_conversations` — list conversations in project; `pick_file_for_upload` — native file picker for project files; `pick_file_for_chat` — native file picker for chat attachments; `extract_file_text` — async text extraction (PDF, DOCX, XLSX, PPTX, RTF, 60+ text formats); `read_dropped_files` — read file paths from Tauri drag-drop events (validated against OS-registered allowed paths) | ✅ |
 | `mcp.rs` | `get_mcp_servers` — list configured servers; `add_mcp_server` — register new server; `update_mcp_server` — update server config; `remove_mcp_server` — delete server; `connect_mcp_server` — connect to server (auth_header redacted in response; stdio binaries require prior approval); `disconnect_mcp_server` — disconnect; `test_mcp_connection` — verify server responds; `test_mcp_connection_config` — test unsaved server config from add/edit form; `get_mcp_tools` — list discovered tools; `invoke_mcp_tool` — call an MCP tool; `fetch_mcp_registry` — browse official MCP Registry; `approve_mcp_binary` — approve a stdio binary for execution (persisted to SQLite); `is_mcp_binary_approved` — check if a binary is approved | ✅ |
 | `web_research.rs` | `web_search` — trigger web search via API; `fetch_url` — fetch + extract URL content | ✅ |
-| `sources.rs` | `get_git_sources` — list all git sources; `get_git_source` — single by ID; `create_git_source` — add + scan repo; `update_git_source` — rename/toggle; `delete_git_source` — remove source (items kept as local copies); `sync_git_source` — re-scan repo + update imported items; `import_source_items` — import selected skills/agents from scan; `sync_all_sources` — auto-sync all enabled sources (called on app launch); `get_source_items` — list skills/agents linked to source | ✅ |
+| `sources.rs` | `get_git_sources` — list all git sources; `get_git_source` — single by ID; `create_git_source` — add + scan repo; `update_git_source` — rename/toggle; `delete_git_source` — remove source (items kept as local copies); `sync_git_source` — re-scan repo + update imported items; `import_source_items` — import selected skills/agents from scan; `sync_all_sources` — auto-sync all enabled sources (called on app launch); `get_source_items` — list skills/agents linked to source; `search_catalog` — unified catalog search across aitmpl.com + git sources with multi-select source filtering; `install_catalog_item` — install a skill/agent from the catalog by item ID | ✅ |
 
 **Events** (backend → frontend, push):
 - `streaming-token` — individual SSE tokens during chat
 - `streaming-complete` — response finished
 - `streaming-error` — error during streaming
 - `auth-state-changed` — login/logout
-- `git-import-progress` — progress updates during git source scan/sync (total, fetched, phase)
+- `git-import-progress` — progress updates during git source scan/sync (total, fetched, phase, sourceId)
+- `git-source-sync-complete` — emitted after a source's sync is fully committed to DB (sourceId)
 - `context-summarized` — older messages were condensed into a summary to manage context window
 - `tray-new-chat` — user clicked "New Chat" in system tray menu
 - `update-available` — new version found (via `tauri-plugin-updater`, not custom emit)
@@ -487,7 +488,7 @@ copilot-desktop/
 │       │   ├── projects.rs       # CRUD projects + file attachments + drag-drop + text extraction
 │       │   ├── mcp.rs            # MCP server management + tool invocation
 │       │   ├── web_research.rs   # Web search + URL fetching
-│       │   ├── sources.rs        # Git sources management (CRUD, sync, import)
+│       │   ├── sources.rs        # Git sources management (CRUD, sync, import, catalog search)
 │       │   ├── models.rs         # Model discovery + selection
 │       │   └── settings.rs       # User preferences + export + DB management
 │       └── db/                   # Database layer

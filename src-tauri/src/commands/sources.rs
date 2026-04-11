@@ -428,7 +428,7 @@ pub fn install_catalog_item(app: AppHandle, item_id: String) -> Result<String, S
         "skill" => {
             let parsed = crate::skillmd::parse(&catalog_item.content)
                 .map_err(|e| format!("Parse error: {e}"))?;
-            let db_id = format!("git-{}", parsed.name);
+            let db_id = format!("git-{}-{}", &source.id[..8], parsed.name);
             queries::create_skill(
                 &db,
                 &db_id,
@@ -531,7 +531,7 @@ fn import_skill_item(
 ) -> Result<(), String> {
     let parsed = crate::skillmd::parse(&item.content).map_err(|e| format!("Parse error: {e}"))?;
 
-    let db_id = format!("git-{}", parsed.name);
+    let db_id = format!("git-{}-{}", &source.id[..8], parsed.name);
     // TODO: `blob/main` assumes default branch — cosmetic only, see install_catalog_item
     let source_url = format!("{}/blob/main/{}", source.url, item.path);
 

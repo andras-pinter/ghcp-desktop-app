@@ -149,6 +149,20 @@ CREATE TABLE git_sources (
     updated_at TEXT NOT NULL
 );
 
+-- Git Source Items (cached discovery data for catalog browsing)
+CREATE TABLE git_source_items (
+    id TEXT PRIMARY KEY,                  -- UUID
+    git_source_id TEXT NOT NULL REFERENCES git_sources(id) ON DELETE CASCADE,
+    path TEXT NOT NULL,                   -- File path in the repo (e.g. "skills/SKILL.md")
+    kind TEXT NOT NULL,                   -- "skill" or "agent"
+    name TEXT NOT NULL,                   -- Parsed name from SKILL.md/agent.md frontmatter
+    description TEXT,                     -- Parsed description
+    content TEXT NOT NULL,                -- Full file content
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    UNIQUE(git_source_id, path)
+);
+
 -- ── Indexes (performance-critical queries) ──
 
 CREATE INDEX idx_messages_conversation ON messages(conversation_id, sort_order);
@@ -160,13 +174,15 @@ CREATE INDEX idx_project_files_project ON project_files(project_id);
 CREATE INDEX idx_agent_skills_agent ON agent_skills(agent_id);
 CREATE INDEX idx_skills_source ON skills(source);
 CREATE INDEX idx_git_sources_enabled ON git_sources(enabled);
+CREATE INDEX idx_git_source_items_source ON git_source_items(git_source_id);
+CREATE INDEX idx_git_source_items_kind ON git_source_items(kind);
 
 -- ── Initial seed data ──
 
-INSERT INTO config (key, value) VALUES ('schema_version', '4');
+INSERT INTO config (key, value) VALUES ('schema_version', '5');
 ```
 
-> _Note: The schema above reflects the **final state** after all migrations (v1→v2→v3→v4). See `src-tauri/src/db/migrations.rs` for the incremental ALTER TABLE statements that evolve the schema across versions. Migration v4 adds the `git_sources` table, `git_source_id` FK columns on skills/agents, and backfills sources from existing git-imported items._
+> _Note: The schema above reflects the **final state** after all migrations (v1→v2→v3→v4→v5). See `src-tauri/src/db/migrations.rs` for the incremental ALTER TABLE statements that evolve the schema across versions. Migration v4 adds the `git_sources` table, `git_source_id` FK columns on skills/agents, and backfills sources from existing git-imported items. Migration v5 adds the `git_source_items` table for persisting discovered items from source scans, enabling catalog browsing without re-fetching from git._
 
 ### Persistence Rules
 

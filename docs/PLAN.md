@@ -97,6 +97,13 @@
 
 49. ⬚ **app-packaging** — `cargo tauri build` for all platforms. `.dmg` (macOS with code signing + App Sandbox + notarization), `.AppImage`/`.deb` (Linux), `.msi`/`.nsis` (Windows). GitHub Actions CI/CD for automated builds. Publish releases to GitHub Releases for auto-update consumption.
 
+### Phase 13: Git Sources & Unified Catalog ✅
+
+50. ✅ **git-sources-backend** — Persistent git repository sources: DB migration v4 (`git_sources` table, FK columns on skills/agents with backfill), v5 (`git_source_items` table for cached catalog data). 11 Tauri commands for CRUD, sync, catalog search, and install. Parallel auto-sync on launch via `tokio::task::JoinSet`.
+51. ✅ **git-sources-frontend** — `SourcesPanel.svelte` with source cards (add/toggle/sync/rename/delete), per-source sync progress indicators, and event-driven timestamp refresh. Built-in aitmpl.com card (toggleable, undeletable). TypeScript types, command wrappers, and reactive Svelte store.
+52. ✅ **unified-catalog** — `search_catalog` merges aitmpl.com API + git source items server-side. Multi-select source filtering via pill buttons in Skills and Agents panels. Store-persisted filter selection survives panel navigation. Content omitted from search results (loaded on-demand at install).
+53. ✅ **catalog-ux** — Collapsible catalog sections. Source-differentiated badges (🌐 copper for aitmpl, 🔀 neutral for git). Badge-styled metadata on source cards (item count, sync status with contextual coloring). Sidebar sync spinner.
+
 ---
 
 ## Build & Run

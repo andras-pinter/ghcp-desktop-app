@@ -368,3 +368,50 @@ The app ships with a **Default Agent** that cannot be deleted:
 - All new conversations use the Default Agent unless the user selects another
 
 ---
+
+## Git Sources & Unified Catalog
+
+### Overview
+
+Git Sources provide persistent git repository URL sources for importing skills and agents. Instead of one-off "Import from Git URL" actions, users manage a list of git repository sources that are automatically synced on app launch and can be browsed alongside the aitmpl.com registry in a unified catalog.
+
+**aitmpl.com** is a built-in source that is always present and can be toggled on/off but not deleted. Its enabled state is stored as the `aitmpl_enabled` setting (default: `true`).
+
+### Source Lifecycle
+
+1. **Add source** — `create_git_source(url, name?)` scans the repo for `SKILL.md` and `*.agent.md` files, stores discovered items in `git_source_items`, and returns a `SourceScanResult`
+2. **Auto-sync on launch** — `sync_all_sources()` syncs all enabled sources in parallel using `tokio::task::JoinSet`. Per-source progress events (`git-import-progress`) are emitted during fetch. A `git-source-sync-complete` event fires after each source's DB update commits.
+3. **Manual re-sync** — `sync_git_source(id)` re-scans a single source
+4. **Toggle** — `update_git_source(id, name?, enabled?)` to pause/resume syncing
+5. **Remove** — `delete_git_source(id)` removes the source; imported skills/agents are kept as local copies (`ON DELETE SET NULL` on FK); cached catalog items are deleted (`ON DELETE CASCADE` on `git_source_items`)
+
+### Unified Catalog Search
+
+`search_catalog(query, kind?, limit?, source_ids?)` merges results from:
+
+- **aitmpl.com API** — when `aitmpl_enabled` setting is `true` and `source_ids` includes `"aitmpl"` (or is null for all)
+- **git_source_items table** — cached discovery data from synced git sources, filtered by `source_ids` (UUIDs)
+
+**Parameters:**
+
+- `query` (string) — search term; LIKE wildcards (`%`, `_`, `\`) are escaped
+- `kind` (optional: `"skill"` | `"agent"`) — filter by item type
+- `limit` (optional, default 20) — max results
+- `source_ids` (optional: `string[]`) — multi-select filter; `null` = all sources; includes `"aitmpl"` for the built-in registry and git source UUIDs for specific repos
+
+**Response:** `{ items: RegistryItem[], total: number | null }`
+
+Content is omitted from search results to reduce IPC payload. Full content is loaded on-demand via `install_catalog_item(item_id)`.
+
+### Catalog Item IDs
+
+Git catalog items use deterministic IDs: `gsi-{full_source_id}-{file_path}`. This enables upsert on re-sync and allows the frontend to check installation status by matching the file path portion.
+
+### Events
+
+| Event                      | Payload                               | When                                           |
+| -------------------------- | ------------------------------------- | ---------------------------------------------- |
+| `git-import-progress`      | `{ total, fetched, phase, sourceId }` | During source scan/sync (per file fetched)     |
+| `git-source-sync-complete` | `{ sourceId }`                        | After a source's sync is fully committed to DB |
+
+---
