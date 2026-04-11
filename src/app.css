@@ -1538,15 +1538,6 @@ textarea.form-input {
   padding: var(--spacing-md) 0;
 }
 
-.section-hint {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-tertiary);
-  margin-left: auto;
-  font-weight: var(--font-weight-normal);
-  text-transform: none;
-  letter-spacing: 0;
-}
-
 .group-heading {
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);

@@ -664,7 +664,6 @@
         >
           <span class="collapse-arrow" class:expanded={registryExpanded}>▶</span>
           <h3 class="section-heading inline">Browse Registries</h3>
-          <span class="section-hint">aitmpl.com + git sources</span>
         </button>
 
         {#if registryExpanded}
