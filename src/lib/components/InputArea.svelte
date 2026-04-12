@@ -25,6 +25,7 @@
     agents?: Agent[];
     agentsLoaded?: boolean;
     selectedAgentId?: string | null;
+    defaultAgentId?: string | null;
     onAgentChange?: (agentId: string | null) => void;
     /** Files injected externally (e.g. dropped on ChatView). InputArea absorbs them. */
     externalFiles?: ChatFileData[];
@@ -49,6 +50,7 @@
     agents = [],
     agentsLoaded = false,
     selectedAgentId = null,
+    defaultAgentId = null,
     onAgentChange,
     externalFiles = [],
     onExternalFilesConsumed,
@@ -335,7 +337,7 @@
       event.preventDefault();
       if (focusedAgentIndex >= 0 && focusedAgentIndex < agents.length) {
         const agent = agents[focusedAgentIndex];
-        onAgentChange?.(agent.isDefault ? null : agent.id);
+        onAgentChange?.(agent.id);
         agentDropdownOpen = false;
       }
     }
@@ -754,20 +756,18 @@
                   <button
                     id="agent-opt-{agent.id}"
                     class="agent-option"
-                    class:selected={agent.id === selectedAgentId ||
-                      (selectedAgentId === null && agent.isDefault)}
+                    class:selected={agent.id === selectedAgentId}
                     class:focused={i === focusedAgentIndex}
                     role="option"
-                    aria-selected={agent.id === selectedAgentId ||
-                      (selectedAgentId === null && agent.isDefault)}
+                    aria-selected={agent.id === selectedAgentId}
                     onclick={() => {
-                      onAgentChange?.(agent.isDefault ? null : agent.id);
+                      onAgentChange?.(agent.id);
                       agentDropdownOpen = false;
                     }}
                   >
                     <span class="agent-option-avatar">{agent.avatar ?? "🤖"}</span>
                     <span class="agent-option-name">{agent.name}</span>
-                    {#if agent.isDefault}
+                    {#if agent.id === defaultAgentId}
                       <span class="agent-option-badge">default</span>
                     {/if}
                   </button>

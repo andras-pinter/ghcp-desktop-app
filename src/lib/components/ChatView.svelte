@@ -32,6 +32,7 @@
   } from "$lib/stores/conversations.svelte";
   import { getModelStore, setDefaultModel } from "$lib/stores/models.svelte";
   import { getAgentStore, selectAgent } from "$lib/stores/agents.svelte";
+  import { getSettings } from "$lib/stores/settings.svelte";
   import { getNetwork } from "$lib/stores/network.svelte";
 
   const greetings = [
@@ -48,6 +49,7 @@
   const store = getConversationStore();
   const modelStore = getModelStore();
   const agentStore = getAgentStore();
+  const settings = getSettings();
   const network = getNetwork();
   let chatContainer: HTMLElement | undefined = $state();
   let selectedModel = $state("gpt-4o");
@@ -569,6 +571,7 @@
           agents={agentStore.agents}
           agentsLoaded={agentStore.loaded}
           selectedAgentId={agentStore.selectedAgentId}
+          defaultAgentId={settings.defaultAgentId}
           onAgentChange={selectAgent}
           externalFiles={pendingDropFiles}
           onExternalFilesConsumed={clearPendingDropFiles}
@@ -639,6 +642,7 @@
           agents={agentStore.agents}
           agentsLoaded={agentStore.loaded}
           selectedAgentId={agentStore.selectedAgentId}
+          defaultAgentId={settings.defaultAgentId}
           onAgentChange={selectAgent}
           externalFiles={pendingDropFiles}
           onExternalFilesConsumed={clearPendingDropFiles}
