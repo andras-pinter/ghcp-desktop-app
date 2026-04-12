@@ -203,16 +203,32 @@
     }
   });
 
-  // Reset summarization banner and scroll state when switching conversations,
-  // then scroll to bottom after messages render so chats open at the end.
+  // Reset summarization banner and scroll state when switching conversations.
+  let prevConvId: string | null = null;
   $effect(() => {
-    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
-    store.activeConversationId;
-    summarizedCount = 0;
-    userScrolledAway = false;
-    tick().then(() => {
-      if (chatContainer) chatContainer.scrollTop = chatContainer.scrollHeight;
-    });
+    const id = store.activeConversationId;
+    if (id !== prevConvId) {
+      prevConvId = id;
+      summarizedCount = 0;
+      userScrolledAway = false;
+    }
+  });
+
+  // Scroll to bottom when a conversation's messages first load.
+  // Tracks the last conversation we scrolled for to avoid re-scrolling
+  // on every new streaming token (messages.length changes during streaming).
+  let scrolledForConvId: string | null = null;
+  $effect(() => {
+    const id = store.activeConversationId;
+    const len = store.messages.length;
+    if (id && len > 0 && id !== scrolledForConvId) {
+      scrolledForConvId = id;
+      tick().then(() => {
+        if (chatContainer) chatContainer.scrollTop = chatContainer.scrollHeight;
+      });
+    } else if (!id) {
+      scrolledForConvId = null;
+    }
   });
 
   // Auto-scroll when active conversation receives streaming tokens.
