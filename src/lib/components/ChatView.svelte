@@ -785,7 +785,10 @@
           <dl class="help-commands">
             {#each SLASH_COMMANDS as cmd (cmd.name)}
               <div class="help-cmd-row">
-                <dt><code>/{cmd.name}</code></dt>
+                <dt>
+                  <code>/{cmd.name}</code>{#if cmd.aliases?.length}{#each cmd.aliases as a (a)}
+                      <code>/{a}</code>{/each}{/if}
+                </dt>
                 <dd>{cmd.description}</dd>
               </div>
             {/each}
