@@ -19,6 +19,9 @@ pub fn run(conn: &Connection, current_version: i32) -> Result<(), Box<dyn std::e
     if current_version < 5 {
         migrate_v5(conn)?;
     }
+    if current_version < 6 {
+        migrate_v6(conn)?;
+    }
     Ok(())
 }
 
@@ -440,6 +443,80 @@ fn migrate_v5(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+/// Version 6: Upgrade built-in Default agent prompt, add Research agent, seed default_agent_id.
+fn migrate_v6(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
+    // Upgrade the built-in Default agent with a comprehensive system prompt
+    conn.execute(
+        "UPDATE agents SET system_prompt = ?1, updated_at = datetime('now') WHERE id = 'default'",
+        [DEFAULT_AGENT_PROMPT],
+    )?;
+
+    // Add the built-in Research agent
+    conn.execute(
+        "INSERT OR IGNORE INTO agents (id, name, avatar, system_prompt, is_default, source_type, created_at, updated_at)
+         VALUES ('research', 'Research', '🔍', ?1, 1, 'local', datetime('now'), datetime('now'))",
+        [RESEARCH_AGENT_PROMPT],
+    )?;
+
+    // Seed the default_agent_id setting (don't overwrite if user already set it)
+    conn.execute(
+        "INSERT OR IGNORE INTO config (key, value) VALUES ('default_agent_id', 'default')",
+        [],
+    )?;
+
+    conn.execute_batch("UPDATE config SET value = '6' WHERE key = 'schema_version';")?;
+
+    log::info!("Database migrated to schema version 6");
+    Ok(())
+}
+
+/// System prompt for the built-in Default agent — a smart, thorough general assistant.
+const DEFAULT_AGENT_PROMPT: &str = "\
+You are Chuck, a knowledgeable and thoughtful AI assistant powered by GitHub Copilot.
+
+Your approach:
+- Be direct and concise, but thorough when depth is needed
+- Think step-by-step for complex problems before answering
+- When uncertain, say so honestly rather than guessing
+- Provide practical, actionable answers with concrete examples
+- Adapt your response length to the complexity of the question
+- Use clear structure (headings, lists, code blocks) for longer responses
+
+When discussing code:
+- Explain the reasoning behind your suggestions, not just the code
+- Consider edge cases, error handling, and performance implications
+- Mention relevant best practices and potential pitfalls
+- If multiple valid approaches exist, briefly explain trade-offs
+
+You have a warm, professional tone — helpful without being verbose.";
+
+/// System prompt for the built-in Research agent — deep research with citations.
+const RESEARCH_AGENT_PROMPT: &str = "\
+You are a meticulous research assistant with access to web search capabilities.
+
+Your research methodology:
+- When asked about a topic, use web search to find current, authoritative information
+- Cross-reference multiple sources before presenting conclusions
+- Always cite your sources — include URLs, publication names, or author names
+- Distinguish clearly between established facts, expert consensus, and emerging/disputed claims
+- Note when information may be outdated and suggest what to verify
+- Present multiple perspectives on controversial or nuanced topics
+
+How to structure your research:
+- Start with a clear, direct answer to the question
+- Follow with supporting evidence and context
+- Use bullet points or numbered lists for clarity
+- Include relevant quotes from authoritative sources when available
+- End with caveats, limitations, or suggestions for further reading
+
+Critical thinking:
+- Evaluate source credibility (prefer peer-reviewed, official, and primary sources)
+- Flag potential biases in sources
+- Note the date of information when recency matters
+- If web search results are insufficient, say so and explain what additional research would help
+
+You are thorough but respect the user's time — lead with what matters most.";
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -490,7 +567,7 @@ mod tests {
         conn.execute_batch("PRAGMA foreign_keys=ON;").unwrap();
         run(&conn, 0).unwrap();
 
-        // Verify schema version is now 5
+        // Verify schema version is now 6
         let version: String = conn
             .query_row(
                 "SELECT value FROM config WHERE key='schema_version'",
@@ -498,7 +575,7 @@ mod tests {
                 |row| row.get(0),
             )
             .unwrap();
-        assert_eq!(version, "5");
+        assert_eq!(version, "6");
 
         // Verify new skill columns exist
         conn.execute(
@@ -549,7 +626,7 @@ mod tests {
         let conn2 = Connection::open_in_memory().unwrap();
         conn2.execute_batch("PRAGMA foreign_keys=ON;").unwrap();
         migrate_v1(&conn2).unwrap();
-        // Run from v1 should apply v2, v3, v4, and v5
+        // Run from v1 should apply v2, v3, v4, v5, and v6
         run(&conn2, 1).unwrap();
 
         let version: String = conn2
@@ -559,7 +636,7 @@ mod tests {
                 |row| row.get(0),
             )
             .unwrap();
-        assert_eq!(version, "5");
+        assert_eq!(version, "6");
 
         // Verify git_sources table exists
         let table_exists: bool = conn2
@@ -704,5 +781,53 @@ mod tests {
             extract_repo_url("https://github.com/user/repo"),
             "https://github.com/user/repo"
         );
+    }
+
+    #[test]
+    fn test_v6_builtin_agents() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch("PRAGMA foreign_keys=ON;").unwrap();
+        run(&conn, 0).unwrap();
+
+        // Verify both built-in agents exist
+        let agent_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM agents WHERE is_default = 1",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(agent_count, 2);
+
+        // Verify Default agent was upgraded
+        let default_prompt: String = conn
+            .query_row(
+                "SELECT system_prompt FROM agents WHERE id = 'default'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert!(default_prompt.contains("Chuck"));
+        assert!(!default_prompt.contains("You are a helpful AI assistant"));
+
+        // Verify Research agent exists
+        let research_name: String = conn
+            .query_row(
+                "SELECT name FROM agents WHERE id = 'research'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(research_name, "Research");
+
+        // Verify default_agent_id config
+        let default_agent: String = conn
+            .query_row(
+                "SELECT value FROM config WHERE key = 'default_agent_id'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(default_agent, "default");
     }
 }
