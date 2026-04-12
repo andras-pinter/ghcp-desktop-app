@@ -7,6 +7,9 @@
 use async_trait::async_trait;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use std::sync::OnceLock;
+use std::time::{Duration, Instant};
+use tokio::sync::RwLock;
 
 /// A unified registry search result item.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -101,7 +104,7 @@ struct AitmplComponent {
 }
 
 /// The full components.json structure from aitmpl.com GitHub repo.
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 struct AitmplComponentsJson {
     #[serde(default)]
     agents: Vec<AitmplComponent>,
@@ -112,12 +115,34 @@ struct AitmplComponentsJson {
 const AITMPL_COMPONENTS_URL: &str =
     "https://raw.githubusercontent.com/davila7/claude-code-templates/main/docs/components.json";
 
-/// Search aitmpl.com by fetching components.json from GitHub and filtering locally.
-pub async fn search_aitmpl(
-    client: &Client,
-    query: &str,
-    limit: u32,
-) -> Result<Vec<RegistryItem>, String> {
+/// How long a cached components.json response stays valid before re-fetching.
+const AITMPL_CACHE_TTL: Duration = Duration::from_secs(300); // 5 minutes
+
+/// In-memory cache for the parsed components.json payload.
+struct AitmplCache {
+    data: AitmplComponentsJson,
+    fetched_at: Instant,
+}
+
+/// Global cache instance (lazy-initialized).
+fn aitmpl_cache() -> &'static RwLock<Option<AitmplCache>> {
+    static CACHE: OnceLock<RwLock<Option<AitmplCache>>> = OnceLock::new();
+    CACHE.get_or_init(|| RwLock::new(None))
+}
+
+/// Fetch components.json, returning a cached copy if still valid.
+async fn get_aitmpl_data(client: &Client) -> Result<AitmplComponentsJson, String> {
+    // Fast path: check read lock for a valid cache entry
+    {
+        let guard = aitmpl_cache().read().await;
+        if let Some(cached) = guard.as_ref() {
+            if cached.fetched_at.elapsed() < AITMPL_CACHE_TTL {
+                return Ok(cached.data.clone());
+            }
+        }
+    }
+
+    // Cache miss or expired — fetch and update
     let resp = client
         .get(AITMPL_COMPONENTS_URL)
         .send()
@@ -135,6 +160,23 @@ pub async fn search_aitmpl(
         .json()
         .await
         .map_err(|e| format!("aitmpl.com parse failed: {e}"))?;
+
+    let mut guard = aitmpl_cache().write().await;
+    *guard = Some(AitmplCache {
+        data: data.clone(),
+        fetched_at: Instant::now(),
+    });
+
+    Ok(data)
+}
+
+/// Search aitmpl.com by fetching components.json from GitHub and filtering locally.
+pub async fn search_aitmpl(
+    client: &Client,
+    query: &str,
+    limit: u32,
+) -> Result<Vec<RegistryItem>, String> {
+    let data = get_aitmpl_data(client).await?;
 
     let query_lower = query.to_lowercase();
     let query_words: Vec<&str> = query_lower.split_whitespace().collect();
@@ -576,20 +618,7 @@ pub async fn fetch_skill_content(
 
 /// Fetch the content for an aitmpl.com item by re-fetching components.json.
 async fn fetch_aitmpl_content(client: &Client, item_id: &str) -> Result<String, String> {
-    let resp = client
-        .get(AITMPL_COMPONENTS_URL)
-        .send()
-        .await
-        .map_err(|e| format!("Failed to fetch components.json: {e}"))?;
-
-    if !resp.status().is_success() {
-        return Err(format!("components.json returned {}", resp.status()));
-    }
-
-    let data: AitmplComponentsJson = resp
-        .json()
-        .await
-        .map_err(|e| format!("Failed to parse components.json: {e}"))?;
+    let data = get_aitmpl_data(client).await?;
 
     // Match by path-based ID or name
     for item in data.agents.iter().chain(data.skills.iter()) {
