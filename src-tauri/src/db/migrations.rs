@@ -812,11 +812,9 @@ mod tests {
 
         // Verify Research agent exists
         let research_name: String = conn
-            .query_row(
-                "SELECT name FROM agents WHERE id = 'research'",
-                [],
-                |row| row.get(0),
-            )
+            .query_row("SELECT name FROM agents WHERE id = 'research'", [], |row| {
+                row.get(0)
+            })
             .unwrap();
         assert_eq!(research_name, "Research");
 

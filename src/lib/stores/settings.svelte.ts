@@ -19,6 +19,7 @@ export const SETTING_KEYS = {
   skippedVersion: "skipped_version",
   updateSnoozedUntil: "update_snoozed_until",
   aitmplEnabled: "aitmpl_enabled",
+  defaultAgentId: "default_agent_id",
 } as const;
 
 // ── Reactive state ──────────────────────────────────────────────
@@ -32,6 +33,7 @@ let autoUpdateFrequency = $state<UpdateFrequency>("startup");
 let skippedVersion = $state<string | null>(null);
 let updateSnoozedUntil = $state<string | null>(null);
 let aitmplEnabled = $state(true);
+let defaultAgentId = $state<string>("default");
 let loaded = $state(false);
 
 // ── Theme application ───────────────────────────────────────────
@@ -61,6 +63,7 @@ export async function initSettings(): Promise<void> {
     skippedVal,
     snoozedVal,
     aitmplVal,
+    defaultAgentVal,
   ] = await Promise.all([
     getSetting(SETTING_KEYS.theme),
     getSetting(SETTING_KEYS.fontSize),
@@ -71,6 +74,7 @@ export async function initSettings(): Promise<void> {
     getSetting(SETTING_KEYS.skippedVersion),
     getSetting(SETTING_KEYS.updateSnoozedUntil),
     getSetting(SETTING_KEYS.aitmplEnabled),
+    getSetting(SETTING_KEYS.defaultAgentId),
   ]);
 
   if (themeVal) theme = themeVal as ThemeMode;
@@ -82,6 +86,7 @@ export async function initSettings(): Promise<void> {
   skippedVersion = skippedVal ?? null;
   updateSnoozedUntil = snoozedVal ?? null;
   aitmplEnabled = aitmplVal !== "false";
+  if (defaultAgentVal) defaultAgentId = defaultAgentVal;
 
   applyTheme(theme);
   applyFontSize(fontSize);
@@ -122,6 +127,9 @@ export async function updateSetting(key: string, value: string): Promise<void> {
     case SETTING_KEYS.aitmplEnabled:
       aitmplEnabled = value !== "false";
       break;
+    case SETTING_KEYS.defaultAgentId:
+      defaultAgentId = value || "default";
+      break;
   }
 }
 
@@ -154,6 +162,9 @@ export function getSettings() {
     },
     get aitmplEnabled() {
       return aitmplEnabled;
+    },
+    get defaultAgentId() {
+      return defaultAgentId;
     },
     get loaded() {
       return loaded;
