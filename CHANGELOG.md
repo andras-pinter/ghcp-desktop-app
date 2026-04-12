@@ -3,6 +3,61 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.3.0] — 2026-04-12
+
+### Features
+
+- support multi-select source filtering in catalog search (df7e660)
+- **ui:** show per-source sync progress on source cards (fe18330)
+- **ui:** show sync spinner on Sources sidebar button (c2257c5)
+- add source filter to catalog search in Skills and Agents panels (3b3ba41)
+- **ui:** show aitmpl.com as built-in source with toggle (c5268aa)
+- integrate git sources into unified catalog search (79b425f)
+- **ui:** add SourcesPanel with sidebar entry and routing (bb613e3)
+- **ui:** add git source TypeScript types, commands, and Svelte store (d4ef02e)
+- **tauri:** add git source Tauri commands (f9c674b)
+- **tauri:** add git_sources table and migration v4 (0ae7e83)
+
+### Bug Fixes
+
+- add duplicate detection to batch import functions (8a27205)
+- address review findings — DoS cap, skill dedup, UUID collision (303ac09)
+- skip tables, rules, and code fences in description extraction (c5d5919)
+- use per-kind caps for git source discovery and fetch concurrently (75a4461)
+- resolve catalog name, content, and mount issues (8481562)
+- resolve timestamp, install, description, and cache bugs (f9b2308)
+- address four user-reported bugs in git sources feature (943a328)
+- **tauri:** scope skill IDs by source to prevent cross-source collisions (ffce9aa)
+- **ui:** use dedicated sync-complete event for timestamp refresh (f2513be)
+- **ui:** refresh source timestamp immediately after sync completes (6932465)
+- **ui:** persist source filter selection across panel navigation (89d89d2)
+- **ui:** remove translateY from spin animation causing spinner jitter (91140bb)
+- address review findings from security and code quality agents (5d1852d)
+- **ui:** collapse Browse Registries catalogs by default (8fb0080)
+- **ui:** suppress false-positive state_referenced_locally warning (cf6fcb9)
+
+### Performance
+
+- raise per-kind discovery cap to 500 and batch size to 20 (9b75a35)
+- **tauri:** sync git sources in parallel on launch (8ae737b)
+
+### Refactoring
+
+- remove artificial caps on git source discovery (51d872a)
+- **ui:** extract aitmpl card to snippet, fix filter visibility (2d944e0)
+- **ui:** remove one-off git import, add auto-sync on launch (221cdcc)
+
+### Documentation
+
+- update AGENTS.md and DATA-MODEL.md for git sources feature (f715466)
+
+### Style
+
+- **ui:** remove redundant source indicator from catalog headings (afd98d3)
+- **ui:** upgrade source and registry card metadata to badges (34a11ac)
+- **ui:** replace source filter dropdown with pill buttons (b36c137)
+- **tauri:** apply rustfmt formatting (d9379ad)
+
 ## [Unreleased]
 
 ### Features
