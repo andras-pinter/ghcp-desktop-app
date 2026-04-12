@@ -414,7 +414,7 @@ copilot-desktop/
 │   ├── lib/
 │   │   ├── components/           # Svelte 5 components
 │   │   │   ├── Sidebar.svelte           # Conversation list, search, agents, projects, favourites
-│   │   │   ├── ChatView.svelte          # Chat view (message list + input + search)
+│   │   │   ├── ChatView.svelte          # Chat view (message list + floating input + search)
 │   │   │   ├── MessageBubble.svelte     # Single message (markdown + code blocks + web results + thinking)
 │   │   │   ├── InputArea.svelte         # Multi-line input, file drop, attachment pills, agent/model selector
 │   │   │   ├── CodeBlock.svelte         # Syntax-highlighted code with copy button + language label
