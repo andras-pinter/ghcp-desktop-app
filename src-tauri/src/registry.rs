@@ -141,9 +141,15 @@ fn aitmpl_refreshing() -> &'static AtomicBool {
 /// Maximum allowed size for components.json response (10 MB).
 const AITMPL_MAX_RESPONSE_BYTES: usize = 10 * 1024 * 1024;
 
+/// HTTP timeout for background registry fetches (30 seconds).
+const AITMPL_FETCH_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
+
 /// Fetch components.json from the remote and store it in the cache.
 async fn refresh_aitmpl_cache() -> Result<AitmplComponentsJson, String> {
-    let client = Client::new();
+    let client = Client::builder()
+        .timeout(AITMPL_FETCH_TIMEOUT)
+        .build()
+        .map_err(|e| format!("Failed to build HTTP client: {e}"))?;
     let resp = client
         .get(AITMPL_COMPONENTS_URL)
         .send()
