@@ -3,6 +3,26 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.4.0] — 2026-04-12
+
+### Features
+
+- **ui:** add infinite scroll pagination to catalog browsers (ecf17fc)
+
+### Bug Fixes
+
+- **ui:** prevent stale loadMore results and fix prefetch error handling (0f0fca1)
+- **ui:** cap aitmpl fetch limit and stop pagination on error (8848801)
+- clean up CHANGELOG and add --since flag to xtask changelog (ffddfe6)
+
+### Refactoring
+
+- **ui:** remove install count badges from catalog panels (39faa29)
+
+### Chores
+
+- change license from Unlicense to Apache 2.0 (10633e7)
+
 ## [Unreleased]
 
 ### Features
