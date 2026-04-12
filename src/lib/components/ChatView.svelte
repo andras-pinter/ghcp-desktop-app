@@ -68,6 +68,7 @@
   let draftTimer: ReturnType<typeof setTimeout> | undefined;
   let showSearch = $state(false);
   let extractingFiles = $state(false);
+  let showHelpModal = $state(false);
   const greeting = greetings[Math.floor(Math.random() * greetings.length)];
 
   // Derive streaming state from store (not local)
@@ -512,6 +513,9 @@
             sortOrder: store.messages.length,
           };
           await addMessage(helpMsg);
+        } else {
+          // No conversation yet — show a modal popup instead
+          showHelpModal = true;
         }
         break;
       }
@@ -755,6 +759,48 @@
   {/if}
 </div>
 
+{#if showHelpModal}
+  <div
+    class="help-overlay"
+    role="dialog"
+    aria-modal="true"
+    aria-label="Command reference"
+    tabindex="-1"
+    onkeydown={(e) => {
+      if (e.key === "Escape") showHelpModal = false;
+    }}
+    onclick={(e) => {
+      if (e.target === e.currentTarget) showHelpModal = false;
+    }}
+  >
+    <div class="help-modal">
+      <div class="help-header">
+        <h3>Command Reference</h3>
+        <button class="help-close" onclick={() => (showHelpModal = false)} aria-label="Close"
+          >×</button
+        >
+      </div>
+      <div class="help-body">
+        <div class="help-section">
+          <h4>Slash Commands</h4>
+          <dl class="help-commands">
+            {#each SLASH_COMMANDS as cmd (cmd.name)}
+              <div class="help-cmd-row">
+                <dt><code>/{cmd.name}</code></dt>
+                <dd>{cmd.description}</dd>
+              </div>
+            {/each}
+          </dl>
+        </div>
+        <div class="help-section">
+          <h4>@ Mentions</h4>
+          <p>Type <code>@</code> followed by an agent name to set a per-message agent override.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+{/if}
+
 <style>
   .chat-view {
     display: flex;
@@ -931,5 +977,147 @@
     margin: 0 auto;
     padding: 0 var(--spacing-xl) var(--spacing-xl);
     pointer-events: auto;
+  }
+
+  /* ── Help modal ── */
+
+  .help-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.45);
+    animation: fadeIn 120ms ease;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  .help-modal {
+    background: var(--color-bg-primary);
+    border: 1px solid var(--color-border-primary);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.2);
+    width: 420px;
+    max-width: 90vw;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: slideUp 180ms ease;
+  }
+
+  @keyframes slideUp {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .help-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--spacing-md) var(--spacing-lg);
+    border-bottom: 1px solid var(--color-border-secondary);
+  }
+
+  .help-header h3 {
+    margin: 0;
+    font-size: var(--font-size-base);
+    font-weight: 600;
+    font-family: var(--font-sans);
+    color: var(--color-text-primary);
+  }
+
+  .help-close {
+    background: none;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    color: var(--color-text-tertiary);
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+    line-height: 1;
+  }
+
+  .help-close:hover {
+    background: var(--color-bg-secondary);
+    color: var(--color-text-primary);
+  }
+
+  .help-body {
+    padding: var(--spacing-lg);
+    overflow-y: auto;
+  }
+
+  .help-section + .help-section {
+    margin-top: var(--spacing-lg);
+    padding-top: var(--spacing-lg);
+    border-top: 1px solid var(--color-border-secondary);
+  }
+
+  .help-section h4 {
+    margin: 0 0 var(--spacing-sm);
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    font-family: var(--font-sans);
+    color: var(--color-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .help-section p {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    font-family: var(--font-sans);
+    color: var(--color-text-secondary);
+    line-height: 1.5;
+  }
+
+  .help-commands {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+  }
+
+  .help-cmd-row {
+    display: flex;
+    align-items: baseline;
+    gap: var(--spacing-sm);
+    font-family: var(--font-sans);
+    font-size: var(--font-size-sm);
+  }
+
+  .help-cmd-row dt {
+    flex-shrink: 0;
+    min-width: 90px;
+  }
+
+  .help-cmd-row dt code {
+    font-family: var(--font-mono);
+    font-size: var(--font-size-sm);
+    color: var(--color-accent-primary);
+    background: var(--color-bg-secondary);
+    padding: 1px 5px;
+    border-radius: var(--radius-sm);
+  }
+
+  .help-cmd-row dd {
+    margin: 0;
+    color: var(--color-text-secondary);
   }
 </style>

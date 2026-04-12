@@ -30,6 +30,20 @@
     });
   });
 
+  /** Unique key for Svelte {#each} — must never collide across items. */
+  function itemKey(item: PopupItem): string {
+    switch (item.kind) {
+      case "command":
+        return `cmd:${item.command.name}`;
+      case "agent":
+        return `agent:${item.agent.id}`;
+      case "model":
+        return `model:${item.model.id}`;
+      case "skill":
+        return `skill:${item.skill.id}`;
+    }
+  }
+
   function itemLabel(item: PopupItem): string {
     switch (item.kind) {
       case "command":
@@ -91,7 +105,7 @@
 
 {#if items.length > 0}
   <div class="command-popup" role="listbox" aria-label="Command suggestions">
-    {#each items as item, i (itemLabel(item))}
+    {#each items as item, i (itemKey(item))}
       {#if isNewSection(i)}
         <div class="popup-section-heading" aria-hidden="true">
           {sectionHeading(item)}

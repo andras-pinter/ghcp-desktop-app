@@ -4,7 +4,7 @@
   import type { Skill } from "$lib/types/skill";
   import type { UrlPreview } from "$lib/types/web-research";
   import type { ChatFileData } from "$lib/types/project";
-  import type { PopupItem, MessageOverrides } from "$lib/types/commands";
+  import type { PopupItem, MessageOverrides, SlashCommand } from "$lib/types/commands";
   import { emptyOverrides } from "$lib/types/commands";
   import { parseCommand, type CommandParseResult } from "$lib/utils/command-parser";
   import CommandPopup from "./CommandPopup.svelte";
@@ -568,7 +568,7 @@
 
   // ── Command popup selection & dispatch ────────────────────────────────
 
-  /** Replace the trigger text in the textarea with the appropriate result. */
+  /** Replace the trigger text in the textarea and re-position cursor. */
   function replaceCommandText(rangeStart: number, rangeEnd: number, replacement: string) {
     inputText = inputText.slice(0, rangeStart) + replacement + inputText.slice(rangeEnd);
     tick().then(() => {
@@ -576,6 +576,37 @@
         const newPos = rangeStart + replacement.length;
         textareaEl.selectionStart = textareaEl.selectionEnd = newPos;
         handleInput();
+      }
+    });
+  }
+
+  /**
+   * Enter sub-command mode: replace trigger text with `/{cmd} ` and
+   * immediately compute the sub-command popup items.  This avoids relying
+   * on the async tick → handleInput roundtrip which can race with
+   * Svelte's reactive update cycle.
+   */
+  function enterSubCommandMode(cmd: SlashCommand, rangeStart: number, rangeEnd: number) {
+    const replacement = `/${cmd.name} `;
+    inputText = inputText.slice(0, rangeStart) + replacement + inputText.slice(rangeEnd);
+    const newPos = rangeStart + replacement.length;
+
+    // Compute sub-command result synchronously so the popup stays open
+    commandResult = parseCommand(
+      inputText,
+      newPos,
+      agents,
+      availableModels,
+      skills,
+      hasConversation,
+    );
+    popupFocusIndex = commandResult && commandResult.items.length > 0 ? 0 : -1;
+
+    tick().then(() => {
+      if (textareaEl) {
+        textareaEl.selectionStart = textareaEl.selectionEnd = newPos;
+        textareaEl.style.height = "auto";
+        textareaEl.style.height = Math.min(textareaEl.scrollHeight, 200) + "px";
       }
     });
   }
@@ -588,14 +619,13 @@
     switch (item.kind) {
       case "command": {
         const cmd = item.command;
-        // Commands with enumerable or typed args → insert "/{name} " and let user keep typing
-        if (
-          cmd.argType === "model" ||
-          cmd.argType === "skill" ||
-          cmd.argType === "text" ||
-          cmd.argType === "url" ||
-          cmd.argType === "format"
-        ) {
+        // Enumerable sub-commands: enter sub-command mode synchronously
+        if (cmd.argType === "model" || cmd.argType === "skill") {
+          enterSubCommandMode(cmd, rangeStart, rangeEnd);
+          return;
+        }
+        // Free-text/url/format args: insert "/{name} " and let user type
+        if (cmd.argType === "text" || cmd.argType === "url" || cmd.argType === "format") {
           replaceCommandText(rangeStart, rangeEnd, `/${cmd.name} `);
           return;
         }
