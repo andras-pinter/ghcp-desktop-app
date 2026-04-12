@@ -3,6 +3,25 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.8.1] — 2026-04-13
+
+### Bug Fixes
+
+- **registry:** add 30s HTTP timeout to background cache refresh (d957979)
+- **tauri:** use AtomicBool for refresh flag to eliminate lock-in-Drop (5c3b6db)
+- **tauri:** harden registry cache against races and panics (9d7f9e4)
+- **tauri:** address review findings in registry cache (b14fc9a)
+
+### Performance
+
+- **tauri:** use stale-while-revalidate for registry cache (14ebc8f)
+- **tauri:** increase registry cache TTL from 5 min to 1 hour (33b8571)
+- **tauri:** add in-memory TTL cache for aitmpl.com registry data (a928768)
+
+### Documentation
+
+- update all documentation for slash commands, scroll button, and registry caching (89d1a9e)
+
 ## [0.8.0] — 2026-04-12
 
 ### Features
