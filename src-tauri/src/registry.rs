@@ -285,6 +285,25 @@ fn aitmpl_to_registry_item(item: &AitmplComponent, kind: RegistryItemKind) -> Re
     }
 }
 
+/// Check if a paragraph looks like prose (not a table, rule, code, or markup).
+fn is_prose_paragraph(text: &str) -> bool {
+    let first_line = text.lines().next().unwrap_or("");
+    let trimmed = first_line.trim();
+    // Skip headings, tables, horizontal rules, HTML, code fences, list-only paras
+    if trimmed.starts_with('#')
+        || trimmed.starts_with('|')
+        || trimmed.starts_with("```")
+        || trimmed.starts_with('<')
+        || trimmed.starts_with("---")
+        || trimmed.starts_with("***")
+        || trimmed.starts_with("___")
+    {
+        return false;
+    }
+    // Must contain some alphabetic content
+    trimmed.chars().any(|c| c.is_alphabetic())
+}
+
 /// Extract the first meaningful paragraph from the markdown body
 /// (after YAML frontmatter) as a description.
 fn extract_body_description(content: &str) -> Option<String> {
@@ -306,11 +325,11 @@ fn extract_body_description(content: &str) -> Option<String> {
         trimmed
     };
 
-    // Take the first non-empty paragraph (split by blank lines)
+    // Find the first paragraph that looks like prose
     let first_para = body
         .split("\n\n")
         .map(|p| p.trim())
-        .find(|p| !p.is_empty() && !p.starts_with('#'))?;
+        .find(|p| !p.is_empty() && is_prose_paragraph(p))?;
 
     // Clean and truncate
     let cleaned: String = first_para
@@ -1053,5 +1072,38 @@ mod tests {
         let (name, _, _) =
             parse_content_lenient(content, ".github/agents/agentic-workflows.agent.md");
         assert_eq!(name, "Agentic Workflows");
+    }
+
+    #[test]
+    fn test_extract_body_description_skips_tables() {
+        let content = "---\nname: model-selector\n---\n\n| Model | Best for |\n| --- | --- |\n| gpt-4 | General |\n\nThis skill helps you choose models.\n";
+        let desc = extract_body_description(content).unwrap();
+        assert_eq!(desc, "This skill helps you choose models.");
+    }
+
+    #[test]
+    fn test_extract_body_description_skips_rules() {
+        let content = "---\nname: divider\n---\n\n---\n\nActual description here.\n";
+        let desc = extract_body_description(content).unwrap();
+        assert_eq!(desc, "Actual description here.");
+    }
+
+    #[test]
+    fn test_extract_body_description_skips_code_fences() {
+        let content = "---\nname: code-example\n---\n\n```json\n{\"key\": \"value\"}\n```\n\nThis does something useful.\n";
+        let desc = extract_body_description(content).unwrap();
+        assert_eq!(desc, "This does something useful.");
+    }
+
+    #[test]
+    fn test_is_prose_paragraph() {
+        assert!(is_prose_paragraph("This is a normal paragraph."));
+        assert!(is_prose_paragraph("A skill for code review."));
+        assert!(!is_prose_paragraph("| col1 | col2 |"));
+        assert!(!is_prose_paragraph("---"));
+        assert!(!is_prose_paragraph("```rust"));
+        assert!(!is_prose_paragraph("# Heading"));
+        assert!(!is_prose_paragraph("<div>html</div>"));
+        assert!(!is_prose_paragraph("***"));
     }
 }
