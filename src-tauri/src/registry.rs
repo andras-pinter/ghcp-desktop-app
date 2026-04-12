@@ -25,8 +25,6 @@ pub struct RegistryItem {
     pub source_name: Option<String>,
     /// URL to the skill/agent on the registry.
     pub url: Option<String>,
-    /// Install count (if available).
-    pub installs: Option<u64>,
     /// Whether this is a skill or agent template.
     pub kind: RegistryItemKind,
     /// GitHub owner/repo for content fetching.
@@ -173,13 +171,8 @@ pub async fn search_aitmpl(
     }
 
     if browse_all {
-        // Browse mode: sort by popularity (installs descending)
-        scored.sort_by(|a, b| {
-            b.0.installs
-                .unwrap_or(0)
-                .cmp(&a.0.installs.unwrap_or(0))
-                .then_with(|| a.0.name.cmp(&b.0.name))
-        });
+        // Browse mode: sort alphabetically by name
+        scored.sort_by(|a, b| a.0.name.to_lowercase().cmp(&b.0.name.to_lowercase()));
     } else {
         // Search mode: sort by relevance score descending, then by name
         scored.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.name.cmp(&b.0.name)));
@@ -280,7 +273,6 @@ fn aitmpl_to_registry_item(item: &AitmplComponent, kind: RegistryItemKind) -> Re
         source: RegistrySource::Aitmpl,
         source_name: Some("aitmpl.com".to_string()),
         url,
-        installs: None,
         kind,
         source_repo: None,
         content: item.content.clone(),

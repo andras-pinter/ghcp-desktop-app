@@ -5,7 +5,6 @@ import {
   formatBytes,
   stripMarkdown,
   truncateMarkdown,
-  formatCount,
 } from "$lib/utils/format";
 
 describe("formatDateGroup", () => {
@@ -91,31 +90,5 @@ describe("truncateMarkdown", () => {
 
   it("returns full text if short enough", () => {
     expect(truncateMarkdown("**Hello**", 20)).toBe("Hello");
-  });
-});
-
-describe("formatCount", () => {
-  it("returns the number as-is for values under 1000", () => {
-    expect(formatCount(0)).toBe("0");
-    expect(formatCount(42)).toBe("42");
-    expect(formatCount(999)).toBe("999");
-  });
-
-  it("formats thousands with k suffix", () => {
-    expect(formatCount(1000)).toBe("1k");
-    expect(formatCount(1500)).toBe("1.5k");
-    expect(formatCount(2300)).toBe("2.3k");
-    expect(formatCount(9999)).toBe("10k");
-  });
-
-  it("drops .0 decimal for round thousands", () => {
-    expect(formatCount(3000)).toBe("3k");
-    expect(formatCount(10000)).toBe("10k");
-  });
-
-  it("formats millions with M suffix", () => {
-    expect(formatCount(1000000)).toBe("1M");
-    expect(formatCount(1500000)).toBe("1.5M");
-    expect(formatCount(2300000)).toBe("2.3M");
   });
 });

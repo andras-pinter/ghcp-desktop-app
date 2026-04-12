@@ -52,16 +52,3 @@ export function formatBytes(bytes: number): string {
   const value = bytes / Math.pow(1024, i);
   return `${value.toFixed(i > 0 ? 1 : 0)} ${units[i]}`;
 }
-
-/** Format a large count into a compact string (e.g., 1500 → "1.5k", 23400 → "23k"). */
-export function formatCount(n: number): string {
-  if (n >= 1_000_000) {
-    const m = n / 1_000_000;
-    return m >= 10 ? `${Math.round(m)}M` : `${m.toFixed(1).replace(/\.0$/, "")}M`;
-  }
-  if (n >= 1_000) {
-    const k = n / 1_000;
-    return k >= 10 ? `${Math.round(k)}k` : `${k.toFixed(1).replace(/\.0$/, "")}k`;
-  }
-  return String(n);
-}

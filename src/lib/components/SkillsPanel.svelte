@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { stripMarkdown, formatCount } from "$lib/utils/format";
+  import { stripMarkdown } from "$lib/utils/format";
   import {
     getSkillStore,
     initSkills,
@@ -776,13 +776,6 @@
                           ↗
                         </a>
                       {/if}
-                      {#if item.installs !== null && item.installs > 0}
-                        <span
-                          class="installs-badge"
-                          title="{item.installs.toLocaleString()} installs"
-                          >🔥 {formatCount(item.installs)}</span
-                        >
-                      {/if}
                     </div>
                     {#if expandedRegistryKey !== registryKey(item) && item.description}
                       <p class="card-desc">{stripMarkdown(item.description)}</p>
@@ -972,13 +965,6 @@
       text-align: center;
       justify-content: center;
     }
-  }
-
-  .installs-badge {
-    font-size: var(--font-size-xs);
-    color: var(--color-copper);
-    white-space: nowrap;
-    opacity: 0.85;
   }
 
   .scroll-sentinel {

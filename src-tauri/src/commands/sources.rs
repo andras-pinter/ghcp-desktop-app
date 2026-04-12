@@ -376,7 +376,6 @@ pub async fn search_catalog(
                 source: crate::registry::RegistrySource::Git,
                 source_name: sname,
                 url: None,
-                installs: None,
                 kind: item_kind,
                 source_repo: None,
                 content: Some(gi.content),

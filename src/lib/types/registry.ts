@@ -12,7 +12,6 @@ export interface RegistryItem {
   /** Display name of the source (e.g. "aitmpl.com" or git source name). Absent when not set. */
   sourceName?: string | null;
   url: string | null;
-  installs: number | null;
   kind: RegistryItemKind;
   sourceRepo: string | null;
   /** Full SKILL.md content (available for aitmpl items and git catalog items). */

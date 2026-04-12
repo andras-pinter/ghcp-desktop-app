@@ -1,6 +1,6 @@
 <script lang="ts">
   import { SvelteSet } from "svelte/reactivity";
-  import { stripMarkdown, truncateMarkdown, formatCount } from "$lib/utils/format";
+  import { stripMarkdown, truncateMarkdown } from "$lib/utils/format";
   import {
     getAgentStore,
     initAgents,
@@ -624,13 +624,6 @@
                           ↗
                         </a>
                       {/if}
-                      {#if item.installs !== null && item.installs > 0}
-                        <span
-                          class="installs-badge"
-                          title="{item.installs.toLocaleString()} installs"
-                          >🔥 {formatCount(item.installs)}</span
-                        >
-                      {/if}
                     </div>
                     {#if expandedRegistryKey !== registryKey(item) && item.description}
                       <p class="card-desc">{stripMarkdown(item.description)}</p>
@@ -970,13 +963,6 @@
   .check-item-status {
     font-size: var(--font-size-2xs);
     flex-shrink: 0;
-  }
-
-  .installs-badge {
-    font-size: var(--font-size-xs);
-    color: var(--color-copper);
-    white-space: nowrap;
-    opacity: 0.85;
   }
 
   .scroll-sentinel {

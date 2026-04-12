@@ -180,7 +180,6 @@ pub async fn install_from_registry(
         source: registry_source,
         source_name: Some("aitmpl.com".to_string()),
         url: Some(source_url),
-        installs: None,
         kind: crate::registry::RegistryItemKind::Skill,
         source_repo: None,
         content: None,
