@@ -351,10 +351,17 @@ export async function switchConversation(id: string): Promise<void> {
   }
 }
 
-/** Clear the active conversation (go to welcome screen). */
+/** Clear the active conversation (go to welcome screen). Resets agent to user default. */
 export function clearActiveConversation(): void {
   activeConversationId = null;
   messages = [];
+  // Select the user's default agent for the new chat
+  const settings = getSettings();
+  if (settings.defaultAgentId) {
+    selectAgentFn(settings.defaultAgentId);
+  } else {
+    selectAgentFn(null);
+  }
 }
 
 /** Rename a conversation. */
