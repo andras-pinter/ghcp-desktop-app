@@ -282,8 +282,9 @@
   onMount(async () => {
     initSkills();
     if (!sourceStore.loaded) initSources();
-    // Ensure catalog shows fresh data when panel mounts
+    // Invalidate stale data and prefetch fresh catalog in background
     invalidateSkillCatalogCache();
+    prefetchRegistry();
   });
 
   onDestroy(() => {

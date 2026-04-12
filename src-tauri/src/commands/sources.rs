@@ -362,7 +362,7 @@ pub async fn search_catalog(
             (catalog, names)
         };
 
-        // Convert git catalog items to RegistryItem (omit content to reduce IPC payload)
+        // Convert git catalog items to RegistryItem (include content for preview)
         for gi in git_items {
             let item_kind = match gi.kind.as_str() {
                 "agent" => crate::registry::RegistryItemKind::Agent,
@@ -379,7 +379,7 @@ pub async fn search_catalog(
                 installs: None,
                 kind: item_kind,
                 source_repo: None,
-                content: None,
+                content: Some(gi.content),
             });
         }
     }

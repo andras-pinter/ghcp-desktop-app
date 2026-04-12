@@ -147,8 +147,9 @@
     if (!skillStore.loaded) initSkills();
     if (mcpState.servers.length === 0) initMcp();
     if (!sourceStore.loaded) initSources();
-    // Ensure catalog shows fresh data when panel mounts
+    // Invalidate stale data and prefetch fresh catalog in background
     invalidateAgentCatalogCache();
+    prefetchAgentRegistry();
   });
 
   onDestroy(() => {

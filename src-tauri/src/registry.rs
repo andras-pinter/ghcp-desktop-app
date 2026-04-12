@@ -479,7 +479,7 @@ pub fn parse_content_lenient(content: &str, fallback_id: &str) -> (String, Strin
             }
 
             return (
-                name.unwrap_or_else(|| fallback_id.to_string()),
+                name.unwrap_or_else(|| readable_name_from_path(fallback_id)),
                 desc.unwrap_or_default(),
                 body.trim().to_string(),
             );
@@ -489,10 +489,50 @@ pub fn parse_content_lenient(content: &str, fallback_id: &str) -> (String, Strin
     // No frontmatter — try to extract description from body, use whole content as instructions
     let body_desc = extract_body_description(content).unwrap_or_default();
     (
-        fallback_id.to_string(),
+        readable_name_from_path(fallback_id),
         body_desc,
         content.trim().to_string(),
     )
+}
+
+/// Derive a human-readable name from a file path.
+///
+/// Examples:
+/// - `.github/agents/agentic-workflows.agent.md` → `Agentic Workflows`
+/// - `skills/code-review/SKILL.md` → `Code Review`
+/// - `my-skill.md` → `My Skill`
+fn readable_name_from_path(path: &str) -> String {
+    let file = path.rsplit('/').next().unwrap_or(path);
+    // Strip known suffixes
+    let stem = file
+        .strip_suffix(".agent.md")
+        .or_else(|| file.strip_suffix(".md"))
+        .unwrap_or(file);
+    // If the stem is a generic name like "SKILL" or "AGENT", use the parent dir
+    let base = if stem.eq_ignore_ascii_case("SKILL") || stem.eq_ignore_ascii_case("AGENT") {
+        path.trim_end_matches('/')
+            .rsplit('/')
+            .nth(1)
+            .unwrap_or(stem)
+    } else {
+        stem
+    };
+    // Convert hyphens/underscores to spaces and title-case each word
+    base.split(['-', '_'])
+        .filter(|w| !w.is_empty())
+        .map(|w| {
+            let mut chars = w.chars();
+            match chars.next() {
+                Some(first) => {
+                    let upper: String = first.to_uppercase().collect();
+                    let rest: String = chars.as_str().to_lowercase();
+                    format!("{upper}{rest}")
+                }
+                None => String::new(),
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 // ── Fetch content from registry ─────────────────────────────────
@@ -960,7 +1000,7 @@ mod tests {
     fn test_parse_content_lenient_no_frontmatter() {
         let content = "# My Agent\n\nThis is a simple agent.\n\nIt does things.\n";
         let (name, desc, _) = parse_content_lenient(content, "my-fallback");
-        assert_eq!(name, "my-fallback");
+        assert_eq!(name, "My Fallback");
         assert!(!desc.is_empty(), "Should extract body description");
     }
 
@@ -970,5 +1010,32 @@ mod tests {
         let (_, desc, _) = parse_content_lenient(content, "fallback");
         assert!(desc.contains("This is a long"));
         assert!(desc.contains("multi-line description"));
+    }
+
+    #[test]
+    fn test_readable_name_from_path() {
+        assert_eq!(
+            readable_name_from_path(".github/agents/agentic-workflows.agent.md"),
+            "Agentic Workflows"
+        );
+        assert_eq!(
+            readable_name_from_path("skills/code-review/SKILL.md"),
+            "Code Review"
+        );
+        assert_eq!(readable_name_from_path("my-skill.md"), "My Skill");
+        assert_eq!(readable_name_from_path("AGENT.md"), "Agent");
+        assert_eq!(
+            readable_name_from_path("tools/web_scraper.agent.md"),
+            "Web Scraper"
+        );
+    }
+
+    #[test]
+    fn test_parse_content_lenient_path_fallback_name() {
+        // No name in YAML — should derive from path
+        let content = "---\ndescription: Does things\n---\nBody.\n";
+        let (name, _, _) =
+            parse_content_lenient(content, ".github/agents/agentic-workflows.agent.md");
+        assert_eq!(name, "Agentic Workflows");
     }
 }
