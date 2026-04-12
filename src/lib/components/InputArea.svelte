@@ -723,10 +723,12 @@
               title="Select agent persona"
             >
               <span class="agent-trigger-avatar"
-                >{agents.find((a) => a.id === selectedAgentId)?.avatar ?? "🤖"}</span
+                >{agents.find((a) => a.id === (selectedAgentId ?? defaultAgentId))?.avatar ??
+                  "🤖"}</span
               >
               <span class="agent-trigger-name"
-                >{agents.find((a) => a.id === selectedAgentId)?.name ?? "Default"}</span
+                >{agents.find((a) => a.id === (selectedAgentId ?? defaultAgentId))?.name ??
+                  "Default"}</span
               >
               <svg
                 class="agent-trigger-chevron"
