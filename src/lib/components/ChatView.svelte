@@ -621,28 +621,30 @@
     <div class="visually-hidden" aria-live="polite" aria-atomic="true">
       {#if streaming}Copilot is responding…{/if}
     </div>
-    <div class="chat-input-container">
-      <InputArea
-        onSend={handleSend}
-        {streaming}
-        {extractingFiles}
-        onStop={handleStop}
-        model={selectedModel}
-        onModelChange={handleModelChange}
-        availableModels={modelStore.models}
-        modelsLoaded={modelStore.loaded}
-        defaultModelId={modelStore.defaultModelId}
-        onSetDefault={setDefaultModel}
-        initialValue={draftText}
-        onInput={handleDraftChange}
-        agents={agentStore.agents}
-        agentsLoaded={agentStore.loaded}
-        selectedAgentId={agentStore.selectedAgentId}
-        onAgentChange={selectAgent}
-        externalFiles={pendingDropFiles}
-        onExternalFilesConsumed={clearPendingDropFiles}
-        {extractionStatuses}
-      />
+    <div class="chat-input-float">
+      <div class="chat-input-container">
+        <InputArea
+          onSend={handleSend}
+          {streaming}
+          {extractingFiles}
+          onStop={handleStop}
+          model={selectedModel}
+          onModelChange={handleModelChange}
+          availableModels={modelStore.models}
+          modelsLoaded={modelStore.loaded}
+          defaultModelId={modelStore.defaultModelId}
+          onSetDefault={setDefaultModel}
+          initialValue={draftText}
+          onInput={handleDraftChange}
+          agents={agentStore.agents}
+          agentsLoaded={agentStore.loaded}
+          selectedAgentId={agentStore.selectedAgentId}
+          onAgentChange={selectAgent}
+          externalFiles={pendingDropFiles}
+          onExternalFilesConsumed={clearPendingDropFiles}
+          {extractionStatuses}
+        />
+      </div>
     </div>
   {/if}
 </div>
@@ -665,7 +667,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: color-mix(in srgb, var(--color-bg) 85%, transparent);
+    background: color-mix(in srgb, var(--color-bg-primary) 85%, transparent);
     backdrop-filter: blur(4px);
     animation: fadeIn 150ms ease both;
   }
@@ -752,7 +754,7 @@
   .chat-messages {
     flex: 1;
     overflow-y: auto;
-    padding: var(--spacing-2xl) 0 var(--spacing-lg);
+    padding: var(--spacing-2xl) 0 0;
   }
 
   .messages-inner {
@@ -761,6 +763,9 @@
     padding: 0 var(--spacing-xl);
     display: flex;
     flex-direction: column;
+    min-height: 100%;
+    justify-content: flex-end;
+    padding-bottom: 11rem;
   }
 
   .context-summary-banner {
@@ -802,13 +807,23 @@
     animation: fadeInUp 300ms ease both;
   }
 
-  /* ── Bottom input ── */
+  /* ── Bottom input (floating) ── */
+
+  .chat-input-float {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 2;
+    padding-top: 3rem;
+    background: linear-gradient(to bottom, transparent, var(--color-bg-primary) 3rem);
+    pointer-events: none;
+  }
 
   .chat-input-container {
-    flex-shrink: 0;
     max-width: var(--content-max-width);
-    width: 100%;
     margin: 0 auto;
-    padding: var(--spacing-sm) var(--spacing-xl) var(--spacing-xl);
+    padding: 0 var(--spacing-xl) var(--spacing-xl);
+    pointer-events: auto;
   }
 </style>
