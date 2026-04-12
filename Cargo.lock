@@ -623,7 +623,7 @@ dependencies = [
 
 [[package]]
 name = "chuck"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -726,7 +726,7 @@ dependencies = [
 
 [[package]]
 name = "copilot-api"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "chrono",
  "futures-util",
@@ -2892,7 +2892,7 @@ checksum = "2532096657941c2fea9c289d370a250971c689d4f143798ff67113ec042024a5"
 
 [[package]]
 name = "mcp-client"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "log",
  "reqwest 0.12.28",
@@ -6603,7 +6603,7 @@ dependencies = [
 
 [[package]]
 name = "web-research"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "dom_smoothie",
  "futures-util",
@@ -7477,7 +7477,7 @@ checksum = "b9cc00251562a284751c9973bace760d86c0276c471b4be569fe6b068ee97a56"
 
 [[package]]
 name = "xtask"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "semver",
  "serde_json",

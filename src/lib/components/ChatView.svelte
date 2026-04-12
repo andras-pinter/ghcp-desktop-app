@@ -18,7 +18,7 @@
     saveExportFile,
   } from "$lib/utils/commands";
   import { onContextSummarized } from "$lib/utils/events";
-  import { onMount, onDestroy } from "svelte";
+  import { onMount, onDestroy, tick } from "svelte";
   import { getCurrentWebview } from "@tauri-apps/api/webview";
   import type { UnlistenFn } from "@tauri-apps/api/event";
   import {
@@ -203,19 +203,39 @@
     }
   });
 
-  // Reset summarization banner and scroll state when switching conversations
+  // Reset summarization banner and scroll state when switching conversations.
+  let prevConvId: string | null = null;
   $effect(() => {
-    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
-    store.activeConversationId;
-    summarizedCount = 0;
-    userScrolledAway = false;
+    const id = store.activeConversationId;
+    if (id !== prevConvId) {
+      prevConvId = id;
+      summarizedCount = 0;
+      userScrolledAway = false;
+    }
+  });
+
+  // Scroll to bottom when a conversation's messages first load.
+  // Tracks the last conversation we scrolled for to avoid re-scrolling
+  // on every new streaming token (messages.length changes during streaming).
+  let scrolledForConvId: string | null = null;
+  $effect(() => {
+    const id = store.activeConversationId;
+    const len = store.messages.length;
+    if (id && len > 0 && id !== scrolledForConvId) {
+      scrolledForConvId = id;
+      tick().then(() => {
+        if (chatContainer) chatContainer.scrollTop = chatContainer.scrollHeight;
+      });
+    } else if (!id) {
+      scrolledForConvId = null;
+    }
   });
 
   // Auto-scroll when active conversation receives streaming tokens.
   // Uses RAF instead of setInterval so scroll is synchronized with the
   // browser's render cycle — no gap between content growth and scroll.
   let scrollRafId: number | null = null;
-  let userScrolledAway = false;
+  let userScrolledAway = $state(false);
 
   function handleChatScroll(): void {
     if (!chatContainer) return;
@@ -741,6 +761,16 @@
     <div class="visually-hidden" aria-live="polite" aria-atomic="true">
       {#if streaming}Copilot is responding…{/if}
     </div>
+    {#if userScrolledAway}
+      <button
+        class="scroll-to-bottom"
+        aria-label="Scroll to bottom"
+        onclick={() =>
+          chatContainer?.scrollTo({ top: chatContainer.scrollHeight, behavior: "smooth" })}
+      >
+        ↓
+      </button>
+    {/if}
     <div class="chat-input-float">
       <div class="chat-input-container">
         <InputArea
@@ -1071,6 +1101,38 @@
 
   .message-entry {
     animation: fadeInUp 300ms ease both;
+  }
+
+  /* ── Scroll-to-bottom button ── */
+
+  .scroll-to-bottom {
+    position: absolute;
+    bottom: 8.5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 3;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 50%;
+    border: 1px solid var(--color-border);
+    background: var(--color-bg-secondary);
+    color: var(--color-text-secondary);
+    font-size: 1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    transition:
+      opacity 150ms ease,
+      background 150ms ease;
+    opacity: 0.85;
+  }
+
+  .scroll-to-bottom:hover {
+    background: var(--color-bg-tertiary);
+    color: var(--color-text-primary);
+    opacity: 1;
   }
 
   /* ── Bottom input (floating) ── */
