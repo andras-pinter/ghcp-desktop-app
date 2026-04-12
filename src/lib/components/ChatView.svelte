@@ -674,6 +674,7 @@
           {extractionStatuses}
           skills={enabledSkills}
           onCommand={handleCommand}
+          hasConversation={false}
         />
       </div>
     </div>
@@ -747,6 +748,7 @@
           {extractionStatuses}
           skills={enabledSkills}
           onCommand={handleCommand}
+          hasConversation={true}
         />
       </div>
     </div>

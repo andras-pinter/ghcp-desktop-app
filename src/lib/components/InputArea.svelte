@@ -46,6 +46,8 @@
     extractionStatuses?: Record<string, "extracting" | "done" | "error">;
     /** Callback for action commands that the input area cannot handle itself. */
     onCommand?: (command: string, args?: string) => void;
+    /** Whether an active conversation exists (hides conversation-only commands). */
+    hasConversation?: boolean;
   }
 
   let {
@@ -71,6 +73,7 @@
     onExternalFilesConsumed,
     extractionStatuses = {},
     onCommand,
+    hasConversation = false,
   }: Props = $props();
 
   const settings = getSettings();
@@ -334,7 +337,14 @@
 
     // Run the command parser on every input to drive the popup
     const cursor = textareaEl.selectionStart ?? inputText.length;
-    commandResult = parseCommand(inputText, cursor, agents, availableModels, skills);
+    commandResult = parseCommand(
+      inputText,
+      cursor,
+      agents,
+      availableModels,
+      skills,
+      hasConversation,
+    );
     popupFocusIndex = commandResult && commandResult.items.length > 0 ? 0 : -1;
   }
 
@@ -578,12 +588,18 @@
     switch (item.kind) {
       case "command": {
         const cmd = item.command;
-        // If the command has enumerable args (model, skill), enter sub-command mode
-        if (cmd.argType === "model" || cmd.argType === "skill") {
+        // Commands with enumerable or typed args → insert "/{name} " and let user keep typing
+        if (
+          cmd.argType === "model" ||
+          cmd.argType === "skill" ||
+          cmd.argType === "text" ||
+          cmd.argType === "url" ||
+          cmd.argType === "format"
+        ) {
           replaceCommandText(rangeStart, rangeEnd, `/${cmd.name} `);
           return;
         }
-        // Execute action or context command immediately
+        // Execute action commands with no args immediately
         dispatchCommand(cmd.name, rangeStart, rangeEnd);
         break;
       }

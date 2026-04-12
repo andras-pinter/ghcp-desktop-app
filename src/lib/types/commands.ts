@@ -40,6 +40,8 @@ export interface SlashCommand {
   readonly argType: ArgType;
   /** Placeholder text shown when the command is selected but needs args. */
   readonly argPlaceholder?: string;
+  /** If true, this command is only shown when a conversation is active. */
+  readonly requiresConversation?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -97,6 +99,7 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
     behavior: "action",
     argType: "text",
     argPlaceholder: "new title",
+    requiresConversation: true,
   },
   {
     name: "favorite",
@@ -104,6 +107,7 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
     icon: "⭐",
     behavior: "action",
     argType: "none",
+    requiresConversation: true,
   },
   {
     name: "clear",
@@ -111,6 +115,7 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
     icon: "🗑️",
     behavior: "action",
     argType: "none",
+    requiresConversation: true,
   },
   {
     name: "export",
@@ -119,6 +124,7 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
     behavior: "action",
     argType: "format",
     argPlaceholder: "md or json",
+    requiresConversation: true,
   },
   {
     name: "help",

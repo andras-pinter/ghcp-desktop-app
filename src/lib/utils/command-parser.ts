@@ -78,6 +78,7 @@ export function isSubCommand(r: CommandParseResult): r is SubCommandParseResult 
  * @param agents Available agents (for `@` mentions).
  * @param models Available models (for `/model` sub-command).
  * @param skills Available skills (for `/skill` sub-command).
+ * @param hasConversation Whether an active conversation exists (hides conversation-only commands).
  * @returns A parse result, or `null` if no trigger is active.
  */
 export function parseCommand(
@@ -86,11 +87,12 @@ export function parseCommand(
   agents: Agent[],
   models: Model[],
   skills: Skill[],
+  hasConversation: boolean = true,
 ): CommandParseResult {
   if (cursor === 0 || value.length === 0) return null;
 
   // ── Try slash command first ────────────────────────────────────────────
-  const slashResult = parseSlash(value, cursor, models, skills);
+  const slashResult = parseSlash(value, cursor, models, skills, hasConversation);
   if (slashResult) return slashResult;
 
   // ── Try @ mention ─────────────────────────────────────────────────────
@@ -110,6 +112,7 @@ function parseSlash(
   cursor: number,
   models: Model[],
   skills: Skill[],
+  hasConversation: boolean,
 ): CommandParseResult {
   // Walk backward from cursor to find the start of the current line.
   const lineStart = findLineStart(value, cursor);
@@ -128,7 +131,7 @@ function parseSlash(
   if (spaceIdx === -1) {
     // ── Still typing the command name ──────────────────────────────────
     const query = textAfterSlash.toLowerCase();
-    const filtered = filterCommands(query);
+    const filtered = filterCommands(query, hasConversation);
     if (filtered.length === 0) return null;
 
     return {
@@ -202,9 +205,20 @@ function parseMention(value: string, cursor: number, agents: Agent[]): ParseResu
 // Filtering helpers
 // ---------------------------------------------------------------------------
 
-function filterCommands(query: string): SlashCommand[] {
-  if (query.length === 0) return [...SLASH_COMMANDS];
-  return SLASH_COMMANDS.filter((c) => c.name.startsWith(query));
+function filterCommands(query: string, hasConversation: boolean): SlashCommand[] {
+  const available = hasConversation
+    ? [...SLASH_COMMANDS]
+    : SLASH_COMMANDS.filter((c) => !c.requiresConversation);
+
+  if (query.length === 0) return available;
+
+  // /? is an alias for /help
+  if (query === "?") {
+    const help = SLASH_COMMANDS.find((c) => c.name === "help");
+    return help ? [help] : [];
+  }
+
+  return available.filter((c) => c.name.startsWith(query));
 }
 
 function filterAgents(query: string, agents: Agent[]): PopupItem[] {

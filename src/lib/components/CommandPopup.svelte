@@ -20,6 +20,16 @@
 
   const { items, focusedIndex, onSelect }: Props = $props();
 
+  /** Scroll the focused item into view when arrow keys change selection. */
+  $effect(() => {
+    if (focusedIndex < 0) return;
+    // Use tick-like delay to let Svelte render the .focused class first
+    requestAnimationFrame(() => {
+      const el = document.querySelector(".command-popup .popup-item.focused");
+      el?.scrollIntoView({ block: "nearest" });
+    });
+  });
+
   function itemLabel(item: PopupItem): string {
     switch (item.kind) {
       case "command":

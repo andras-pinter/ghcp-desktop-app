@@ -89,8 +89,12 @@ const skills: Skill[] = [
   },
 ];
 
-function parse(value: string, cursor?: number): CommandParseResult {
-  return parseCommand(value, cursor ?? value.length, agents, models, skills);
+function parse(
+  value: string,
+  cursor?: number,
+  hasConversation: boolean = true,
+): CommandParseResult {
+  return parseCommand(value, cursor ?? value.length, agents, models, skills, hasConversation);
 }
 
 // ---------------------------------------------------------------------------
@@ -306,6 +310,56 @@ describe("edge cases", () => {
     expect(r!.trigger).toBe("/");
     if (!isSubCommand(r)) {
       expect(r!.query).toBe("mod");
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// hasConversation filtering
+// ---------------------------------------------------------------------------
+
+describe("hasConversation filtering", () => {
+  it("hides conversation-only commands when hasConversation is false", () => {
+    const r = parse("/", undefined, false);
+    expect(r).not.toBeNull();
+    const names = r!.items.map((i) => (i.kind === "command" ? i.command.name : ""));
+    expect(names).not.toContain("title");
+    expect(names).not.toContain("favorite");
+    expect(names).not.toContain("clear");
+    expect(names).not.toContain("export");
+    // These should still be present
+    expect(names).toContain("model");
+    expect(names).toContain("web");
+    expect(names).toContain("help");
+  });
+
+  it("shows all commands when hasConversation is true", () => {
+    const r = parse("/", undefined, true);
+    expect(r).not.toBeNull();
+    expect(r!.items.length).toBe(10);
+  });
+
+  it("hides /favorite from /f results when no conversation", () => {
+    const r = parse("/f", undefined, false);
+    expect(r).not.toBeNull();
+    const names = r!.items.map((i) => (i.kind === "command" ? i.command.name : ""));
+    expect(names).toContain("file");
+    expect(names).toContain("fetch");
+    expect(names).not.toContain("favorite");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// /? alias for /help
+// ---------------------------------------------------------------------------
+
+describe("/? alias", () => {
+  it("returns /help for /?", () => {
+    const r = parse("/?");
+    expect(r).not.toBeNull();
+    expect(r!.items).toHaveLength(1);
+    if (r!.items[0].kind === "command") {
+      expect(r!.items[0].command.name).toBe("help");
     }
   });
 });
