@@ -22,6 +22,8 @@ export interface RegistryItem {
 export interface RegistrySearchResult {
   items: RegistryItem[];
   total: number | null;
+  /** Whether more items are available beyond the current page. */
+  hasMore: boolean;
 }
 
 /** A discovered definition file (SKILL.md or *.agent.md) from a git repository. */

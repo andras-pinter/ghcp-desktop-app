@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { stripMarkdown } from "$lib/utils/format";
+  import { stripMarkdown, formatCount } from "$lib/utils/format";
   import {
     getSkillStore,
     initSkills,
@@ -9,6 +9,7 @@
     installFromRegistry,
     prefetchRegistry,
     invalidateSkillCatalogCache,
+    loadMoreSkills,
   } from "$lib/stores/skills.svelte";
   import { getMcpState } from "$lib/stores/mcp.svelte";
   import { getSourceStore, initSources } from "$lib/stores/sources.svelte";
@@ -278,6 +279,26 @@
         s.name === item.name,
     );
   }
+
+  // ── Infinite scroll ──────────────────────────────────────────
+  let scrollSentinel = $state<HTMLElement | null>(null);
+  let scrollObserver: IntersectionObserver | null = null;
+
+  $effect(() => {
+    scrollObserver?.disconnect();
+    if (scrollSentinel && registryExpanded) {
+      scrollObserver = new IntersectionObserver(
+        (entries) => {
+          if (entries[0]?.isIntersecting && store.registryHasMore && !store.registryLoadingMore) {
+            loadMoreSkills(sourceIdsParam());
+          }
+        },
+        { rootMargin: "200px" },
+      );
+      scrollObserver.observe(scrollSentinel);
+    }
+    return () => scrollObserver?.disconnect();
+  });
 
   onMount(async () => {
     initSkills();
@@ -755,8 +776,12 @@
                           ↗
                         </a>
                       {/if}
-                      {#if item.installs !== null}
-                        <span class="badge badge--neutral">⬇ {item.installs.toLocaleString()}</span>
+                      {#if item.installs !== null && item.installs > 0}
+                        <span
+                          class="installs-badge"
+                          title="{item.installs.toLocaleString()} installs"
+                          >🔥 {formatCount(item.installs)}</span
+                        >
                       {/if}
                     </div>
                     {#if expandedRegistryKey !== registryKey(item) && item.description}
@@ -786,6 +811,13 @@
                     </div>
                   </article>
                 {/each}
+                <!-- Infinite scroll sentinel -->
+                <div bind:this={scrollSentinel} class="scroll-sentinel" aria-hidden="true"></div>
+                {#if store.registryLoadingMore}
+                  <div class="registry-loading-more">
+                    <span class="spinner spinner--small"></span> Loading more…
+                  </div>
+                {/if}
               </div>
             {:else if searchQuery.trim() && !store.registrySearching}
               <p class="section-empty">No skills match "{searchQuery}"</p>
@@ -940,5 +972,33 @@
       text-align: center;
       justify-content: center;
     }
+  }
+
+  .installs-badge {
+    font-size: var(--font-size-xs);
+    color: var(--color-copper);
+    white-space: nowrap;
+    opacity: 0.85;
+  }
+
+  .scroll-sentinel {
+    height: 1px;
+    width: 100%;
+  }
+
+  .registry-loading-more {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-sm) 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+  }
+
+  .spinner--small {
+    width: 14px;
+    height: 14px;
+    border-width: 2px;
   }
 </style>
