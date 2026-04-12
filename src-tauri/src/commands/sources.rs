@@ -546,11 +546,24 @@ async fn scan_source(
 }
 
 /// Import a single skill item into the database.
+/// Skips if a skill with the same source_url already exists.
 fn import_skill_item(
     db: &rusqlite::Connection,
     source: &queries::GitSource,
     item: &ImportItem,
 ) -> Result<(), String> {
+    // TODO: `blob/main` assumes default branch — cosmetic only, see install_catalog_item
+    let source_url = format!("{}/blob/main/{}", source.url, item.path);
+
+    // Skip if already installed from this source URL
+    let existing = queries::list_skills(db).map_err(|e| e.to_string())?;
+    if existing
+        .iter()
+        .any(|s| s.source_url.as_deref() == Some(source_url.as_str()))
+    {
+        return Ok(());
+    }
+
     // Parse content: try strict parser first, fall back to lenient
     let (name, description, instructions) = match crate::skillmd::parse(&item.content) {
         Ok(parsed) => (parsed.name, parsed.description, parsed.instructions),
@@ -559,8 +572,6 @@ fn import_skill_item(
 
     let slug = name.to_lowercase().replace(' ', "-");
     let db_id = format!("git-{}-{}", &source.id[..8.min(source.id.len())], slug);
-    // TODO: `blob/main` assumes default branch — cosmetic only, see install_catalog_item
-    let source_url = format!("{}/blob/main/{}", source.url, item.path);
 
     queries::create_skill(
         db,
@@ -581,11 +592,24 @@ fn import_skill_item(
 }
 
 /// Import a single agent item into the database.
+/// Skips if an agent with the same source_url already exists.
 fn import_agent_item(
     db: &rusqlite::Connection,
     source: &queries::GitSource,
     item: &ImportItem,
 ) -> Result<(), String> {
+    // TODO: `blob/main` assumes default branch — cosmetic only, see install_catalog_item
+    let source_url = format!("{}/blob/main/{}", source.url, item.path);
+
+    // Skip if already installed from this source URL
+    let existing = queries::list_agents(db).map_err(|e| e.to_string())?;
+    if existing
+        .iter()
+        .any(|a| a.source_url.as_deref() == Some(source_url.as_str()))
+    {
+        return Ok(());
+    }
+
     // Parse content: try strict parser first, fall back to lenient
     let (name, _description, instructions) = match crate::skillmd::parse(&item.content) {
         Ok(parsed) => (parsed.name, parsed.description, parsed.instructions),
@@ -593,8 +617,6 @@ fn import_agent_item(
     };
 
     let id = uuid::Uuid::new_v4().to_string();
-    // TODO: `blob/main` assumes default branch — cosmetic only, see install_catalog_item
-    let source_url = format!("{}/blob/main/{}", source.url, item.path);
 
     queries::create_agent(
         db,
