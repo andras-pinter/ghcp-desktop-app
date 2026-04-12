@@ -30,7 +30,8 @@ let registryHasMore = $state(false);
 let registryLoadingMore = $state(false);
 let registryOffset = $state(0);
 
-/** Source filter selection (persists across component mount/unmount). */
+/** Monotonic counter incremented on every new search/prefetch to detect stale loadMore results. */
+let requestVersion = 0;
 const selectedSourceIds = new SvelteSet<string>();
 
 /** Load agents from the backend. Call once after auth. */
@@ -123,6 +124,7 @@ export async function prefetchAgentRegistry(sourceIds?: string[] | null): Promis
   }
   registrySearching = true;
   registryOffset = 0;
+  requestVersion++;
   try {
     const result: RegistrySearchResult = await searchCatalogCmd(
       "",
@@ -141,6 +143,8 @@ export async function prefetchAgentRegistry(sourceIds?: string[] | null): Promis
     registryOffset = result.items.length;
   } catch (e) {
     logFrontend("warn", `Agent registry prefetch failed: ${e}`);
+    registryResults = [];
+    registryHasMore = false;
   } finally {
     registrySearching = false;
     drainPendingRequest();
@@ -159,6 +163,7 @@ export async function searchAgentRegistries(
   registryQuery = query;
   registrySearching = true;
   registryOffset = 0;
+  requestVersion++;
   try {
     const result: RegistrySearchResult = await searchCatalogCmd(
       query,
@@ -184,6 +189,7 @@ export async function searchAgentRegistries(
 export async function loadMoreAgents(sourceIds?: string[] | null): Promise<void> {
   if (registryLoadingMore || !registryHasMore) return;
   registryLoadingMore = true;
+  const version = requestVersion;
   try {
     const result: RegistrySearchResult = await searchCatalogCmd(
       registryQuery,
@@ -192,6 +198,7 @@ export async function loadMoreAgents(sourceIds?: string[] | null): Promise<void>
       sourceIds,
       registryOffset,
     );
+    if (version !== requestVersion) return;
     registryResults = [...registryResults, ...result.items];
     registryHasMore = result.hasMore;
     registryOffset += result.items.length;

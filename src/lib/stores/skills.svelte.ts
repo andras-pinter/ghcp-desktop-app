@@ -28,7 +28,8 @@ let registryHasMore = $state(false);
 let registryLoadingMore = $state(false);
 let registryOffset = $state(0);
 
-/** Source filter selection (persists across component mount/unmount). */
+/** Monotonic counter incremented on every new search/prefetch to detect stale loadMore results. */
+let requestVersion = 0;
 const selectedSourceIds = new SvelteSet<string>();
 
 /** Load skills from the backend. Call once after auth. */
@@ -81,6 +82,7 @@ export async function prefetchRegistry(sourceIds?: string[] | null): Promise<voi
   }
   registrySearching = true;
   registryOffset = 0;
+  requestVersion++;
   try {
     const result: RegistrySearchResult = await searchCatalogCmd(
       "",
@@ -100,6 +102,9 @@ export async function prefetchRegistry(sourceIds?: string[] | null): Promise<voi
     registryOffset = result.items.length;
   } catch (e) {
     logFrontend("warn", `Skills registry prefetch failed: ${e}`);
+    registryResults = [];
+    registryTotal = null;
+    registryHasMore = false;
   } finally {
     registrySearching = false;
     drainPendingRequest();
@@ -115,6 +120,7 @@ export async function searchRegistries(query: string, sourceIds?: string[] | nul
   registryQuery = query;
   registrySearching = true;
   registryOffset = 0;
+  requestVersion++;
   try {
     const result: RegistrySearchResult = await searchCatalogCmd(
       query,
@@ -142,6 +148,7 @@ export async function searchRegistries(query: string, sourceIds?: string[] | nul
 export async function loadMoreSkills(sourceIds?: string[] | null): Promise<void> {
   if (registryLoadingMore || !registryHasMore) return;
   registryLoadingMore = true;
+  const version = requestVersion;
   try {
     const result: RegistrySearchResult = await searchCatalogCmd(
       registryQuery,
@@ -150,6 +157,7 @@ export async function loadMoreSkills(sourceIds?: string[] | null): Promise<void>
       sourceIds,
       registryOffset,
     );
+    if (version !== requestVersion) return;
     registryResults = [...registryResults, ...result.items];
     registryHasMore = result.hasMore;
     registryOffset += result.items.length;
