@@ -116,7 +116,7 @@ const AITMPL_COMPONENTS_URL: &str =
     "https://raw.githubusercontent.com/davila7/claude-code-templates/main/docs/components.json";
 
 /// How long a cached components.json response stays valid before re-fetching.
-const AITMPL_CACHE_TTL: Duration = Duration::from_secs(300); // 5 minutes
+const AITMPL_CACHE_TTL: Duration = Duration::from_secs(3600); // 1 hour
 
 /// In-memory cache for the parsed components.json payload.
 struct AitmplCache {
