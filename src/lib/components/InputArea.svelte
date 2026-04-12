@@ -1,8 +1,13 @@
 <script lang="ts">
   import type { Model } from "$lib/types/message";
   import type { Agent } from "$lib/types/agent";
+  import type { Skill } from "$lib/types/skill";
   import type { UrlPreview } from "$lib/types/web-research";
   import type { ChatFileData } from "$lib/types/project";
+  import type { PopupItem, MessageOverrides } from "$lib/types/commands";
+  import { emptyOverrides } from "$lib/types/commands";
+  import { parseCommand, type CommandParseResult } from "$lib/utils/command-parser";
+  import CommandPopup from "./CommandPopup.svelte";
   import { fetchUrl, pickFileForChat } from "$lib/utils/commands";
   import { formatBytes } from "$lib/utils/format";
   import { getSettings } from "$lib/stores/settings.svelte";
@@ -10,7 +15,12 @@
   import { tick } from "svelte";
 
   interface Props {
-    onSend: (text: string, urls?: UrlPreview[], files?: ChatFileData[]) => void;
+    onSend: (
+      text: string,
+      urls?: UrlPreview[],
+      files?: ChatFileData[],
+      overrides?: MessageOverrides,
+    ) => void;
     onStop?: () => void;
     streaming?: boolean;
     extractingFiles?: boolean;
@@ -27,11 +37,15 @@
     selectedAgentId?: string | null;
     defaultAgentId?: string | null;
     onAgentChange?: (agentId: string | null) => void;
+    /** Available skills (for /skill autocomplete). */
+    skills?: Skill[];
     /** Files injected externally (e.g. dropped on ChatView). InputArea absorbs them. */
     externalFiles?: ChatFileData[];
     onExternalFilesConsumed?: () => void;
     /** Background extraction status per filename, managed by ChatView. */
     extractionStatuses?: Record<string, "extracting" | "done" | "error">;
+    /** Callback for action commands that the input area cannot handle itself. */
+    onCommand?: (command: string, args?: string) => void;
   }
 
   let {
@@ -52,9 +66,11 @@
     selectedAgentId = null,
     defaultAgentId = null,
     onAgentChange,
+    skills = [],
     externalFiles = [],
     onExternalFilesConsumed,
     extractionStatuses = {},
+    onCommand,
   }: Props = $props();
 
   const settings = getSettings();
@@ -67,6 +83,16 @@
   let dropdownEl: HTMLDivElement | undefined = $state();
   let agentDropdownOpen = $state(false);
   let agentDropdownEl: HTMLDivElement | undefined = $state();
+
+  // ── Command popup state ──────────────────────────────────────────────
+  let commandResult = $state<CommandParseResult>(null);
+  let popupFocusIndex = $state(-1);
+  let overrides: MessageOverrides = $state(emptyOverrides());
+
+  /** Items to show in the popup — derived from the parse result. */
+  let popupItems = $derived<PopupItem[]>(commandResult ? commandResult.items : []);
+  /** Whether the popup should be visible. */
+  let popupVisible = $derived(commandResult !== null && popupItems.length > 0);
 
   /** Local override for the send shortcut — does not persist to settings. */
   let localSendShortcut: "enter" | "cmd-enter" | null = $state(null);
@@ -138,40 +164,74 @@
     // Don't send while files are still being read from disk
     if (attachedFiles.some((f) => f.loading)) return;
     const urls = attachedUrls.filter((u) => u.content !== null);
+    const hasOverrides =
+      overrides.agentId !== null || overrides.modelId !== null || overrides.skillIds.length > 0;
     onSend(
       trimmed,
       urls.length > 0 ? urls : undefined,
       attachedFiles.length > 0 ? attachedFiles : undefined,
+      hasOverrides ? { ...overrides } : undefined,
     );
     inputText = "";
     attachedUrls = [];
     attachedFiles = [];
     urlInputVisible = false;
     urlInputText = "";
+    overrides = emptyOverrides();
+    commandResult = null;
     if (textareaEl) {
       textareaEl.style.height = "auto";
     }
   }
 
   function handleKeydown(event: KeyboardEvent) {
+    // ── Command popup keyboard navigation ─────────────────────────────
+    if (popupVisible) {
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        popupFocusIndex = Math.min(popupFocusIndex + 1, popupItems.length - 1);
+        return;
+      }
+      if (event.key === "ArrowUp") {
+        event.preventDefault();
+        popupFocusIndex = Math.max(popupFocusIndex - 1, -1);
+        return;
+      }
+      if (event.key === "Tab" || (event.key === "Enter" && !event.shiftKey)) {
+        if (popupFocusIndex >= 0 && popupFocusIndex < popupItems.length) {
+          event.preventDefault();
+          selectPopupItem(popupItems[popupFocusIndex]);
+          return;
+        }
+        // If no focused item, Tab does nothing; Enter falls through to normal send
+        if (event.key === "Tab") {
+          event.preventDefault();
+          return;
+        }
+      }
+      if (event.key === "Escape") {
+        event.preventDefault();
+        commandResult = null;
+        popupFocusIndex = -1;
+        return;
+      }
+    }
+
+    // ── Normal keydown handling ────────────────────────────────────────
     const mod = event.metaKey || event.ctrlKey;
     if (activeSendShortcut === "cmd-enter") {
-      // Cmd/Ctrl+Enter sends; Enter inserts newline
       if (event.key === "Enter" && mod) {
         event.preventDefault();
         handleSend();
         return;
       }
-      // Plain Enter inserts newline — check for list continuation
       if (event.key === "Enter" && !mod && handleListContinuation(event)) return;
     } else {
-      // Enter sends (default); Shift+Enter inserts newline
       if (event.key === "Enter" && !event.shiftKey) {
         event.preventDefault();
         handleSend();
         return;
       }
-      // Shift+Enter inserts newline — check for list continuation
       if (event.key === "Enter" && event.shiftKey && handleListContinuation(event)) return;
     }
   }
@@ -271,6 +331,11 @@
     textareaEl.style.height = "auto";
     textareaEl.style.height = Math.min(textareaEl.scrollHeight, 200) + "px";
     onInputCallback?.(inputText);
+
+    // Run the command parser on every input to drive the popup
+    const cursor = textareaEl.selectionStart ?? inputText.length;
+    commandResult = parseCommand(inputText, cursor, agents, availableModels, skills);
+    popupFocusIndex = commandResult && commandResult.items.length > 0 ? 0 : -1;
   }
 
   function handleModelClick(modelId: string, event: MouseEvent) {
@@ -491,6 +556,153 @@
     }
   }
 
+  // ── Command popup selection & dispatch ────────────────────────────────
+
+  /** Replace the trigger text in the textarea with the appropriate result. */
+  function replaceCommandText(rangeStart: number, rangeEnd: number, replacement: string) {
+    inputText = inputText.slice(0, rangeStart) + replacement + inputText.slice(rangeEnd);
+    tick().then(() => {
+      if (textareaEl) {
+        const newPos = rangeStart + replacement.length;
+        textareaEl.selectionStart = textareaEl.selectionEnd = newPos;
+        handleInput();
+      }
+    });
+  }
+
+  /** Handle popup item selection (click or Enter/Tab). */
+  function selectPopupItem(item: PopupItem) {
+    if (!commandResult) return;
+    const { rangeStart, rangeEnd } = commandResult;
+
+    switch (item.kind) {
+      case "command": {
+        const cmd = item.command;
+        // If the command has enumerable args (model, skill), enter sub-command mode
+        if (cmd.argType === "model" || cmd.argType === "skill") {
+          replaceCommandText(rangeStart, rangeEnd, `/${cmd.name} `);
+          return;
+        }
+        // Execute action or context command immediately
+        dispatchCommand(cmd.name, rangeStart, rangeEnd);
+        break;
+      }
+      case "agent":
+        overrides = { ...overrides, agentId: item.agent.id };
+        replaceCommandText(rangeStart, rangeEnd, "");
+        commandResult = null;
+        break;
+      case "model":
+        overrides = { ...overrides, modelId: item.model.id };
+        replaceCommandText(rangeStart, rangeEnd, "");
+        commandResult = null;
+        break;
+      case "skill":
+        if (!overrides.skillIds.includes(item.skill.id)) {
+          overrides = { ...overrides, skillIds: [...overrides.skillIds, item.skill.id] };
+        }
+        replaceCommandText(rangeStart, rangeEnd, "");
+        commandResult = null;
+        break;
+    }
+    popupFocusIndex = -1;
+  }
+
+  /** Dispatch a resolved slash command (no more popup). */
+  function dispatchCommand(name: string, rangeStart: number, rangeEnd: number) {
+    const textAfterCmd = inputText.slice(rangeEnd).trim();
+
+    switch (name) {
+      case "file":
+        replaceCommandText(rangeStart, rangeEnd, "");
+        commandResult = null;
+        handleAttachFile();
+        break;
+      case "help":
+        replaceCommandText(rangeStart, rangeEnd, "");
+        commandResult = null;
+        onCommand?.("help");
+        break;
+      case "clear":
+        replaceCommandText(rangeStart, rangeEnd, "");
+        commandResult = null;
+        onCommand?.("clear");
+        break;
+      case "favorite":
+        replaceCommandText(rangeStart, rangeEnd, "");
+        commandResult = null;
+        onCommand?.("favorite");
+        break;
+      case "title": {
+        // /title <text> — argument is everything after "/title "
+        const cmdTextFull = inputText.slice(rangeStart, rangeEnd);
+        const spacePos = cmdTextFull.indexOf(" ");
+        const titleArg = spacePos >= 0 ? cmdTextFull.slice(spacePos + 1).trim() : textAfterCmd;
+        replaceCommandText(rangeStart, rangeEnd + (spacePos < 0 ? textAfterCmd.length : 0), "");
+        commandResult = null;
+        if (titleArg) onCommand?.("title", titleArg);
+        break;
+      }
+      case "export": {
+        const cmdTextFull = inputText.slice(rangeStart, rangeEnd);
+        const spacePos = cmdTextFull.indexOf(" ");
+        const fmtArg = spacePos >= 0 ? cmdTextFull.slice(spacePos + 1).trim() : "";
+        replaceCommandText(rangeStart, rangeEnd, "");
+        commandResult = null;
+        onCommand?.("export", fmtArg || undefined);
+        break;
+      }
+      case "web": {
+        // /web <query> — everything after "/web " is the search query
+        const cmdTextFull = inputText.slice(rangeStart);
+        const spacePos = cmdTextFull.indexOf(" ");
+        const query = spacePos >= 0 ? cmdTextFull.slice(spacePos + 1).trim() : "";
+        if (query) {
+          inputText =
+            inputText.slice(0, rangeStart) + inputText.slice(rangeStart + cmdTextFull.length);
+          commandResult = null;
+          onCommand?.("web", query);
+        }
+        break;
+      }
+      case "fetch": {
+        // /fetch <url> — everything after "/fetch " is the URL
+        const cmdTextFull = inputText.slice(rangeStart);
+        const spacePos = cmdTextFull.indexOf(" ");
+        const url = spacePos >= 0 ? cmdTextFull.slice(spacePos + 1).trim() : "";
+        if (url) {
+          inputText =
+            inputText.slice(0, rangeStart) + inputText.slice(rangeStart + cmdTextFull.length);
+          commandResult = null;
+          addUrl(url);
+        }
+        break;
+      }
+      default:
+        // For any command we don't handle, delegate to parent
+        replaceCommandText(rangeStart, rangeEnd, "");
+        commandResult = null;
+        onCommand?.(name, textAfterCmd || undefined);
+    }
+    tick().then(() => {
+      if (textareaEl) {
+        textareaEl.style.height = "auto";
+        textareaEl.style.height = Math.min(textareaEl.scrollHeight, 200) + "px";
+      }
+    });
+  }
+
+  /** Remove a per-message override. */
+  function clearOverrideAgent() {
+    overrides = { ...overrides, agentId: null };
+  }
+  function clearOverrideModel() {
+    overrides = { ...overrides, modelId: null };
+  }
+  function removeOverrideSkill(skillId: string) {
+    overrides = { ...overrides, skillIds: overrides.skillIds.filter((id) => id !== skillId) };
+  }
+
   /** Handle paste — auto-detect URLs and add them. */
   function handlePaste(event: ClipboardEvent) {
     const text = event.clipboardData?.getData("text/plain")?.trim();
@@ -520,6 +732,9 @@
   aria-label="Message input area"
 >
   <div class="input-box">
+    {#if popupVisible}
+      <CommandPopup items={popupItems} focusedIndex={popupFocusIndex} onSelect={selectPopupItem} />
+    {/if}
     {#if extractingFiles}
       <div class="file-processing" role="status">
         <span class="extract-spinner"></span>
@@ -653,6 +868,46 @@
         You're offline — sending is disabled
       </div>
     {:else}
+      {#if overrides.agentId || overrides.modelId || overrides.skillIds.length > 0}
+        <div class="override-badges" role="status" aria-label="Per-message overrides">
+          {#if overrides.agentId}
+            {@const agent = agents.find((a) => a.id === overrides.agentId)}
+            <button
+              class="override-badge override-badge-agent"
+              onclick={clearOverrideAgent}
+              aria-label="Remove agent override"
+            >
+              <span class="override-badge-icon">{agent?.avatar ?? "🤖"}</span>
+              <span class="override-badge-label">{agent?.name ?? overrides.agentId}</span>
+              <span class="override-badge-x" aria-hidden="true">×</span>
+            </button>
+          {/if}
+          {#if overrides.modelId}
+            {@const mdl = availableModels.find((m) => m.id === overrides.modelId)}
+            <button
+              class="override-badge override-badge-model"
+              onclick={clearOverrideModel}
+              aria-label="Remove model override"
+            >
+              <span class="override-badge-icon">📊</span>
+              <span class="override-badge-label">{mdl?.name ?? overrides.modelId}</span>
+              <span class="override-badge-x" aria-hidden="true">×</span>
+            </button>
+          {/if}
+          {#each overrides.skillIds as sid (sid)}
+            {@const sk = skills.find((s) => s.id === sid)}
+            <button
+              class="override-badge override-badge-skill"
+              onclick={() => removeOverrideSkill(sid)}
+              aria-label="Remove skill override"
+            >
+              <span class="override-badge-icon">⚡</span>
+              <span class="override-badge-label">{sk?.name ?? sid}</span>
+              <span class="override-badge-x" aria-hidden="true">×</span>
+            </button>
+          {/each}
+        </div>
+      {/if}
       <textarea
         bind:this={textareaEl}
         bind:value={inputText}
@@ -1646,5 +1901,70 @@
     color: var(--color-text-tertiary);
     font-size: var(--font-size-sm);
     user-select: none;
+  }
+
+  /* ── Override badges ─────────────────────────── */
+
+  .override-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-xs) var(--spacing-md) 0;
+  }
+
+  .override-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px var(--spacing-sm);
+    border-radius: var(--radius-full);
+    border: 1px solid var(--color-border-primary);
+    background: var(--color-bg-secondary);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-family: var(--font-sans);
+    cursor: pointer;
+    transition:
+      background 120ms ease,
+      border-color 120ms ease;
+  }
+
+  .override-badge:hover {
+    background: var(--color-bg-hover);
+  }
+
+  .override-badge-agent {
+    border-color: var(--color-accent-copper);
+  }
+
+  .override-badge-model {
+    border-color: var(--color-accent-lavender, var(--color-accent-copper));
+  }
+
+  .override-badge-skill {
+    border-color: var(--color-accent-gold, var(--color-accent-copper));
+  }
+
+  .override-badge-icon {
+    font-size: 12px;
+    line-height: 1;
+  }
+
+  .override-badge-label {
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .override-badge-x {
+    margin-left: 2px;
+    font-size: 13px;
+    line-height: 1;
+    opacity: 0.6;
+  }
+
+  .override-badge:hover .override-badge-x {
+    opacity: 1;
   }
 </style>

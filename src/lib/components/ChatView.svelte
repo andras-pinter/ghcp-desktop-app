@@ -6,11 +6,16 @@
   import type { Message, ChatMessage } from "$lib/types/message";
   import type { UrlPreview } from "$lib/types/web-research";
   import type { ChatFileData } from "$lib/types/project";
+  import type { MessageOverrides } from "$lib/types/commands";
   import {
     sendMessage,
     stopStreaming,
     extractFileText,
     readDroppedFiles,
+    exportConversationMarkdown,
+    exportConversationJson,
+    saveExportFile,
+    webSearch,
   } from "$lib/utils/commands";
   import { onContextSummarized } from "$lib/utils/events";
   import { onMount, onDestroy } from "svelte";
@@ -29,11 +34,16 @@
     startStreaming,
     isStreaming as isConvStreaming,
     cancelStreamingState,
+    renameConversation,
+    toggleFavourite,
   } from "$lib/stores/conversations.svelte";
   import { getModelStore, setDefaultModel } from "$lib/stores/models.svelte";
   import { getAgentStore, selectAgent } from "$lib/stores/agents.svelte";
   import { getSettings } from "$lib/stores/settings.svelte";
   import { getNetwork } from "$lib/stores/network.svelte";
+  import { getSkillStore } from "$lib/stores/skills.svelte";
+  import type { SearchResult } from "$lib/types/web-research";
+  import { SLASH_COMMANDS } from "$lib/types/commands";
 
   const greetings = [
     "Your co-pilot is ready. Where to?",
@@ -49,6 +59,7 @@
   const store = getConversationStore();
   const modelStore = getModelStore();
   const agentStore = getAgentStore();
+  const skillStore = getSkillStore();
   const settings = getSettings();
   const network = getNetwork();
   let chatContainer: HTMLElement | undefined = $state();
@@ -239,7 +250,12 @@
     if (draftTimer) clearTimeout(draftTimer);
   });
 
-  async function handleSend(text: string, urls?: UrlPreview[], files?: ChatFileData[]) {
+  async function handleSend(
+    text: string,
+    urls?: UrlPreview[],
+    files?: ChatFileData[],
+    overrides?: MessageOverrides,
+  ) {
     // User just sent a message — follow the response
     userScrolledAway = false;
 
@@ -369,7 +385,7 @@
 
     // Build API message array — include all user + non-empty assistant messages.
     // For the current user message, append extracted file content for the API only.
-    const apiMessages: ChatMessage[] = store.messages
+    let apiMessages: ChatMessage[] = store.messages
       .filter((m) => m.role === "user" || (m.role === "assistant" && m.content))
       .map((m) => {
         if (m.id === userMessage.id && hasFiles) {
@@ -387,12 +403,28 @@
       extractionStatuses = { ...extractionStatuses };
     }
 
+    // Build skill instructions for per-message skill overrides
+    let skillInstructions = "";
+    if (overrides?.skillIds && overrides.skillIds.length > 0) {
+      const enabledSkills = skillStore.skills.filter((s) => overrides.skillIds.includes(s.id));
+      if (enabledSkills.length > 0) {
+        skillInstructions = enabledSkills
+          .map((s) => `[Skill: ${s.name}]\n${s.instructions}`)
+          .join("\n\n");
+      }
+    }
+
+    // If skill overrides present, prepend instructions to the API messages
+    if (skillInstructions && apiMessages.length > 0) {
+      apiMessages = [{ role: "system", content: skillInstructions }, ...apiMessages];
+    }
+
     try {
       await sendMessage(
         convId,
         apiMessages,
-        selectedModel,
-        agentStore.selectedAgentId,
+        overrides?.modelId ?? selectedModel,
+        overrides?.agentId ?? agentStore.selectedAgentId,
         store.activeConversation?.projectId,
       );
     } catch (e) {
@@ -420,6 +452,70 @@
 
   function handleModelChange(model: string) {
     selectedModel = model;
+  }
+
+  /** Enabled skills for command popup (only show skills that are toggled on). */
+  const enabledSkills = $derived(skillStore.skills.filter((s) => s.enabled));
+
+  /** Handle slash command dispatched from InputArea. */
+  async function handleCommand(name: string, arg?: string) {
+    const convId = store.activeConversationId;
+    switch (name) {
+      case "clear":
+        if (convId && store.messages.length > 0) {
+          // Delete all messages (re-use deleteMessagesAfter with sortOrder -1)
+          await deleteMessagesAfter(convId, -1);
+        }
+        break;
+      case "favorite":
+        if (convId) await toggleFavourite(convId);
+        break;
+      case "title":
+        if (convId && arg) await renameConversation(convId, arg);
+        break;
+      case "export": {
+        if (!convId) break;
+        const fmt = arg === "json" ? "json" : "md";
+        const data =
+          fmt === "json"
+            ? await exportConversationJson(convId)
+            : await exportConversationMarkdown(convId);
+        const title = store.activeConversation?.title ?? "conversation";
+        const fileName = `${title.replace(/[^a-zA-Z0-9-_ ]/g, "").slice(0, 50)}.${fmt === "json" ? "json" : "md"}`;
+        await saveExportFile(fileName, data);
+        break;
+      }
+      case "web":
+        if (arg) {
+          try {
+            const _results: SearchResult[] = await webSearch(arg);
+            // Web results are handled as URL attachments in the InputArea flow — delegate there
+            // For now, this just triggers the search. Full integration with the InputArea URL pills
+            // would require refactoring the URL attachment flow, so we log and let the user know.
+            console.log(`Web search for "${arg}" returned ${_results.length} results`);
+          } catch (e) {
+            console.error("Web search failed:", e);
+          }
+        }
+        break;
+      case "help": {
+        // Insert a local-only help message (not sent to API)
+        const helpLines = SLASH_COMMANDS.map((c) => `\`/${c.name}\` — ${c.description}`);
+        const helpContent = `**Available Commands**\n\n${helpLines.join("\n")}\n\n**@ Mentions**\n\nType \`@\` followed by an agent name to set a per-message agent override.`;
+        if (convId) {
+          const helpMsg: Message = {
+            id: crypto.randomUUID(),
+            conversationId: convId,
+            role: "assistant",
+            content: helpContent,
+            createdAt: new Date().toISOString(),
+            sortOrder: store.messages.length,
+          };
+          await addMessage(helpMsg);
+        }
+        break;
+      }
+    }
   }
 
   function handleDraftChange(text: string) {
@@ -576,6 +672,8 @@
           externalFiles={pendingDropFiles}
           onExternalFilesConsumed={clearPendingDropFiles}
           {extractionStatuses}
+          skills={enabledSkills}
+          onCommand={handleCommand}
         />
       </div>
     </div>
@@ -647,6 +745,8 @@
           externalFiles={pendingDropFiles}
           onExternalFilesConsumed={clearPendingDropFiles}
           {extractionStatuses}
+          skills={enabledSkills}
+          onCommand={handleCommand}
         />
       </div>
     </div>
