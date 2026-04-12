@@ -28,6 +28,7 @@ export const strings = {
     lastWeek: "📅 Last 7 Days",
     older: "📅 Older",
     skills: "⚡ Skills",
+    sources: "🔀 Sources",
     settings: "⚙️ Settings",
     noFavourites: "No favourites yet",
     noProjects: "No projects yet",

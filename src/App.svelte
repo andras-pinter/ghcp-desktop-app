@@ -7,6 +7,7 @@
   import SkillsPanel from "$lib/components/SkillsPanel.svelte";
   import AgentsPanel from "$lib/components/AgentsPanel.svelte";
   import ProjectView from "$lib/components/ProjectView.svelte";
+  import SourcesPanel from "$lib/components/SourcesPanel.svelte";
   import UpdateBanner from "$lib/components/UpdateBanner.svelte";
   import { initAuth, getAuth } from "$lib/stores/auth.svelte";
   import { initModels, getModelStore } from "$lib/stores/models.svelte";
@@ -19,6 +20,12 @@
   import { initAgents, prefetchAgentRegistry } from "$lib/stores/agents.svelte";
   import { initSkills, prefetchRegistry as prefetchSkillRegistry } from "$lib/stores/skills.svelte";
   import { initProjects } from "$lib/stores/projects.svelte";
+  import {
+    initSources,
+    syncAllEnabled,
+    updateScanProgress,
+    handleSyncComplete,
+  } from "$lib/stores/sources.svelte";
   import { initSettings, getSettings } from "$lib/stores/settings.svelte";
   import { initNetwork } from "$lib/stores/network.svelte";
   import { listen, type UnlistenFn } from "@tauri-apps/api/event";
@@ -26,7 +33,14 @@
   import { register, unregister } from "@tauri-apps/plugin-global-shortcut";
   import { onMount } from "svelte";
 
-  type AppView = "chat" | "settings" | "mcp-settings" | "skills" | "agents" | "projects";
+  type AppView =
+    | "chat"
+    | "settings"
+    | "mcp-settings"
+    | "skills"
+    | "agents"
+    | "projects"
+    | "sources";
 
   let sidebarCollapsed = $state(false);
   let dataLoaded = $state(false);
@@ -99,6 +113,24 @@
     });
     trayCleanup.then((fn) => (unlistenTray = fn));
 
+    // Listen for git source progress + completion (global, not panel-scoped)
+    let unlistenProgress: UnlistenFn | undefined;
+    let unlistenComplete: UnlistenFn | undefined;
+    listen<{ total: number; fetched: number; phase: string; sourceId?: string }>(
+      "git-import-progress",
+      (event) => {
+        updateScanProgress(
+          event.payload.total,
+          event.payload.fetched,
+          event.payload.phase,
+          event.payload.sourceId,
+        );
+      },
+    ).then((fn) => (unlistenProgress = fn));
+    listen<{ sourceId: string }>("git-source-sync-complete", (event) => {
+      handleSyncComplete(event.payload.sourceId);
+    }).then((fn) => (unlistenComplete = fn));
+
     // Prevent Tauri webview from navigating when files are dragged/dropped
     // outside the designated drop zone. Only preventDefault — do NOT
     // stopPropagation, so InputArea's own handlers still fire.
@@ -109,6 +141,8 @@
       document.removeEventListener("dragover", preventDragNav);
       document.removeEventListener("drop", preventDragNav);
       unlistenTray?.();
+      unlistenProgress?.();
+      unlistenComplete?.();
       if (registeredHotkey) {
         unregister(registeredHotkey);
       }
@@ -127,11 +161,14 @@
         initAgents(),
         initSkills(),
         initProjects(),
+        initSources(),
       ]).then(() => {
         // Prefetch registries in the background after core data is loaded
         prefetchMcpRegistry();
         prefetchSkillRegistry();
         prefetchAgentRegistry();
+        // Auto-sync enabled git sources (silent, no UI disruption)
+        syncAllEnabled();
       });
     } else if (!auth.authenticated) {
       dataLoaded = false;
@@ -260,6 +297,8 @@
               currentView = "chat";
             }}
           />
+        {:else if currentView === "sources"}
+          <SourcesPanel onBack={navigateBack} />
         {:else}
           <ChatView />
         {/if}

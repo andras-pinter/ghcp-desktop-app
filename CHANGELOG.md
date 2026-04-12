@@ -3,6 +3,38 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+### Features
+
+- **tauri:** add persistent git repository sources for skill/agent management (CRUD, auto-sync, parallel sync)
+- **tauri:** unified catalog search (`search_catalog`) merging aitmpl.com + git source items with multi-select source filtering
+- **tauri:** `install_catalog_item` command for installing skills/agents from catalog
+- **tauri:** `git-source-sync-complete` event for reliable post-sync timestamp updates
+- **ui:** SourcesPanel with source cards, per-source sync progress, badge-styled metadata
+- **ui:** aitmpl.com as built-in toggleable source (cannot be deleted)
+- **ui:** multi-select source filter pill buttons in Skills and Agents catalog panels
+- **ui:** sync spinner on Sources sidebar button during background sync
+- **ui:** source-differentiated badges on registry cards (🌐 aitmpl.com, 🔀 git sources)
+
+### Bug Fixes
+
+- **ui:** persist source filter selection across panel navigation (store-level SvelteSet)
+- **ui:** fix spinner jitter caused by `translateY` in `@keyframes spin`
+- **ui:** refresh source timestamp immediately after sync completes (dedicated event)
+- **ui:** prevent skill ID collisions across git sources (source-scoped IDs)
+
+### Performance
+
+- **tauri:** sync git sources in parallel on launch via `tokio::task::JoinSet`
+
+### Refactoring
+
+- **ui:** remove one-off "Import from Git URL" from Skills and Agents panels
+- **ui:** replace source filter dropdown with horizontal pill buttons
+- **ui:** remove redundant "aitmpl.com + git sources" indicator from catalog headings
+- **ui:** upgrade source and registry card metadata to styled badges
+
 ## [0.2.3] — 2026-04-10
 
 ### Bug Fixes

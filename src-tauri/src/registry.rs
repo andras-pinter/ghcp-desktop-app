@@ -20,6 +20,9 @@ pub struct RegistryItem {
     pub description: Option<String>,
     /// Which registry this came from.
     pub source: RegistrySource,
+    /// Human-readable label for the source (e.g., "aitmpl.com" or git source name).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source_name: Option<String>,
     /// URL to the skill/agent on the registry.
     pub url: Option<String>,
     /// Install count (if available).
@@ -41,6 +44,8 @@ pub enum RegistrySource {
     Aitmpl,
     /// For future custom catalog URLs.
     Custom,
+    /// From a user-configured git source.
+    Git,
 }
 
 /// Whether the item is a skill or agent template.
@@ -271,12 +276,32 @@ fn aitmpl_to_registry_item(item: &AitmplComponent, kind: RegistryItemKind) -> Re
         name: item.name.clone(),
         description,
         source: RegistrySource::Aitmpl,
+        source_name: Some("aitmpl.com".to_string()),
         url,
         installs: None,
         kind,
         source_repo: None,
         content: item.content.clone(),
     }
+}
+
+/// Check if a paragraph looks like prose (not a table, rule, code, or markup).
+fn is_prose_paragraph(text: &str) -> bool {
+    let first_line = text.lines().next().unwrap_or("");
+    let trimmed = first_line.trim();
+    // Skip headings, tables, horizontal rules, HTML, code fences, list-only paras
+    if trimmed.starts_with('#')
+        || trimmed.starts_with('|')
+        || trimmed.starts_with("```")
+        || trimmed.starts_with('<')
+        || trimmed.starts_with("---")
+        || trimmed.starts_with("***")
+        || trimmed.starts_with("___")
+    {
+        return false;
+    }
+    // Must contain some alphabetic content
+    trimmed.chars().any(|c| c.is_alphabetic())
 }
 
 /// Extract the first meaningful paragraph from the markdown body
@@ -300,11 +325,11 @@ fn extract_body_description(content: &str) -> Option<String> {
         trimmed
     };
 
-    // Take the first non-empty paragraph (split by blank lines)
+    // Find the first paragraph that looks like prose
     let first_para = body
         .split("\n\n")
         .map(|p| p.trim())
-        .find(|p| !p.is_empty() && !p.starts_with('#'))?;
+        .find(|p| !p.is_empty() && is_prose_paragraph(p))?;
 
     // Clean and truncate
     let cleaned: String = first_para
@@ -423,38 +448,110 @@ pub fn parse_content_lenient(content: &str, fallback_id: &str) -> (String, Strin
             // Extract name and description from YAML lines
             let mut name = None;
             let mut desc = None;
-            for line in yaml_str.lines() {
+            let lines: Vec<&str> = yaml_str.lines().collect();
+            let mut i = 0;
+            while i < lines.len() {
+                let line = lines[i];
                 if let Some(val) = line.strip_prefix("name:") {
-                    name = Some(val.trim().trim_matches('"').to_string());
+                    name = Some(val.trim().trim_matches('"').trim_matches('\'').to_string());
                 }
                 if desc.is_none() {
                     if let Some(val) = line.strip_prefix("description:") {
-                        // Take just the first line of description, truncated
-                        let d = val.trim().trim_matches('"');
-                        let clean = d.lines().next().unwrap_or(d);
-                        desc = Some(if clean.len() > 200 {
-                            format!("{}…", &clean[..197])
+                        let trimmed = val.trim();
+                        let raw = if trimmed.is_empty()
+                            || trimmed == ">"
+                            || trimmed == "|"
+                            || trimmed == ">-"
+                            || trimmed == "|-"
+                        {
+                            // Multi-line YAML: collect indented continuation lines
+                            let mut parts = Vec::new();
+                            while i + 1 < lines.len() {
+                                let next = lines[i + 1];
+                                if next.starts_with(' ') || next.starts_with('\t') {
+                                    parts.push(next.trim());
+                                    i += 1;
+                                } else {
+                                    break;
+                                }
+                            }
+                            parts.join(" ")
                         } else {
-                            clean.to_string()
-                        });
+                            trimmed.trim_matches('"').trim_matches('\'').to_string()
+                        };
+                        if !raw.is_empty() {
+                            let clean = raw.lines().next().unwrap_or(&raw);
+                            desc = Some(if clean.len() > 200 {
+                                format!("{}…", &clean[..197])
+                            } else {
+                                clean.to_string()
+                            });
+                        }
                     }
                 }
+                i += 1;
+            }
+
+            // If no description in frontmatter, try extracting from the markdown body
+            if desc.is_none() || desc.as_deref() == Some("") {
+                desc = extract_body_description(content);
             }
 
             return (
-                name.unwrap_or_else(|| fallback_id.to_string()),
-                desc.unwrap_or_else(|| "Imported from registry".to_string()),
+                name.unwrap_or_else(|| readable_name_from_path(fallback_id)),
+                desc.unwrap_or_default(),
                 body.trim().to_string(),
             );
         }
     }
 
-    // No frontmatter — use whole content as instructions
+    // No frontmatter — try to extract description from body, use whole content as instructions
+    let body_desc = extract_body_description(content).unwrap_or_default();
     (
-        fallback_id.to_string(),
-        "Imported from registry".to_string(),
+        readable_name_from_path(fallback_id),
+        body_desc,
         content.trim().to_string(),
     )
+}
+
+/// Derive a human-readable name from a file path.
+///
+/// Examples:
+/// - `.github/agents/agentic-workflows.agent.md` → `Agentic Workflows`
+/// - `skills/code-review/SKILL.md` → `Code Review`
+/// - `my-skill.md` → `My Skill`
+fn readable_name_from_path(path: &str) -> String {
+    let file = path.rsplit('/').next().unwrap_or(path);
+    // Strip known suffixes
+    let stem = file
+        .strip_suffix(".agent.md")
+        .or_else(|| file.strip_suffix(".md"))
+        .unwrap_or(file);
+    // If the stem is a generic name like "SKILL" or "AGENT", use the parent dir
+    let base = if stem.eq_ignore_ascii_case("SKILL") || stem.eq_ignore_ascii_case("AGENT") {
+        path.trim_end_matches('/')
+            .rsplit('/')
+            .nth(1)
+            .unwrap_or(stem)
+    } else {
+        stem
+    };
+    // Convert hyphens/underscores to spaces and title-case each word
+    base.split(['-', '_'])
+        .filter(|w| !w.is_empty())
+        .map(|w| {
+            let mut chars = w.chars();
+            match chars.next() {
+                Some(first) => {
+                    let upper: String = first.to_uppercase().collect();
+                    let rest: String = chars.as_str().to_lowercase();
+                    format!("{upper}{rest}")
+                }
+                None => String::new(),
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 // ── Fetch content from registry ─────────────────────────────────
@@ -720,7 +817,9 @@ where
         .await
         .map_err(|e| format!("Failed to parse tree response: {e}"))?;
 
-    // Collect matching paths: SKILL.md + *.agent.md (cap at 50)
+    // Collect all matching paths with a safety cap to prevent DoS from
+    // malicious repos with thousands of definition files.
+    const MAX_TOTAL_FILES: usize = 1000;
     let def_paths: Vec<(String, &str)> = tree
         .tree
         .iter()
@@ -734,7 +833,7 @@ where
             }
             Some((t.path.clone(), kind))
         })
-        .take(50)
+        .take(MAX_TOTAL_FILES)
         .collect();
 
     let kind_label = kind_filter.unwrap_or("definition");
@@ -745,7 +844,7 @@ where
         ));
     }
 
-    // Phase 2: Fetch file contents with progress
+    // Phase 2: Fetch file contents concurrently in batches with progress
     let total = def_paths.len();
     on_progress(GitImportProgress {
         total,
@@ -754,22 +853,39 @@ where
     });
 
     let mut found = Vec::new();
-    for (i, (path, kind)) in def_paths.into_iter().enumerate() {
-        if let Ok(content) =
-            fetch_github_file(client, &parsed.owner, &parsed.repo, &path, github_token).await
-        {
-            found.push(GitSkillFile {
-                path,
-                content,
-                repo_url: repo_url.clone(),
-                kind: kind.to_string(),
+    let mut fetched = 0usize;
+    const BATCH_SIZE: usize = 20;
+
+    for batch in def_paths.chunks(BATCH_SIZE) {
+        let mut handles = Vec::new();
+        for (path, kind) in batch {
+            let c = client.clone();
+            let o = parsed.owner.clone();
+            let r = parsed.repo.clone();
+            let p = path.clone();
+            let k = kind.to_string();
+            let tok = github_token.map(|s| s.to_string());
+            handles.push(tokio::spawn(async move {
+                let result = fetch_github_file(&c, &o, &r, &p, tok.as_deref()).await;
+                (p, k, result)
+            }));
+        }
+        for handle in handles {
+            if let Ok((path, kind, Ok(content))) = handle.await {
+                found.push(GitSkillFile {
+                    path,
+                    content,
+                    repo_url: repo_url.clone(),
+                    kind,
+                });
+            }
+            fetched += 1;
+            on_progress(GitImportProgress {
+                total,
+                fetched,
+                phase: "fetch".to_string(),
             });
         }
-        on_progress(GitImportProgress {
-            total,
-            fetched: i + 1,
-            phase: "fetch".to_string(),
-        });
     }
 
     if found.is_empty() {
@@ -808,9 +924,20 @@ async fn fetch_github_file(
         return Err(format!("File not found: {path} (HTTP {})", resp.status()));
     }
 
-    resp.text()
+    let content = resp
+        .text()
         .await
-        .map_err(|e| format!("Failed to read file content: {e}"))
+        .map_err(|e| format!("Failed to read file content: {e}"))?;
+
+    // Reject files larger than 512 KB to prevent memory exhaustion
+    if content.len() > 512 * 1024 {
+        return Err(format!(
+            "File too large: {path} ({} KB, max 512 KB)",
+            content.len() / 1024
+        ));
+    }
+
+    Ok(content)
 }
 
 #[cfg(test)]
@@ -878,5 +1005,108 @@ mod tests {
         let parsed = parse_git_url("  octocat/hello-world  ").unwrap();
         assert_eq!(parsed.owner, "octocat");
         assert_eq!(parsed.repo, "hello-world");
+    }
+
+    #[test]
+    fn test_parse_content_lenient_yaml_description() {
+        let content =
+            "---\nname: 'My Agent'\ndescription: Does cool things\n---\nInstructions here.\n";
+        let (name, desc, body) = parse_content_lenient(content, "fallback");
+        assert_eq!(name, "My Agent");
+        assert_eq!(desc, "Does cool things");
+        assert_eq!(body, "Instructions here.");
+    }
+
+    #[test]
+    fn test_parse_content_lenient_strips_quotes() {
+        let content = "---\nname: 'Quoted Name'\ndescription: \"Quoted desc\"\n---\nBody.\n";
+        let (name, desc, _) = parse_content_lenient(content, "fallback");
+        assert_eq!(name, "Quoted Name");
+        assert_eq!(desc, "Quoted desc");
+    }
+
+    #[test]
+    fn test_parse_content_lenient_body_description_fallback() {
+        // No description in YAML — should fall back to body extraction
+        let content = "---\nname: test-agent\n---\n\nThis agent helps with code review.\n\nIt checks for bugs.\n";
+        let (name, desc, _) = parse_content_lenient(content, "fallback");
+        assert_eq!(name, "test-agent");
+        assert_eq!(desc, "This agent helps with code review.");
+    }
+
+    #[test]
+    fn test_parse_content_lenient_no_frontmatter() {
+        let content = "# My Agent\n\nThis is a simple agent.\n\nIt does things.\n";
+        let (name, desc, _) = parse_content_lenient(content, "my-fallback");
+        assert_eq!(name, "My Fallback");
+        assert!(!desc.is_empty(), "Should extract body description");
+    }
+
+    #[test]
+    fn test_parse_content_lenient_multiline_description() {
+        let content = "---\nname: ml-agent\ndescription: >\n  This is a long\n  multi-line description\n---\nBody.\n";
+        let (_, desc, _) = parse_content_lenient(content, "fallback");
+        assert!(desc.contains("This is a long"));
+        assert!(desc.contains("multi-line description"));
+    }
+
+    #[test]
+    fn test_readable_name_from_path() {
+        assert_eq!(
+            readable_name_from_path(".github/agents/agentic-workflows.agent.md"),
+            "Agentic Workflows"
+        );
+        assert_eq!(
+            readable_name_from_path("skills/code-review/SKILL.md"),
+            "Code Review"
+        );
+        assert_eq!(readable_name_from_path("my-skill.md"), "My Skill");
+        assert_eq!(readable_name_from_path("AGENT.md"), "Agent");
+        assert_eq!(
+            readable_name_from_path("tools/web_scraper.agent.md"),
+            "Web Scraper"
+        );
+    }
+
+    #[test]
+    fn test_parse_content_lenient_path_fallback_name() {
+        // No name in YAML — should derive from path
+        let content = "---\ndescription: Does things\n---\nBody.\n";
+        let (name, _, _) =
+            parse_content_lenient(content, ".github/agents/agentic-workflows.agent.md");
+        assert_eq!(name, "Agentic Workflows");
+    }
+
+    #[test]
+    fn test_extract_body_description_skips_tables() {
+        let content = "---\nname: model-selector\n---\n\n| Model | Best for |\n| --- | --- |\n| gpt-4 | General |\n\nThis skill helps you choose models.\n";
+        let desc = extract_body_description(content).unwrap();
+        assert_eq!(desc, "This skill helps you choose models.");
+    }
+
+    #[test]
+    fn test_extract_body_description_skips_rules() {
+        let content = "---\nname: divider\n---\n\n---\n\nActual description here.\n";
+        let desc = extract_body_description(content).unwrap();
+        assert_eq!(desc, "Actual description here.");
+    }
+
+    #[test]
+    fn test_extract_body_description_skips_code_fences() {
+        let content = "---\nname: code-example\n---\n\n```json\n{\"key\": \"value\"}\n```\n\nThis does something useful.\n";
+        let desc = extract_body_description(content).unwrap();
+        assert_eq!(desc, "This does something useful.");
+    }
+
+    #[test]
+    fn test_is_prose_paragraph() {
+        assert!(is_prose_paragraph("This is a normal paragraph."));
+        assert!(is_prose_paragraph("A skill for code review."));
+        assert!(!is_prose_paragraph("| col1 | col2 |"));
+        assert!(!is_prose_paragraph("---"));
+        assert!(!is_prose_paragraph("```rust"));
+        assert!(!is_prose_paragraph("# Heading"));
+        assert!(!is_prose_paragraph("<div>html</div>"));
+        assert!(!is_prose_paragraph("***"));
     }
 }

@@ -575,6 +575,7 @@ pub struct Agent {
     pub is_default: bool,
     pub source_url: Option<String>,
     pub source_type: String,
+    pub git_source_id: Option<String>,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -583,7 +584,7 @@ pub struct Agent {
 pub fn list_agents(conn: &Connection) -> Result<Vec<Agent>, rusqlite::Error> {
     let mut stmt = conn.prepare(
         "SELECT id, name, avatar, system_prompt, is_default, source_url, source_type,
-                created_at, updated_at
+                git_source_id, created_at, updated_at
          FROM agents ORDER BY is_default DESC, name ASC",
     )?;
     let rows = stmt.query_map([], |row| {
@@ -597,8 +598,9 @@ pub fn list_agents(conn: &Connection) -> Result<Vec<Agent>, rusqlite::Error> {
             source_type: row
                 .get::<_, Option<String>>(6)?
                 .unwrap_or("local".to_string()),
-            created_at: row.get(7)?,
-            updated_at: row.get(8)?,
+            git_source_id: row.get(7)?,
+            created_at: row.get(8)?,
+            updated_at: row.get(9)?,
         })
     })?;
     rows.collect()
@@ -608,7 +610,7 @@ pub fn list_agents(conn: &Connection) -> Result<Vec<Agent>, rusqlite::Error> {
 pub fn get_agent(conn: &Connection, id: &str) -> Result<Option<Agent>, rusqlite::Error> {
     let mut stmt = conn.prepare(
         "SELECT id, name, avatar, system_prompt, is_default, source_url, source_type,
-                created_at, updated_at
+                git_source_id, created_at, updated_at
          FROM agents WHERE id = ?1",
     )?;
     let mut rows = stmt.query_map(params![id], |row| {
@@ -622,13 +624,15 @@ pub fn get_agent(conn: &Connection, id: &str) -> Result<Option<Agent>, rusqlite:
             source_type: row
                 .get::<_, Option<String>>(6)?
                 .unwrap_or("local".to_string()),
-            created_at: row.get(7)?,
-            updated_at: row.get(8)?,
+            git_source_id: row.get(7)?,
+            created_at: row.get(8)?,
+            updated_at: row.get(9)?,
         })
     })?;
     rows.next().transpose()
 }
 
+#[allow(clippy::too_many_arguments)]
 /// Create a new agent, returns the created agent.
 pub fn create_agent(
     conn: &Connection,
@@ -638,11 +642,12 @@ pub fn create_agent(
     system_prompt: &str,
     source_url: Option<&str>,
     source_type: &str,
+    git_source_id: Option<&str>,
 ) -> Result<Agent, rusqlite::Error> {
     conn.execute(
-        "INSERT INTO agents (id, name, avatar, system_prompt, is_default, source_url, source_type, created_at, updated_at)
-         VALUES (?1, ?2, ?3, ?4, 0, ?5, ?6, datetime('now'), datetime('now'))",
-        params![id, name, avatar, system_prompt, source_url, source_type],
+        "INSERT INTO agents (id, name, avatar, system_prompt, is_default, source_url, source_type, git_source_id, created_at, updated_at)
+         VALUES (?1, ?2, ?3, ?4, 0, ?5, ?6, ?7, datetime('now'), datetime('now'))",
+        params![id, name, avatar, system_prompt, source_url, source_type, git_source_id],
     )?;
     get_agent(conn, id)?.ok_or_else(|| rusqlite::Error::QueryReturnedNoRows)
 }
@@ -748,6 +753,7 @@ pub struct Skill {
     pub instructions: Option<String>,
     pub source_url: Option<String>,
     pub source_type: String,
+    pub git_source_id: Option<String>,
     pub enabled: bool,
     pub created_at: String,
     pub updated_at: Option<String>,
@@ -757,7 +763,7 @@ pub struct Skill {
 pub fn list_skills(conn: &Connection) -> Result<Vec<Skill>, rusqlite::Error> {
     let mut stmt = conn.prepare(
         "SELECT id, name, description, source, mcp_server_id, config,
-                instructions, source_url, source_type, enabled, created_at, updated_at
+                instructions, source_url, source_type, git_source_id, enabled, created_at, updated_at
          FROM skills ORDER BY source ASC, name ASC",
     )?;
     let rows = stmt.query_map([], |row| {
@@ -773,9 +779,10 @@ pub fn list_skills(conn: &Connection) -> Result<Vec<Skill>, rusqlite::Error> {
             source_type: row
                 .get::<_, Option<String>>(8)?
                 .unwrap_or("builtin".to_string()),
-            enabled: row.get(9)?,
-            created_at: row.get(10)?,
-            updated_at: row.get(11)?,
+            git_source_id: row.get(9)?,
+            enabled: row.get(10)?,
+            created_at: row.get(11)?,
+            updated_at: row.get(12)?,
         })
     })?;
     rows.collect()
@@ -785,7 +792,7 @@ pub fn list_skills(conn: &Connection) -> Result<Vec<Skill>, rusqlite::Error> {
 pub fn get_skill(conn: &Connection, id: &str) -> Result<Option<Skill>, rusqlite::Error> {
     let mut stmt = conn.prepare(
         "SELECT id, name, description, source, mcp_server_id, config,
-                instructions, source_url, source_type, enabled, created_at, updated_at
+                instructions, source_url, source_type, git_source_id, enabled, created_at, updated_at
          FROM skills WHERE id = ?1",
     )?;
     let mut rows = stmt.query_map(params![id], |row| {
@@ -801,9 +808,10 @@ pub fn get_skill(conn: &Connection, id: &str) -> Result<Option<Skill>, rusqlite:
             source_type: row
                 .get::<_, Option<String>>(8)?
                 .unwrap_or("builtin".to_string()),
-            enabled: row.get(9)?,
-            created_at: row.get(10)?,
-            updated_at: row.get(11)?,
+            git_source_id: row.get(9)?,
+            enabled: row.get(10)?,
+            created_at: row.get(11)?,
+            updated_at: row.get(12)?,
         })
     })?;
     rows.next().transpose()
@@ -822,11 +830,12 @@ pub fn create_skill(
     instructions: Option<&str>,
     source_url: Option<&str>,
     source_type: &str,
+    git_source_id: Option<&str>,
 ) -> Result<Skill, rusqlite::Error> {
     conn.execute(
         "INSERT INTO skills (id, name, description, source, mcp_server_id, config,
-                instructions, source_url, source_type, enabled, created_at, updated_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 1, datetime('now'), datetime('now'))",
+                instructions, source_url, source_type, git_source_id, enabled, created_at, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, 1, datetime('now'), datetime('now'))",
         params![
             id,
             name,
@@ -836,7 +845,8 @@ pub fn create_skill(
             config,
             instructions,
             source_url,
-            source_type
+            source_type,
+            git_source_id
         ],
     )?;
     get_skill(conn, id)?.ok_or_else(|| rusqlite::Error::QueryReturnedNoRows)
@@ -879,7 +889,7 @@ pub fn toggle_skill(conn: &Connection, id: &str, enabled: bool) -> Result<(), ru
 pub fn get_agent_skills(conn: &Connection, agent_id: &str) -> Result<Vec<Skill>, rusqlite::Error> {
     let mut stmt = conn.prepare(
         "SELECT s.id, s.name, s.description, s.source, s.mcp_server_id, s.config,
-                s.instructions, s.source_url, s.source_type, s.enabled, s.created_at, s.updated_at
+                s.instructions, s.source_url, s.source_type, s.git_source_id, s.enabled, s.created_at, s.updated_at
          FROM skills s
          INNER JOIN agent_skills asg ON s.id = asg.skill_id
          WHERE asg.agent_id = ?1
@@ -898,12 +908,421 @@ pub fn get_agent_skills(conn: &Connection, agent_id: &str) -> Result<Vec<Skill>,
             source_type: row
                 .get::<_, Option<String>>(8)?
                 .unwrap_or("builtin".to_string()),
-            enabled: row.get(9)?,
-            created_at: row.get(10)?,
-            updated_at: row.get(11)?,
+            git_source_id: row.get(9)?,
+            enabled: row.get(10)?,
+            created_at: row.get(11)?,
+            updated_at: row.get(12)?,
         })
     })?;
     rows.collect()
+}
+
+// ── Git Sources ─────────────────────────────────────────────────
+// Used by commands/sources.rs (implemented in a later step).
+
+/// A persistent git repository source for skills and agents.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
+pub struct GitSource {
+    pub id: String,
+    pub name: String,
+    pub url: String,
+    pub enabled: bool,
+    pub last_synced_at: Option<String>,
+    pub item_count: i64,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+/// Ensure a datetime string from SQLite is parsed as UTC by appending `Z`
+/// if it lacks a timezone indicator. SQLite `datetime('now')` returns
+/// bare strings like `"2026-04-11 23:55:00"` which JavaScript's `Date()`
+/// would otherwise interpret as local time.
+fn ensure_utc_suffix(dt: String) -> String {
+    if dt.ends_with('Z') || dt.contains('+') || dt.ends_with("UTC") {
+        dt
+    } else {
+        format!("{dt}Z")
+    }
+}
+
+/// Same as [`ensure_utc_suffix`] but for `Option<String>`.
+fn ensure_utc_suffix_opt(dt: Option<String>) -> Option<String> {
+    dt.map(ensure_utc_suffix)
+}
+
+/// An item (skill or agent) linked to a git source.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
+pub struct SourceItem {
+    pub id: String,
+    pub name: String,
+    pub kind: String,
+    pub source_url: Option<String>,
+}
+
+/// List all git sources, ordered by name.
+#[allow(dead_code)]
+pub fn list_git_sources(conn: &Connection) -> Result<Vec<GitSource>, rusqlite::Error> {
+    let mut stmt = conn.prepare(
+        "SELECT id, name, url, enabled, last_synced_at, item_count, created_at, updated_at
+         FROM git_sources ORDER BY name ASC",
+    )?;
+    let rows = stmt.query_map([], |row| {
+        Ok(GitSource {
+            id: row.get(0)?,
+            name: row.get(1)?,
+            url: row.get(2)?,
+            enabled: row.get(3)?,
+            last_synced_at: ensure_utc_suffix_opt(row.get(4)?),
+            item_count: row.get(5)?,
+            created_at: ensure_utc_suffix(row.get(6)?),
+            updated_at: ensure_utc_suffix(row.get(7)?),
+        })
+    })?;
+    rows.collect()
+}
+
+/// Get a single git source by ID.
+#[allow(dead_code)]
+pub fn get_git_source(conn: &Connection, id: &str) -> Result<Option<GitSource>, rusqlite::Error> {
+    let mut stmt = conn.prepare(
+        "SELECT id, name, url, enabled, last_synced_at, item_count, created_at, updated_at
+         FROM git_sources WHERE id = ?1",
+    )?;
+    let mut rows = stmt.query_map(params![id], |row| {
+        Ok(GitSource {
+            id: row.get(0)?,
+            name: row.get(1)?,
+            url: row.get(2)?,
+            enabled: row.get(3)?,
+            last_synced_at: ensure_utc_suffix_opt(row.get(4)?),
+            item_count: row.get(5)?,
+            created_at: ensure_utc_suffix(row.get(6)?),
+            updated_at: ensure_utc_suffix(row.get(7)?),
+        })
+    })?;
+    rows.next().transpose()
+}
+
+/// Create a new git source, returns the created source.
+#[allow(dead_code)]
+pub fn create_git_source(
+    conn: &Connection,
+    id: &str,
+    name: &str,
+    url: &str,
+) -> Result<GitSource, rusqlite::Error> {
+    conn.execute(
+        "INSERT INTO git_sources (id, name, url, enabled, item_count, created_at, updated_at)
+         VALUES (?1, ?2, ?3, 1, 0, datetime('now'), datetime('now'))",
+        params![id, name, url],
+    )?;
+    get_git_source(conn, id)?.ok_or_else(|| rusqlite::Error::QueryReturnedNoRows)
+}
+
+/// Update a git source's metadata (name and/or enabled state).
+#[allow(dead_code)]
+pub fn update_git_source(
+    conn: &Connection,
+    id: &str,
+    name: Option<&str>,
+    enabled: Option<bool>,
+) -> Result<(), rusqlite::Error> {
+    if let Some(name) = name {
+        conn.execute(
+            "UPDATE git_sources SET name = ?2, updated_at = datetime('now') WHERE id = ?1",
+            params![id, name],
+        )?;
+    }
+    if let Some(enabled) = enabled {
+        conn.execute(
+            "UPDATE git_sources SET enabled = ?2, updated_at = datetime('now') WHERE id = ?1",
+            params![id, enabled],
+        )?;
+    }
+    Ok(())
+}
+
+/// Delete a git source. Items become orphaned via ON DELETE SET NULL.
+#[allow(dead_code)]
+pub fn delete_git_source(conn: &Connection, id: &str) -> Result<bool, rusqlite::Error> {
+    let rows = conn.execute("DELETE FROM git_sources WHERE id = ?1", params![id])?;
+    Ok(rows > 0)
+}
+
+/// Update a git source's sync timestamp and item count.
+#[allow(dead_code)]
+pub fn update_git_source_synced(
+    conn: &Connection,
+    id: &str,
+    item_count: i64,
+) -> Result<(), rusqlite::Error> {
+    conn.execute(
+        "UPDATE git_sources SET last_synced_at = datetime('now'), item_count = ?2, updated_at = datetime('now')
+         WHERE id = ?1",
+        params![id, item_count],
+    )?;
+    Ok(())
+}
+
+/// List skills and agents linked to a specific git source.
+#[allow(dead_code)]
+pub fn get_source_items(
+    conn: &Connection,
+    source_id: &str,
+) -> Result<Vec<SourceItem>, rusqlite::Error> {
+    let mut items = Vec::new();
+
+    // Skills linked to this source
+    let mut stmt = conn.prepare(
+        "SELECT id, name, source_url FROM skills WHERE git_source_id = ?1 ORDER BY name ASC",
+    )?;
+    let skill_rows = stmt.query_map(params![source_id], |row| {
+        Ok(SourceItem {
+            id: row.get(0)?,
+            name: row.get(1)?,
+            kind: "skill".to_string(),
+            source_url: row.get(2)?,
+        })
+    })?;
+    for row in skill_rows {
+        items.push(row?);
+    }
+
+    // Agents linked to this source
+    let mut stmt = conn.prepare(
+        "SELECT id, name, source_url FROM agents WHERE git_source_id = ?1 ORDER BY name ASC",
+    )?;
+    let agent_rows = stmt.query_map(params![source_id], |row| {
+        Ok(SourceItem {
+            id: row.get(0)?,
+            name: row.get(1)?,
+            kind: "agent".to_string(),
+            source_url: row.get(2)?,
+        })
+    })?;
+    for row in agent_rows {
+        items.push(row?);
+    }
+
+    Ok(items)
+}
+
+/// Recalculate and update the item count for a git source.
+pub fn refresh_git_source_item_count(
+    conn: &Connection,
+    source_id: &str,
+) -> Result<i64, rusqlite::Error> {
+    let count: i64 = conn.query_row(
+        "SELECT (SELECT COUNT(*) FROM skills WHERE git_source_id = ?1) +
+                (SELECT COUNT(*) FROM agents WHERE git_source_id = ?1)",
+        params![source_id],
+        |row| row.get(0),
+    )?;
+    conn.execute(
+        "UPDATE git_sources SET item_count = ?1, updated_at = datetime('now') WHERE id = ?2",
+        params![count, source_id],
+    )?;
+    Ok(count)
+}
+
+// ── Git Source Catalog Items ────────────────────────────────────
+
+/// A catalog item persisted from a git source scan.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GitSourceCatalogItem {
+    pub id: String,
+    pub git_source_id: String,
+    pub path: String,
+    pub kind: String,
+    pub name: String,
+    pub description: Option<String>,
+    pub content: String,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+/// Upsert a catalog item from a git source scan.
+/// On conflict (same source + path), update content/name/description.
+#[allow(clippy::too_many_arguments)]
+pub fn upsert_git_source_item(
+    conn: &Connection,
+    id: &str,
+    git_source_id: &str,
+    path: &str,
+    kind: &str,
+    name: &str,
+    description: Option<&str>,
+    content: &str,
+) -> Result<(), rusqlite::Error> {
+    conn.execute(
+        "INSERT INTO git_source_items (id, git_source_id, path, kind, name, description, content, created_at, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, datetime('now'), datetime('now'))
+         ON CONFLICT(git_source_id, path) DO UPDATE SET
+            name = excluded.name,
+            description = excluded.description,
+            content = excluded.content,
+            kind = excluded.kind,
+            updated_at = datetime('now')",
+        params![id, git_source_id, path, kind, name, description, content],
+    )?;
+    Ok(())
+}
+
+/// Remove catalog items for a source that are no longer present in the repo.
+/// `current_paths` is the set of paths found in the latest scan.
+pub fn delete_stale_source_items(
+    conn: &Connection,
+    git_source_id: &str,
+    current_paths: &[String],
+) -> Result<usize, rusqlite::Error> {
+    if current_paths.is_empty() {
+        let count = conn.execute(
+            "DELETE FROM git_source_items WHERE git_source_id = ?1",
+            params![git_source_id],
+        )?;
+        return Ok(count);
+    }
+
+    let placeholders: Vec<String> = (0..current_paths.len())
+        .map(|i| format!("?{}", i + 2))
+        .collect();
+    let sql = format!(
+        "DELETE FROM git_source_items WHERE git_source_id = ?1 AND path NOT IN ({})",
+        placeholders.join(", ")
+    );
+
+    let mut stmt = conn.prepare(&sql)?;
+    let mut param_values: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
+    param_values.push(Box::new(git_source_id.to_string()));
+    for p in current_paths {
+        param_values.push(Box::new(p.clone()));
+    }
+    let params_ref: Vec<&dyn rusqlite::types::ToSql> =
+        param_values.iter().map(|b| b.as_ref()).collect();
+    let count = stmt.execute(params_ref.as_slice())?;
+    Ok(count)
+}
+
+/// Get all catalog items from enabled git sources, optionally filtered by kind, search query,
+/// and a specific git source ID.
+pub fn get_catalog_entries(
+    conn: &Connection,
+    kind: Option<&str>,
+    query: Option<&str>,
+    source_ids: Option<&[String]>,
+) -> Result<Vec<GitSourceCatalogItem>, rusqlite::Error> {
+    let mut sql = String::from(
+        "SELECT i.id, i.git_source_id, i.path, i.kind, i.name, i.description, i.content, i.created_at, i.updated_at
+         FROM git_source_items i
+         JOIN git_sources s ON i.git_source_id = s.id
+         WHERE s.enabled = 1",
+    );
+    let mut param_values: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
+    let mut param_idx = 1;
+
+    if let Some(ids) = source_ids {
+        if !ids.is_empty() {
+            let placeholders: Vec<String> = ids
+                .iter()
+                .enumerate()
+                .map(|(i, _)| format!("?{}", param_idx + i))
+                .collect();
+            sql.push_str(&format!(
+                " AND i.git_source_id IN ({})",
+                placeholders.join(", ")
+            ));
+            for id in ids {
+                param_values.push(Box::new(id.clone()));
+            }
+            param_idx += ids.len();
+        }
+    }
+
+    if let Some(k) = kind {
+        sql.push_str(&format!(" AND i.kind = ?{param_idx}"));
+        param_values.push(Box::new(k.to_string()));
+        param_idx += 1;
+    }
+
+    if let Some(q) = query {
+        if !q.trim().is_empty() {
+            let escaped = q
+                .trim()
+                .replace('\\', "\\\\")
+                .replace('%', "\\%")
+                .replace('_', "\\_");
+            let pattern = format!("%{escaped}%");
+            sql.push_str(&format!(
+                " AND (i.name LIKE ?{param_idx} ESCAPE '\\' OR i.description LIKE ?{} ESCAPE '\\')",
+                param_idx + 1
+            ));
+            param_values.push(Box::new(pattern.clone()));
+            param_values.push(Box::new(pattern));
+            param_idx += 2;
+        }
+    }
+    let _ = param_idx;
+
+    sql.push_str(" ORDER BY i.name ASC");
+
+    let params_ref: Vec<&dyn rusqlite::types::ToSql> =
+        param_values.iter().map(|b| b.as_ref()).collect();
+    let mut stmt = conn.prepare(&sql)?;
+    let rows = stmt.query_map(params_ref.as_slice(), |row| {
+        Ok(GitSourceCatalogItem {
+            id: row.get(0)?,
+            git_source_id: row.get(1)?,
+            path: row.get(2)?,
+            kind: row.get(3)?,
+            name: row.get(4)?,
+            description: row.get(5)?,
+            content: row.get(6)?,
+            created_at: row.get(7)?,
+            updated_at: row.get(8)?,
+        })
+    })?;
+
+    let mut items = Vec::new();
+    for row in rows {
+        items.push(row?);
+    }
+    Ok(items)
+}
+
+/// Get a single catalog item by its ID.
+pub fn get_catalog_entry_by_id(
+    conn: &Connection,
+    id: &str,
+) -> Result<Option<GitSourceCatalogItem>, rusqlite::Error> {
+    let mut stmt = conn.prepare(
+        "SELECT i.id, i.git_source_id, i.path, i.kind, i.name, i.description, i.content, i.created_at, i.updated_at
+         FROM git_source_items i
+         JOIN git_sources s ON i.git_source_id = s.id
+         WHERE i.id = ?1",
+    )?;
+    let mut rows = stmt.query_map(params![id], |row| {
+        Ok(GitSourceCatalogItem {
+            id: row.get(0)?,
+            git_source_id: row.get(1)?,
+            path: row.get(2)?,
+            kind: row.get(3)?,
+            name: row.get(4)?,
+            description: row.get(5)?,
+            content: row.get(6)?,
+            created_at: row.get(7)?,
+            updated_at: row.get(8)?,
+        })
+    })?;
+    match rows.next() {
+        Some(Ok(item)) => Ok(Some(item)),
+        Some(Err(e)) => Err(e),
+        None => Ok(None),
+    }
 }
 
 // ── Projects ────────────────────────────────────────────────────
@@ -1303,9 +1722,9 @@ mod tests {
     fn test_settings() {
         let conn = setup_db();
 
-        // Schema version was seeded (v3 after all migrations)
+        // Schema version was seeded (v5 after all migrations)
         let ver = get_setting(&conn, "schema_version").unwrap();
-        assert_eq!(ver, Some("3".to_string()));
+        assert_eq!(ver, Some("5".to_string()));
 
         // Set new value
         set_setting(&conn, "theme", "dark").unwrap();
@@ -1430,6 +1849,7 @@ mod tests {
             "You are a research assistant.",
             None,
             "local",
+            None,
         )
         .unwrap();
         assert_eq!(agent.name, "Research Agent");
@@ -1482,7 +1902,17 @@ mod tests {
         let conn = setup_db();
 
         // Create agent and skills
-        create_agent(&conn, "a1", "Test Agent", None, "prompt", None, "local").unwrap();
+        create_agent(
+            &conn,
+            "a1",
+            "Test Agent",
+            None,
+            "prompt",
+            None,
+            "local",
+            None,
+        )
+        .unwrap();
         create_skill(
             &conn,
             "s1",
@@ -1494,6 +1924,7 @@ mod tests {
             None,
             None,
             "builtin",
+            None,
         )
         .unwrap();
         create_skill(
@@ -1507,6 +1938,7 @@ mod tests {
             None,
             None,
             "builtin",
+            None,
         )
         .unwrap();
 
@@ -1538,7 +1970,17 @@ mod tests {
     fn test_agent_mcp_connections() {
         let conn = setup_db();
 
-        create_agent(&conn, "a1", "Test Agent", None, "prompt", None, "local").unwrap();
+        create_agent(
+            &conn,
+            "a1",
+            "Test Agent",
+            None,
+            "prompt",
+            None,
+            "local",
+            None,
+        )
+        .unwrap();
 
         // No connections initially
         assert!(get_agent_mcp_ids(&conn, "a1").unwrap().is_empty());
@@ -1575,6 +2017,7 @@ mod tests {
             Some("You are a code reviewer."),
             Some("https://www.aitmpl.com/component/skill/code-review"),
             "registry_aitmpl",
+            None,
         )
         .unwrap();
         assert_eq!(skill.name, "Code Review");
@@ -1620,9 +2063,9 @@ mod tests {
     fn test_skill_cascade_from_agent() {
         let conn = setup_db();
 
-        create_agent(&conn, "a1", "Agent", None, "prompt", None, "local").unwrap();
+        create_agent(&conn, "a1", "Agent", None, "prompt", None, "local", None).unwrap();
         create_skill(
-            &conn, "sk1", "Skill", None, "builtin", None, None, None, None, "builtin",
+            &conn, "sk1", "Skill", None, "builtin", None, None, None, None, "builtin", None,
         )
         .unwrap();
 
@@ -1766,5 +2209,57 @@ mod tests {
         delete_project(&conn, "p1").unwrap();
         let files = list_project_files(&conn, "p1").unwrap();
         assert!(files.is_empty());
+    }
+
+    #[test]
+    fn test_ensure_utc_suffix() {
+        // Bare datetime gets Z appended
+        assert_eq!(
+            ensure_utc_suffix("2026-04-11 23:55:00".into()),
+            "2026-04-11 23:55:00Z"
+        );
+        // Already has Z — unchanged
+        assert_eq!(
+            ensure_utc_suffix("2026-04-11T23:55:00Z".into()),
+            "2026-04-11T23:55:00Z"
+        );
+        // Has offset — unchanged
+        assert_eq!(
+            ensure_utc_suffix("2026-04-11T23:55:00+02:00".into()),
+            "2026-04-11T23:55:00+02:00"
+        );
+        // Optional variant
+        assert_eq!(
+            ensure_utc_suffix_opt(Some("2026-04-11 12:00:00".into())),
+            Some("2026-04-11 12:00:00Z".to_string())
+        );
+        assert_eq!(ensure_utc_suffix_opt(None), None);
+    }
+
+    #[test]
+    fn test_git_source_timestamps_have_utc_suffix() {
+        let conn = setup_db();
+        create_git_source(&conn, "gs1", "Test Source", "https://github.com/test/repo").unwrap();
+        update_git_source_synced(&conn, "gs1", 5).unwrap();
+
+        let source = get_git_source(&conn, "gs1").unwrap().unwrap();
+        assert!(
+            source.created_at.ends_with('Z'),
+            "created_at should end with Z: {}",
+            source.created_at
+        );
+        assert!(
+            source.updated_at.ends_with('Z'),
+            "updated_at should end with Z: {}",
+            source.updated_at
+        );
+        let synced = source.last_synced_at.unwrap();
+        assert!(
+            synced.ends_with('Z'),
+            "last_synced_at should end with Z: {synced}"
+        );
+
+        let sources = list_git_sources(&conn).unwrap();
+        assert!(sources[0].created_at.ends_with('Z'));
     }
 }

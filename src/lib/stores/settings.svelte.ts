@@ -18,6 +18,7 @@ export const SETTING_KEYS = {
   autoUpdateFrequency: "auto_update_frequency",
   skippedVersion: "skipped_version",
   updateSnoozedUntil: "update_snoozed_until",
+  aitmplEnabled: "aitmpl_enabled",
 } as const;
 
 // ── Reactive state ──────────────────────────────────────────────
@@ -30,6 +31,7 @@ let autoUpdateEnabled = $state(true);
 let autoUpdateFrequency = $state<UpdateFrequency>("startup");
 let skippedVersion = $state<string | null>(null);
 let updateSnoozedUntil = $state<string | null>(null);
+let aitmplEnabled = $state(true);
 let loaded = $state(false);
 
 // ── Theme application ───────────────────────────────────────────
@@ -58,6 +60,7 @@ export async function initSettings(): Promise<void> {
     autoFreqVal,
     skippedVal,
     snoozedVal,
+    aitmplVal,
   ] = await Promise.all([
     getSetting(SETTING_KEYS.theme),
     getSetting(SETTING_KEYS.fontSize),
@@ -67,6 +70,7 @@ export async function initSettings(): Promise<void> {
     getSetting(SETTING_KEYS.autoUpdateFrequency),
     getSetting(SETTING_KEYS.skippedVersion),
     getSetting(SETTING_KEYS.updateSnoozedUntil),
+    getSetting(SETTING_KEYS.aitmplEnabled),
   ]);
 
   if (themeVal) theme = themeVal as ThemeMode;
@@ -77,6 +81,7 @@ export async function initSettings(): Promise<void> {
   if (autoFreqVal) autoUpdateFrequency = autoFreqVal as UpdateFrequency;
   skippedVersion = skippedVal ?? null;
   updateSnoozedUntil = snoozedVal ?? null;
+  aitmplEnabled = aitmplVal !== "false";
 
   applyTheme(theme);
   applyFontSize(fontSize);
@@ -114,6 +119,9 @@ export async function updateSetting(key: string, value: string): Promise<void> {
     case SETTING_KEYS.updateSnoozedUntil:
       updateSnoozedUntil = value || null;
       break;
+    case SETTING_KEYS.aitmplEnabled:
+      aitmplEnabled = value !== "false";
+      break;
   }
 }
 
@@ -143,6 +151,9 @@ export function getSettings() {
     },
     get updateSnoozedUntil() {
       return updateSnoozedUntil;
+    },
+    get aitmplEnabled() {
+      return aitmplEnabled;
     },
     get loaded() {
       return loaded;

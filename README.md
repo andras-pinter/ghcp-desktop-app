@@ -19,7 +19,7 @@ Chuck provides a dedicated chat interface for GitHub Copilot — inspired by sta
 - 📂 **Projects** — organize conversations by topic with pinned context files
 - 🔌 **MCP integration** — connect external tools via the Model Context Protocol
 - 🌐 **Web research** — AI-powered search and URL fetching for grounded answers
-- 🤖 **Skills & Agents** — configurable agent personas with custom system prompts and tool access
+- 🤖 **Skills & Agents** — configurable agent personas with custom system prompts and tool access; browse and install from the aitmpl.com registry and persistent git repository sources
 - 🧠 **Thinking display** — collapsible reasoning/thinking sections from supported models
 - 🎨 **Themes** — light/dark with system preference detection and manual toggle
 - 🔀 **Model selector** — pick from available Copilot models

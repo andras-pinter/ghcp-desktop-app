@@ -60,8 +60,8 @@
 
   /** How many characters of message.content are currently visible.
    *  Initialized to current length so historical messages don't re-type. */
-  const initialLength = message.content.length;
-  let revealedLength = $state(initialLength);
+  // svelte-ignore state_referenced_locally
+  let revealedLength = $state(message.content.length);
   let revealRafId: number | null = null;
   let lastRenderTime = 0;
 

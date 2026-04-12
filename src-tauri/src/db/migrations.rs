@@ -13,6 +13,12 @@ pub fn run(conn: &Connection, current_version: i32) -> Result<(), Box<dyn std::e
     if current_version < 3 {
         migrate_v3(conn)?;
     }
+    if current_version < 4 {
+        migrate_v4(conn)?;
+    }
+    if current_version < 5 {
+        migrate_v5(conn)?;
+    }
     Ok(())
 }
 
@@ -238,6 +244,202 @@ fn migrate_v3(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+/// Version 4: Git sources table + link skills/agents to sources.
+fn migrate_v4(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
+    conn.execute_batch(
+        "
+        -- Git repository sources for skills and agents
+        CREATE TABLE IF NOT EXISTS git_sources (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            url TEXT NOT NULL UNIQUE,
+            enabled INTEGER DEFAULT 1,
+            last_synced_at TEXT,
+            item_count INTEGER DEFAULT 0,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_git_sources_enabled ON git_sources(enabled);
+
+        -- Link skills to their git source
+        ALTER TABLE skills ADD COLUMN git_source_id TEXT REFERENCES git_sources(id) ON DELETE SET NULL;
+
+        -- Link agents to their git source
+        ALTER TABLE agents ADD COLUMN git_source_id TEXT REFERENCES git_sources(id) ON DELETE SET NULL;
+        ",
+    )?;
+
+    // Back-fill: create git sources from existing git-imported items.
+    // Parse base repo URL from source_url (strip /blob/main/... suffix).
+    backfill_git_sources(conn)?;
+
+    conn.execute(
+        "UPDATE config SET value = '4' WHERE key = 'schema_version'",
+        [],
+    )?;
+
+    log::info!("Database migrated to schema version 4");
+    Ok(())
+}
+
+/// Back-fill git_source_id for existing items with source_type = 'git'.
+///
+/// Extracts the base repository URL from the per-file source_url (which has
+/// format `https://github.com/owner/repo/blob/main/path`), creates a
+/// `git_sources` row for each unique repo, then links the items.
+fn backfill_git_sources(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
+    use std::collections::HashMap;
+
+    // Collect unique repo URLs from skills
+    let mut repo_map: HashMap<String, String> = HashMap::new(); // repo_url -> source_id
+
+    let mut stmt = conn.prepare(
+        "SELECT id, source_url FROM skills WHERE source_type = 'git' AND source_url IS NOT NULL",
+    )?;
+    let skill_rows: Vec<(String, String)> = stmt
+        .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
+        .filter_map(|r| r.ok())
+        .collect();
+
+    let mut stmt = conn.prepare(
+        "SELECT id, source_url FROM agents WHERE source_type = 'git' AND source_url IS NOT NULL",
+    )?;
+    let agent_rows: Vec<(String, String)> = stmt
+        .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
+        .filter_map(|r| r.ok())
+        .collect();
+
+    // Extract base repo URLs and create sources
+    for (_item_id, source_url) in skill_rows.iter().chain(agent_rows.iter()) {
+        let repo_url = extract_repo_url(source_url);
+        if let std::collections::hash_map::Entry::Vacant(entry) = repo_map.entry(repo_url.clone()) {
+            let source_id = format!("migrated-{}", uuid_v4());
+            let name = repo_name_from_url(&repo_url);
+            conn.execute(
+                "INSERT OR IGNORE INTO git_sources (id, name, url, enabled, item_count, created_at, updated_at)
+                 VALUES (?1, ?2, ?3, 1, 0, datetime('now'), datetime('now'))",
+                rusqlite::params![source_id, name, repo_url],
+            )?;
+            entry.insert(source_id);
+        }
+    }
+
+    // Link skills to their source
+    for (item_id, source_url) in &skill_rows {
+        let repo_url = extract_repo_url(source_url);
+        if let Some(source_id) = repo_map.get(&repo_url) {
+            conn.execute(
+                "UPDATE skills SET git_source_id = ?1 WHERE id = ?2",
+                rusqlite::params![source_id, item_id],
+            )?;
+        }
+    }
+
+    // Link agents to their source
+    for (item_id, source_url) in &agent_rows {
+        let repo_url = extract_repo_url(source_url);
+        if let Some(source_id) = repo_map.get(&repo_url) {
+            conn.execute(
+                "UPDATE agents SET git_source_id = ?1 WHERE id = ?2",
+                rusqlite::params![source_id, item_id],
+            )?;
+        }
+    }
+
+    // Update item counts
+    for (repo_url, source_id) in &repo_map {
+        let count: i64 = conn.query_row(
+            "SELECT (SELECT COUNT(*) FROM skills WHERE git_source_id = ?1) +
+                    (SELECT COUNT(*) FROM agents WHERE git_source_id = ?1)",
+            rusqlite::params![source_id],
+            |row| row.get(0),
+        )?;
+        conn.execute(
+            "UPDATE git_sources SET item_count = ?1 WHERE id = ?2",
+            rusqlite::params![count, source_id],
+        )?;
+        log::info!("Back-filled git source '{}' with {} items", repo_url, count);
+    }
+
+    Ok(())
+}
+
+/// Extract base repository URL from a per-file source_url.
+/// e.g., `https://github.com/user/repo/blob/main/skills/foo.md` → `https://github.com/user/repo`
+fn extract_repo_url(source_url: &str) -> String {
+    // Handle GitHub/GitLab blob URLs: cut at /blob/ or /tree/
+    if let Some(pos) = source_url.find("/blob/") {
+        return source_url[..pos].to_string();
+    }
+    if let Some(pos) = source_url.find("/tree/") {
+        return source_url[..pos].to_string();
+    }
+    // Handle raw URLs: https://raw.githubusercontent.com/owner/repo/branch/...
+    if source_url.contains("raw.githubusercontent.com") {
+        let parts: Vec<&str> = source_url.splitn(6, '/').collect();
+        if parts.len() >= 5 {
+            return format!("https://github.com/{}/{}", parts[3], parts[4]);
+        }
+    }
+    // Fallback: return as-is
+    source_url.to_string()
+}
+
+/// Derive a human-readable name from a repo URL.
+/// e.g., `https://github.com/user/awesome-skills` → `awesome-skills`
+fn repo_name_from_url(repo_url: &str) -> String {
+    repo_url
+        .trim_end_matches('/')
+        .rsplit('/')
+        .next()
+        .unwrap_or("unknown")
+        .to_string()
+}
+
+/// Generate a UUID v4 string (simple implementation for migration use).
+/// Uses nanosecond timestamp combined with a static counter to ensure
+/// uniqueness even when called in rapid succession.
+fn uuid_v4() -> String {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::time::{SystemTime, UNIX_EPOCH};
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
+    let seed = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos();
+    let count = COUNTER.fetch_add(1, Ordering::Relaxed);
+    format!("{:024x}{:08x}", seed, count)
+}
+
+/// Version 5: Catalog items table for persisting scanned git source contents.
+fn migrate_v5(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
+    conn.execute_batch(
+        "
+        CREATE TABLE IF NOT EXISTS git_source_items (
+            id TEXT PRIMARY KEY,
+            git_source_id TEXT NOT NULL REFERENCES git_sources(id) ON DELETE CASCADE,
+            path TEXT NOT NULL,
+            kind TEXT NOT NULL,
+            name TEXT NOT NULL,
+            description TEXT,
+            content TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            UNIQUE(git_source_id, path)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_git_source_items_source ON git_source_items(git_source_id);
+        CREATE INDEX IF NOT EXISTS idx_git_source_items_kind ON git_source_items(kind);
+
+        UPDATE config SET value = '5' WHERE key = 'schema_version';
+        ",
+    )?;
+
+    log::info!("Database migrated to schema version 5");
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -288,7 +490,7 @@ mod tests {
         conn.execute_batch("PRAGMA foreign_keys=ON;").unwrap();
         run(&conn, 0).unwrap();
 
-        // Verify schema version is now 3
+        // Verify schema version is now 5
         let version: String = conn
             .query_row(
                 "SELECT value FROM config WHERE key='schema_version'",
@@ -296,7 +498,7 @@ mod tests {
                 |row| row.get(0),
             )
             .unwrap();
-        assert_eq!(version, "3");
+        assert_eq!(version, "5");
 
         // Verify new skill columns exist
         conn.execute(
@@ -347,7 +549,7 @@ mod tests {
         let conn2 = Connection::open_in_memory().unwrap();
         conn2.execute_batch("PRAGMA foreign_keys=ON;").unwrap();
         migrate_v1(&conn2).unwrap();
-        // Run from v1 should apply v2 and v3
+        // Run from v1 should apply v2, v3, v4, and v5
         run(&conn2, 1).unwrap();
 
         let version: String = conn2
@@ -357,6 +559,150 @@ mod tests {
                 |row| row.get(0),
             )
             .unwrap();
-        assert_eq!(version, "3");
+        assert_eq!(version, "5");
+
+        // Verify git_sources table exists
+        let table_exists: bool = conn2
+            .query_row(
+                "SELECT COUNT(*) > 0 FROM sqlite_master WHERE type='table' AND name='git_sources'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert!(table_exists);
+
+        // Verify git_source_id column exists on skills
+        conn2
+            .execute(
+                "INSERT INTO skills (id, name, source, created_at, git_source_id)
+                 VALUES ('s1', 'Test', 'custom', datetime('now'), NULL)",
+                [],
+            )
+            .unwrap();
+    }
+
+    #[test]
+    fn test_v4_backfill_git_sources() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch("PRAGMA foreign_keys=ON;").unwrap();
+        // Run up to v3
+        migrate_v1(&conn).unwrap();
+        migrate_v2(&conn).unwrap();
+        migrate_v3(&conn).unwrap();
+
+        // Insert git-imported skills with source_url
+        conn.execute(
+            "INSERT INTO skills (id, name, source, source_url, source_type, created_at)
+             VALUES ('s1', 'Skill A', 'git', 'https://github.com/user/repo/blob/main/skills/a.md', 'git', datetime('now'))",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO skills (id, name, source, source_url, source_type, created_at)
+             VALUES ('s2', 'Skill B', 'git', 'https://github.com/user/repo/blob/main/skills/b.md', 'git', datetime('now'))",
+            [],
+        )
+        .unwrap();
+        // Different repo
+        conn.execute(
+            "INSERT INTO skills (id, name, source, source_url, source_type, created_at)
+             VALUES ('s3', 'Skill C', 'git', 'https://github.com/other/tools/blob/main/skill.md', 'git', datetime('now'))",
+            [],
+        )
+        .unwrap();
+        // Non-git skill (should not be affected)
+        conn.execute(
+            "INSERT INTO skills (id, name, source, source_type, created_at)
+             VALUES ('s4', 'Local Skill', 'custom', 'builtin', datetime('now'))",
+            [],
+        )
+        .unwrap();
+
+        // Run v4 migration
+        migrate_v4(&conn).unwrap();
+
+        // Should have created 2 git sources (one per unique repo)
+        let source_count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM git_sources", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(source_count, 2);
+
+        // s1 and s2 should share the same git_source_id
+        let s1_source: Option<String> = conn
+            .query_row(
+                "SELECT git_source_id FROM skills WHERE id = 's1'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        let s2_source: Option<String> = conn
+            .query_row(
+                "SELECT git_source_id FROM skills WHERE id = 's2'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert!(s1_source.is_some());
+        assert_eq!(s1_source, s2_source);
+
+        // s3 should have a different git_source_id
+        let s3_source: Option<String> = conn
+            .query_row(
+                "SELECT git_source_id FROM skills WHERE id = 's3'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert!(s3_source.is_some());
+        assert_ne!(s1_source, s3_source);
+
+        // s4 (non-git) should have no git_source_id
+        let s4_source: Option<String> = conn
+            .query_row(
+                "SELECT git_source_id FROM skills WHERE id = 's4'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert!(s4_source.is_none());
+
+        // Verify item counts
+        let repo_source = conn
+            .query_row(
+                "SELECT item_count FROM git_sources WHERE url = 'https://github.com/user/repo'",
+                [],
+                |row| row.get::<_, i64>(0),
+            )
+            .unwrap();
+        assert_eq!(repo_source, 2); // s1 + s2
+
+        let other_source = conn
+            .query_row(
+                "SELECT item_count FROM git_sources WHERE url = 'https://github.com/other/tools'",
+                [],
+                |row| row.get::<_, i64>(0),
+            )
+            .unwrap();
+        assert_eq!(other_source, 1); // s3
+    }
+
+    #[test]
+    fn test_extract_repo_url() {
+        assert_eq!(
+            extract_repo_url("https://github.com/user/repo/blob/main/skills/a.md"),
+            "https://github.com/user/repo"
+        );
+        assert_eq!(
+            extract_repo_url("https://gitlab.com/org/project/blob/master/agents/bot.md"),
+            "https://gitlab.com/org/project"
+        );
+        assert_eq!(
+            extract_repo_url("https://github.com/user/repo/tree/main/directory"),
+            "https://github.com/user/repo"
+        );
+        assert_eq!(
+            extract_repo_url("https://github.com/user/repo"),
+            "https://github.com/user/repo"
+        );
     }
 }

@@ -5,14 +5,14 @@ import {
   createSkill as createSkillCmd,
   deleteSkill as deleteSkillCmd,
   toggleSkill as toggleSkillCmd,
-  searchRegistry as searchRegistryCmd,
+  searchCatalog as searchCatalogCmd,
   installFromRegistry as installFromRegistryCmd,
-  fetchGitSkills as fetchGitSkillsCmd,
-  importGitSkill as importGitSkillCmd,
+  installCatalogItem as installCatalogItemCmd,
   logFrontend,
 } from "$lib/utils/commands";
 import type { Skill } from "$lib/types/skill";
-import type { RegistryItem, GitSkillFile, RegistrySearchResult } from "$lib/types/registry";
+import type { RegistryItem, RegistrySearchResult } from "$lib/types/registry";
+import { SvelteSet } from "svelte/reactivity";
 
 let skills = $state<Skill[]>([]);
 let loaded = $state(false);
@@ -23,11 +23,8 @@ let registryResults = $state<RegistryItem[]>([]);
 let registrySearching = $state(false);
 let registryTotal = $state<number | null>(null);
 
-// Git import state
-let gitImportUrl = $state("");
-let gitDiscoveredFiles = $state<GitSkillFile[]>([]);
-let gitImporting = $state(false);
-let gitProgress = $state<{ total: number; fetched: number; phase: string } | null>(null);
+/** Source filter selection (persists across component mount/unmount). */
+const selectedSourceIds = new SvelteSet<string>();
 
 /** Load skills from the backend. Call once after auth. */
 export async function initSkills(): Promise<void> {
@@ -58,118 +55,102 @@ export async function removeSkill(id: string): Promise<void> {
 /** Cached browse results so clearing search restores instantly. */
 let browseCache: RegistryItem[] = [];
 
+/** Pending request queued while a search is in-flight. */
+let pendingRequest: { query: string; sourceIds?: string[] | null } | null = null;
+
 /** Prefetch popular skills from registries (browse mode with empty query). */
-export async function prefetchRegistry(): Promise<void> {
-  // If we have cached browse results, restore them instantly
-  if (browseCache.length > 0) {
+export async function prefetchRegistry(sourceIds?: string[] | null): Promise<void> {
+  // If we have cached browse results and no source filter, restore instantly
+  if (browseCache.length > 0 && (!sourceIds || sourceIds.length === 0)) {
     registryQuery = "";
     registryResults = browseCache;
     registryTotal = browseCache.length;
     return;
   }
-  if (registrySearching) return;
+  if (registrySearching) {
+    pendingRequest = { query: "", sourceIds };
+    return;
+  }
   registrySearching = true;
   try {
-    const result: RegistrySearchResult = await searchRegistryCmd("", 200);
-    browseCache = result.items.filter((i) => i.kind === "skill");
+    const result: RegistrySearchResult = await searchCatalogCmd("", "skill", 200, sourceIds);
+    if (!sourceIds || sourceIds.length === 0) {
+      browseCache = result.items;
+    }
     registryQuery = "";
-    registryResults = browseCache;
-    registryTotal = browseCache.length;
+    registryResults = result.items;
+    registryTotal = result.items.length;
   } catch (e) {
     logFrontend("warn", `Skills registry prefetch failed: ${e}`);
   } finally {
     registrySearching = false;
+    drainPendingRequest();
   }
 }
 
 /** Search registries and update results. */
-export async function searchRegistries(query: string): Promise<void> {
-  if (registrySearching) return;
+export async function searchRegistries(query: string, sourceIds?: string[] | null): Promise<void> {
+  if (registrySearching) {
+    pendingRequest = { query, sourceIds };
+    return;
+  }
   registryQuery = query;
   registrySearching = true;
   try {
-    const result: RegistrySearchResult = await searchRegistryCmd(query);
-    const filtered = result.items.filter((i) => i.kind === "skill");
-    registryResults = filtered;
-    registryTotal = filtered.length;
+    const result: RegistrySearchResult = await searchCatalogCmd(query, "skill", null, sourceIds);
+    registryResults = result.items;
+    registryTotal = result.items.length;
   } catch (e) {
     logFrontend("error", `Registry search failed: ${e}`);
     registryResults = [];
     registryTotal = null;
   } finally {
     registrySearching = false;
+    drainPendingRequest();
   }
 }
 
-/** Install a skill from a registry result. */
+/** Fire the latest queued request after the current one finishes. */
+function drainPendingRequest(): void {
+  if (!pendingRequest) return;
+  const { query, sourceIds } = pendingRequest;
+  pendingRequest = null;
+  if (query) {
+    searchRegistries(query, sourceIds);
+  } else {
+    prefetchRegistry(sourceIds);
+  }
+}
+
+/** Install a skill from a catalog result (aitmpl.com or git source). */
 export async function installFromRegistry(item: RegistryItem): Promise<Skill | null> {
   try {
-    const installed: RegistryItem = await installFromRegistryCmd(
-      item.id,
-      item.source,
-      item.sourceRepo,
-      item.url,
-      item.content,
-      item.name,
-    );
+    if (item.source === "git") {
+      // Git source catalog item — install via catalog command
+      await installCatalogItemCmd(item.id);
+    } else {
+      // aitmpl.com registry item — install via registry command
+      await installFromRegistryCmd(
+        item.id,
+        item.source,
+        item.sourceRepo,
+        item.url,
+        item.content,
+        item.name,
+      );
+    }
     // Reload skills to pick up the new one
     await initSkills();
-    return skills.find((s) => s.id === installed.id) ?? null;
+    // Invalidate browse cache so next prefetch includes updated installed status
+    browseCache = [];
+    return skills[skills.length - 1] ?? null;
   } catch (e) {
     logFrontend("error", `Registry install failed: ${e}`);
     return null;
   }
 }
 
-// ── Git Import ──────────────────────────────────────────────────
-
-/** Fetch SKILL.md files from a git URL. */
-export async function discoverGitSkills(url: string): Promise<void> {
-  gitImportUrl = url;
-  gitImporting = true;
-  gitProgress = null;
-  try {
-    gitDiscoveredFiles = await fetchGitSkillsCmd(url);
-  } catch (e) {
-    logFrontend("error", `Git skill discovery failed: ${e}`);
-    gitDiscoveredFiles = [];
-    throw e;
-  } finally {
-    gitImporting = false;
-    gitProgress = null;
-  }
-}
-
-/** Import a discovered SKILL.md file as a skill. */
-export async function importFromGit(file: GitSkillFile): Promise<Skill | null> {
-  try {
-    const skill = await importGitSkillCmd(file.content, file.repoUrl, file.path);
-    // Reload to pick up the new skill
-    await initSkills();
-    return skills.find((s) => s.id === skill.id) ?? null;
-  } catch (e) {
-    logFrontend("error", `Git import failed: ${e}`);
-    return null;
-  }
-}
-
-/** Clear git import state. */
-export function clearGitImport(): void {
-  gitImportUrl = "";
-  gitDiscoveredFiles = [];
-  gitProgress = null;
-}
-
-/** Update git import progress (called from event listener). */
-export function updateGitProgress(
-  progress: {
-    total: number;
-    fetched: number;
-    phase: string;
-  } | null,
-): void {
-  gitProgress = progress;
-}
+// ── Git Import ── (removed — git import now handled via Sources panel)
 
 /** Create a manual skill (not from registry/git). */
 export async function addManualSkill(
@@ -193,6 +174,13 @@ export async function addManualSkill(
   return skill;
 }
 
+/** Invalidate the browse cache so next prefetch fetches fresh data. */
+export function invalidateSkillCatalogCache(): void {
+  browseCache = [];
+  registryResults = [];
+  registryTotal = null;
+}
+
 /** Reactive getters. */
 export function getSkillStore() {
   return {
@@ -214,17 +202,8 @@ export function getSkillStore() {
     get registryTotal() {
       return registryTotal;
     },
-    get gitImportUrl() {
-      return gitImportUrl;
-    },
-    get gitDiscoveredFiles() {
-      return gitDiscoveredFiles;
-    },
-    get gitImporting() {
-      return gitImporting;
-    },
-    get gitProgress() {
-      return gitProgress;
+    get selectedSourceIds() {
+      return selectedSourceIds;
     },
   };
 }

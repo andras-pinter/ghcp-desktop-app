@@ -43,6 +43,7 @@ pub fn create_skill(
         instructions.as_deref(),
         source_url.as_deref(),
         &source_type.unwrap_or_else(|| "builtin".to_string()),
+        None,
     )
     .map_err(|e| e.to_string())
 }
@@ -167,6 +168,7 @@ pub async fn install_from_registry(
             Some(&instructions),
             Some(&source_url),
             source_type,
+            None,
         )
         .map_err(|e| format!("Failed to save skill: {e}"))?;
     }
@@ -176,6 +178,7 @@ pub async fn install_from_registry(
         name,
         description: Some(description),
         source: registry_source,
+        source_name: Some("aitmpl.com".to_string()),
         url: Some(source_url),
         installs: None,
         kind: crate::registry::RegistryItemKind::Skill,
@@ -231,6 +234,7 @@ pub fn import_git_skill(
         Some(&parsed.instructions),
         Some(&source_url),
         "git",
+        None,
     )
     .map_err(|e| format!("Failed to save skill: {e}"))
 }
