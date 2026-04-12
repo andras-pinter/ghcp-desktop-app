@@ -441,6 +441,19 @@ pub fn install_catalog_item(app: AppHandle, item_id: String) -> Result<String, S
                 &source.id[..8.min(source.id.len())],
                 name.to_lowercase().replace(' ', "-")
             );
+
+            // Check for existing skill with same source_url to prevent duplicates
+            let existing = queries::list_skills(&db).map_err(|e| e.to_string())?;
+            if let Some(s) = existing
+                .iter()
+                .find(|s| s.source_url.as_deref() == Some(source_url.as_str()))
+            {
+                return Err(format!(
+                    "Skill '{}' is already installed from this source",
+                    s.name
+                ));
+            }
+
             queries::create_skill(
                 &db,
                 &db_id,

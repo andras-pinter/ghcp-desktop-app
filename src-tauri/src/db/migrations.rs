@@ -398,13 +398,18 @@ fn repo_name_from_url(repo_url: &str) -> String {
 }
 
 /// Generate a UUID v4 string (simple implementation for migration use).
+/// Uses nanosecond timestamp combined with a static counter to ensure
+/// uniqueness even when called in rapid succession.
 fn uuid_v4() -> String {
+    use std::sync::atomic::{AtomicU64, Ordering};
     use std::time::{SystemTime, UNIX_EPOCH};
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
     let seed = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_nanos();
-    format!("{:032x}", seed)
+    let count = COUNTER.fetch_add(1, Ordering::Relaxed);
+    format!("{:024x}{:08x}", seed, count)
 }
 
 /// Version 5: Catalog items table for persisting scanned git source contents.

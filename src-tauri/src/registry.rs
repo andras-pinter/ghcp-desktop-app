@@ -817,7 +817,9 @@ where
         .await
         .map_err(|e| format!("Failed to parse tree response: {e}"))?;
 
-    // Collect all matching paths, separated by kind to allow filtering.
+    // Collect all matching paths with a safety cap to prevent DoS from
+    // malicious repos with thousands of definition files.
+    const MAX_TOTAL_FILES: usize = 1000;
     let def_paths: Vec<(String, &str)> = tree
         .tree
         .iter()
@@ -831,6 +833,7 @@ where
             }
             Some((t.path.clone(), kind))
         })
+        .take(MAX_TOTAL_FILES)
         .collect();
 
     let kind_label = kind_filter.unwrap_or("definition");
