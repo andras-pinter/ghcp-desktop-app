@@ -34,7 +34,14 @@ fn main() {
             }
         }
         Some("changelog") => {
-            if let Err(e) = changelog::run() {
+            let since = args.get(1).and_then(|a| {
+                if a == "--since" {
+                    args.get(2).map(String::as_str)
+                } else {
+                    None
+                }
+            });
+            if let Err(e) = changelog::run(since) {
                 eprintln!("Error: {e}");
                 process::exit(1);
             }
@@ -81,7 +88,7 @@ fn main() {
             eprintln!("Commands:");
             eprintln!("  bump <major|minor|patch>   Bump version across all project files");
             eprintln!("  check-version              Verify all version strings are in sync");
-            eprintln!("  changelog                  Generate CHANGELOG.md from git history");
+            eprintln!("  changelog [--since <tag>]   Generate CHANGELOG.md from git history");
             eprintln!("  release [--dry-run] [--bump <level>]  Auto-detect and release");
             process::exit(1);
         }

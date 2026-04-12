@@ -60,7 +60,7 @@ pub fn run(force_level: Option<&str>, dry_run: bool) -> Result<(), String> {
     let new_version = read_version(&root, source)?;
 
     // 2. Generate changelog (if this fails, print recovery help)
-    if let Err(e) = changelog::run() {
+    if let Err(e) = changelog::run(None) {
         eprintln!();
         eprintln!("Changelog generation failed: {e}");
         eprintln!();

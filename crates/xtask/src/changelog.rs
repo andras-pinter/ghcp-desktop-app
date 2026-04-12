@@ -5,16 +5,23 @@ use std::process::Command;
 use crate::version::{project_root, read_version, VERSION_FILES};
 
 /// Generate or update CHANGELOG.md from conventional commits.
-pub fn run() -> Result<(), String> {
+///
+/// If `since_tag` is provided, use that tag as the range start instead of
+/// auto-detecting via `git describe --tags --abbrev=0`. This is useful on
+/// feature branches where the latest tag may be on a different branch.
+pub fn run(since_tag: Option<&str>) -> Result<(), String> {
     let root = project_root()?;
     let current_version = read_version(
         &root,
         VERSION_FILES.first().ok_or("VERSION_FILES is empty")?,
     )?;
 
-    // Find the latest tag to use as the range start
-    let latest_tag = get_latest_tag()?;
-    let range = match &latest_tag {
+    // Find the range start: explicit --since tag, auto-detected latest tag, or all history
+    let tag_used = match since_tag {
+        Some(t) => Some(t.to_string()),
+        None => get_latest_tag()?,
+    };
+    let range = match &tag_used {
         Some(tag) => format!("{tag}..HEAD"),
         None => "HEAD".to_string(),
     };
@@ -23,7 +30,7 @@ pub fn run() -> Result<(), String> {
     if commits.is_empty() {
         println!(
             "No conventional commits found since {}",
-            latest_tag.as_deref().unwrap_or("beginning")
+            tag_used.as_deref().unwrap_or("beginning")
         );
         return Ok(());
     }
