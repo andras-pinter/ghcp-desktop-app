@@ -798,7 +798,12 @@ where
         .await
         .map_err(|e| format!("Failed to parse tree response: {e}"))?;
 
-    // Collect matching paths: SKILL.md + *.agent.md (cap at 50)
+    // Collect matching paths per kind with separate caps (100 each).
+    // A single global cap would let one kind exhaust all slots
+    // (e.g., agents sorted before skills alphabetically).
+    const PER_KIND_CAP: usize = 100;
+    let mut skill_count = 0usize;
+    let mut agent_count = 0usize;
     let def_paths: Vec<(String, &str)> = tree
         .tree
         .iter()
@@ -810,9 +815,23 @@ where
                     return None;
                 }
             }
+            match kind {
+                "skill" => {
+                    if skill_count >= PER_KIND_CAP {
+                        return None;
+                    }
+                    skill_count += 1;
+                }
+                "agent" => {
+                    if agent_count >= PER_KIND_CAP {
+                        return None;
+                    }
+                    agent_count += 1;
+                }
+                _ => {}
+            }
             Some((t.path.clone(), kind))
         })
-        .take(50)
         .collect();
 
     let kind_label = kind_filter.unwrap_or("definition");
@@ -823,7 +842,7 @@ where
         ));
     }
 
-    // Phase 2: Fetch file contents with progress
+    // Phase 2: Fetch file contents concurrently in batches with progress
     let total = def_paths.len();
     on_progress(GitImportProgress {
         total,
@@ -832,22 +851,39 @@ where
     });
 
     let mut found = Vec::new();
-    for (i, (path, kind)) in def_paths.into_iter().enumerate() {
-        if let Ok(content) =
-            fetch_github_file(client, &parsed.owner, &parsed.repo, &path, github_token).await
-        {
-            found.push(GitSkillFile {
-                path,
-                content,
-                repo_url: repo_url.clone(),
-                kind: kind.to_string(),
+    let mut fetched = 0usize;
+    const BATCH_SIZE: usize = 10;
+
+    for batch in def_paths.chunks(BATCH_SIZE) {
+        let mut handles = Vec::new();
+        for (path, kind) in batch {
+            let c = client.clone();
+            let o = parsed.owner.clone();
+            let r = parsed.repo.clone();
+            let p = path.clone();
+            let k = kind.to_string();
+            let tok = github_token.map(|s| s.to_string());
+            handles.push(tokio::spawn(async move {
+                let result = fetch_github_file(&c, &o, &r, &p, tok.as_deref()).await;
+                (p, k, result)
+            }));
+        }
+        for handle in handles {
+            if let Ok((path, kind, Ok(content))) = handle.await {
+                found.push(GitSkillFile {
+                    path,
+                    content,
+                    repo_url: repo_url.clone(),
+                    kind,
+                });
+            }
+            fetched += 1;
+            on_progress(GitImportProgress {
+                total,
+                fetched,
+                phase: "fetch".to_string(),
             });
         }
-        on_progress(GitImportProgress {
-            total,
-            fetched: i + 1,
-            phase: "fetch".to_string(),
-        });
     }
 
     if found.is_empty() {
