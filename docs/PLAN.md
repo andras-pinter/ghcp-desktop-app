@@ -32,7 +32,7 @@
 ### Phase 4: Core Chat UI ✅
 
 12. ✅ **sidebar** — `Sidebar.svelte` (444 lines): conversation list grouped by date, new chat, favourites with star icon, context menu (rename, favourite toggle, delete), inline rename editing, real data binding via conversation store. _(Search button exists but handler not yet wired.)_
-13. ✅ **chat-view** — `ChatView.svelte`: message list with streaming, welcome screen with random greetings, draft loading/saving, auto-title generation, persisted default model selection, edit/regenerate handlers, Cmd+F search overlay integration, global keyboard shortcut handler.
+13. ✅ **chat-view** — `ChatView.svelte`: message list with streaming, welcome screen with random greetings, draft loading/saving, auto-title generation, persisted default model selection, edit/regenerate handlers, Cmd+F search overlay integration, global keyboard shortcut handler. Floating input area with gradient fade overlay.
 14. ✅ **input-area** — `InputArea.svelte` (1041 lines): multi-line textarea with auto-height, custom popover model dropdown (replaces native `<select>`) with fade animation, shift+click to set default model (persisted to SQLite via settings), default model marked with copper star (★), agent dropdown selector, send/stop buttons, Enter-to-send, loading spinner while models are fetched. _(File drop zone and attachment pills not yet implemented.)_
 15. ✅ **streaming-display** — Token-by-token rendering via Tauri events (`streaming-token`, `streaming-complete`, `streaming-error`), pulsing copper orb indicator with random aviation catchphrases, stop button. Event-driven architecture with proper cleanup on unmount. Messages saved on stream complete.
 16. ✅ **message-actions** — Hover action buttons on messages: ✏️ edit user messages (discards subsequent messages, loads content back to input), ⟳ regenerate last assistant response (deletes + re-sends), 📋 copy message content (with 2s check animation). Actions appear on hover with smooth opacity transition. User actions positioned left of bubble; assistant actions below content.
@@ -103,6 +103,11 @@
 51. ✅ **git-sources-frontend** — `SourcesPanel.svelte` with source cards (add/toggle/sync/rename/delete), per-source sync progress indicators, and event-driven timestamp refresh. Built-in aitmpl.com card (toggleable, undeletable). TypeScript types, command wrappers, and reactive Svelte store.
 52. ✅ **unified-catalog** — `search_catalog` merges aitmpl.com API + git source items server-side. Multi-select source filtering via pill buttons in Skills and Agents panels. Store-persisted filter selection survives panel navigation. Content omitted from search results (loaded on-demand at install).
 53. ✅ **catalog-ux** — Collapsible catalog sections. Source-differentiated badges (🌐 copper for aitmpl, 🔀 neutral for git). Badge-styled metadata on source cards (item count, sync status with contextual coloring). Sidebar sync spinner.
+54. ✅ **catalog-infinite-scroll** — Paginated catalog loading with 30-item batches. `search_catalog` accepts `offset`/`limit`, applies to merged aitmpl + git results sorted alphabetically. IntersectionObserver-based infinite scroll in SkillsPanel and AgentsPanel. Store-level `loadMore()` with `hasMore` tracking. Prefetch next page on 10-item threshold. Browse cache for instant panel restoration. Error-resilient pagination (stops on fetch failure).
+
+### Improvements (post-Phase 13)
+
+55. ✅ **floating-chat-input** — Chat input area floats over messages using absolute positioning with gradient fade. `chat-input-float` wrapper (z-index 2, pointer-events none) with `chat-input-container` (pointer-events auto). Messages get bottom padding clearance. Gradient from transparent → `--color-bg-primary` over 3rem provides smooth visual transition. Works correctly in both light and dark themes.
 
 ---
 
