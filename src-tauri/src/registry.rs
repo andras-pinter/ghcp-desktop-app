@@ -194,35 +194,57 @@ async fn get_aitmpl_data() -> Result<AitmplComponentsJson, String> {
             let stale_data = cached.data.clone();
             drop(guard);
 
-            // Atomically check-and-set refreshing flag under write lock
-            let should_spawn = {
+            // Acquire write lock and re-check: another thread may have refreshed
+            let (should_spawn, data) = {
                 let mut w = aitmpl_cache().write().await;
                 if let Some(ref mut c) = *w {
-                    if !c.refreshing {
+                    if c.fetched_at.elapsed() < AITMPL_CACHE_TTL {
+                        // Another thread refreshed while we waited — use fresh data
+                        (false, c.data.clone())
+                    } else if !c.refreshing {
                         c.refreshing = true;
-                        true
+                        (true, stale_data)
                     } else {
-                        false
+                        (false, stale_data)
                     }
                 } else {
-                    false
+                    (false, stale_data)
                 }
             };
 
             if should_spawn {
                 tokio::spawn(async {
-                    if let Err(e) = refresh_aitmpl_cache().await {
-                        log::warn!("Background registry refresh failed: {e}");
-                        // Reset flag so next stale read will retry
-                        let mut w = aitmpl_cache().write().await;
-                        if let Some(ref mut c) = *w {
-                            c.refreshing = false;
+                    // Guard ensures refreshing is reset even on panic
+                    struct ResetOnDrop;
+                    impl Drop for ResetOnDrop {
+                        fn drop(&mut self) {
+                            // Use try_write to avoid blocking in a drop impl.
+                            // If the lock is held, refresh_aitmpl_cache itself
+                            // will set refreshing=false on its next success.
+                            if let Ok(mut w) = aitmpl_cache().try_write() {
+                                if let Some(ref mut c) = *w {
+                                    c.refreshing = false;
+                                }
+                            }
+                        }
+                    }
+                    let _guard = ResetOnDrop;
+
+                    match refresh_aitmpl_cache().await {
+                        Ok(_) => {
+                            // Success: refresh_aitmpl_cache already set refreshing=false.
+                            // Defuse the guard by forgetting it.
+                            std::mem::forget(_guard);
+                        }
+                        Err(e) => {
+                            log::warn!("Background registry refresh failed: {e}");
+                            // _guard drops here, resetting refreshing=false
                         }
                     }
                 });
             }
 
-            return Ok(stale_data);
+            return Ok(data);
         }
     }
 
