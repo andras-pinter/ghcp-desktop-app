@@ -3,6 +3,16 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.5.0] — 2026-04-12
+
+### Features
+
+- **ui:** make chat input area floating over messages (be1bd3c)
+
+### Documentation
+
+- update PLAN.md and AGENTS.md for floating input and catalog pagination (164fd52)
+
 ## [0.4.0] — 2026-04-12
 
 ### Features
