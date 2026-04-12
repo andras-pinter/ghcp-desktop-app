@@ -73,10 +73,21 @@
   let showHelpModal = $state(false);
   let helpOverlayEl: HTMLDivElement | undefined = $state();
   let showDeleteConfirm = $state(false);
+  let showTitleDialog = $state(false);
+  let titleInput = $state("");
+  let titleInputEl: HTMLInputElement | undefined = $state();
+  let showExportDialog = $state(false);
   const greeting = greetings[Math.floor(Math.random() * greetings.length)];
 
   $effect(() => {
     if (showHelpModal && helpOverlayEl) helpOverlayEl.focus();
+  });
+
+  $effect(() => {
+    if (showTitleDialog && titleInputEl) {
+      titleInputEl.focus();
+      titleInputEl.select();
+    }
   });
 
   // Derive streaming state from store (not local)
@@ -477,20 +488,14 @@
         if (convId) await toggleFavourite(convId);
         break;
       case "title":
-        if (convId && arg) await renameConversation(convId, arg);
+        if (convId) {
+          titleInput = store.activeConversation?.title ?? "";
+          showTitleDialog = true;
+        }
         break;
-      case "export": {
-        if (!convId) break;
-        const fmt = arg === "json" ? "json" : "md";
-        const data =
-          fmt === "json"
-            ? await exportConversationJson(convId)
-            : await exportConversationMarkdown(convId);
-        const title = store.activeConversation?.title ?? "conversation";
-        const fileName = `${title.replace(/[^a-zA-Z0-9-_ ]/g, "").slice(0, 50)}.${fmt === "json" ? "json" : "md"}`;
-        await saveExportFile(fileName, data);
+      case "export":
+        if (convId) showExportDialog = true;
         break;
-      }
       case "web":
         if (arg) {
           try {
@@ -505,6 +510,26 @@
         showHelpModal = true;
         break;
     }
+  }
+
+  async function exportAs(fmt: "json" | "md") {
+    const convId = store.activeConversationId;
+    if (!convId) return;
+    showExportDialog = false;
+    const data =
+      fmt === "json"
+        ? await exportConversationJson(convId)
+        : await exportConversationMarkdown(convId);
+    const title = store.activeConversation?.title ?? "conversation";
+    const fileName = `${title.replace(/[^a-zA-Z0-9-_ ]/g, "").slice(0, 50)}.${fmt === "json" ? "json" : "md"}`;
+    await saveExportFile(fileName, data);
+  }
+
+  async function submitTitle() {
+    const convId = store.activeConversationId;
+    const name = titleInput.trim();
+    showTitleDialog = false;
+    if (convId && name) await renameConversation(convId, name);
   }
 
   function handleDraftChange(text: string) {
@@ -799,6 +824,89 @@
   }}
   oncancel={() => (showDeleteConfirm = false)}
 />
+
+{#if showTitleDialog}
+  <div
+    class="cmd-overlay"
+    role="dialog"
+    aria-modal="true"
+    aria-label="Rename conversation"
+    tabindex="-1"
+    onkeydown={(e) => {
+      if (e.key === "Escape") showTitleDialog = false;
+    }}
+    onclick={(e) => {
+      if (e.target === e.currentTarget) showTitleDialog = false;
+    }}
+  >
+    <div class="cmd-dialog">
+      <div class="cmd-dialog-header">
+        <h3>Rename Conversation</h3>
+        <button
+          class="cmd-dialog-close"
+          onclick={() => (showTitleDialog = false)}
+          aria-label="Close">×</button
+        >
+      </div>
+      <form
+        class="cmd-dialog-body"
+        onsubmit={(e) => {
+          e.preventDefault();
+          submitTitle();
+        }}
+      >
+        <input
+          bind:this={titleInputEl}
+          bind:value={titleInput}
+          class="cmd-dialog-input"
+          type="text"
+          placeholder="Conversation title…"
+          maxlength="200"
+        />
+        <div class="cmd-dialog-actions">
+          <button type="button" class="cmd-btn secondary" onclick={() => (showTitleDialog = false)}
+            >Cancel</button
+          >
+          <button type="submit" class="cmd-btn primary" disabled={!titleInput.trim()}>Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+{/if}
+
+{#if showExportDialog}
+  <div
+    class="cmd-overlay"
+    role="dialog"
+    aria-modal="true"
+    aria-label="Export conversation"
+    tabindex="-1"
+    onkeydown={(e) => {
+      if (e.key === "Escape") showExportDialog = false;
+    }}
+    onclick={(e) => {
+      if (e.target === e.currentTarget) showExportDialog = false;
+    }}
+  >
+    <div class="cmd-dialog">
+      <div class="cmd-dialog-header">
+        <h3>Export Conversation</h3>
+        <button
+          class="cmd-dialog-close"
+          onclick={() => (showExportDialog = false)}
+          aria-label="Close">×</button
+        >
+      </div>
+      <div class="cmd-dialog-body">
+        <p class="cmd-dialog-detail">Choose export format:</p>
+        <div class="cmd-dialog-actions export-actions">
+          <button class="cmd-btn secondary" onclick={() => exportAs("md")}>📝 Markdown</button>
+          <button class="cmd-btn secondary" onclick={() => exportAs("json")}>🗂️ JSON</button>
+        </div>
+      </div>
+    </div>
+  </div>
+{/if}
 
 <style>
   .chat-view {
@@ -1118,5 +1226,144 @@
   .help-cmd-row dd {
     margin: 0;
     color: var(--color-text-secondary);
+  }
+
+  /* ── Command dialog (title / export) ── */
+
+  .cmd-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.45);
+    animation: fadeIn 120ms ease;
+  }
+
+  .cmd-dialog {
+    background: var(--color-bg-primary);
+    border: 1px solid var(--color-border-primary);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.2);
+    width: 380px;
+    max-width: 90vw;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: slideUp 180ms ease;
+  }
+
+  .cmd-dialog-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--spacing-md) var(--spacing-lg);
+    border-bottom: 1px solid var(--color-border-secondary);
+  }
+
+  .cmd-dialog-header h3 {
+    margin: 0;
+    font-size: var(--font-size-base);
+    font-weight: 600;
+    font-family: var(--font-sans);
+    color: var(--color-text-primary);
+  }
+
+  .cmd-dialog-close {
+    background: none;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    color: var(--color-text-tertiary);
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+    line-height: 1;
+  }
+
+  .cmd-dialog-close:hover {
+    background: var(--color-bg-secondary);
+    color: var(--color-text-primary);
+  }
+
+  .cmd-dialog-body {
+    padding: var(--spacing-lg);
+  }
+
+  .cmd-dialog-detail {
+    margin: 0 0 var(--spacing-md);
+    font-family: var(--font-sans);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+  }
+
+  .cmd-dialog-input {
+    width: 100%;
+    padding: var(--spacing-sm) var(--spacing-md);
+    font-family: var(--font-sans);
+    font-size: var(--font-size-base);
+    color: var(--color-text-primary);
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border-primary);
+    border-radius: var(--radius-md);
+    outline: none;
+    box-sizing: border-box;
+    margin-bottom: var(--spacing-md);
+  }
+
+  .cmd-dialog-input:focus {
+    border-color: var(--color-accent-primary);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent-primary) 25%, transparent);
+  }
+
+  .cmd-dialog-actions {
+    display: flex;
+    gap: var(--spacing-sm);
+    justify-content: flex-end;
+  }
+
+  .cmd-dialog-actions.export-actions {
+    justify-content: center;
+  }
+
+  .cmd-btn {
+    padding: 7px 18px;
+    border: 1px solid var(--color-border-primary);
+    border-radius: 9999px;
+    font-family: var(--font-sans);
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 120ms ease;
+    line-height: 1.3;
+  }
+
+  .cmd-btn:focus-visible {
+    outline: 2px solid var(--color-accent-primary);
+    outline-offset: 2px;
+  }
+
+  .cmd-btn.secondary {
+    background: transparent;
+    color: var(--color-text-primary);
+  }
+
+  .cmd-btn.secondary:hover {
+    background: var(--color-bg-hover);
+  }
+
+  .cmd-btn.primary {
+    background: var(--color-accent-primary);
+    border-color: var(--color-accent-primary);
+    color: #fff;
+  }
+
+  .cmd-btn.primary:hover:not(:disabled) {
+    filter: brightness(1.1);
+  }
+
+  .cmd-btn.primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 </style>

@@ -695,25 +695,16 @@
         commandResult = null;
         onCommand?.("favorite");
         break;
-      case "title": {
-        // /title <text> — argument is everything after "/title "
-        const cmdTextFull = inputText.slice(rangeStart, rangeEnd);
-        const spacePos = cmdTextFull.indexOf(" ");
-        const titleArg = spacePos >= 0 ? cmdTextFull.slice(spacePos + 1).trim() : textAfterCmd;
-        replaceCommandText(rangeStart, rangeEnd + (spacePos < 0 ? textAfterCmd.length : 0), "");
-        commandResult = null;
-        if (titleArg) onCommand?.("title", titleArg);
-        break;
-      }
-      case "export": {
-        const cmdTextFull = inputText.slice(rangeStart, rangeEnd);
-        const spacePos = cmdTextFull.indexOf(" ");
-        const fmtArg = spacePos >= 0 ? cmdTextFull.slice(spacePos + 1).trim() : "";
+      case "title":
         replaceCommandText(rangeStart, rangeEnd, "");
         commandResult = null;
-        onCommand?.("export", fmtArg || undefined);
+        onCommand?.("title");
         break;
-      }
+      case "export":
+        replaceCommandText(rangeStart, rangeEnd, "");
+        commandResult = null;
+        onCommand?.("export");
+        break;
       case "web": {
         // /web <query> — everything after "/web " is the search query
         const cmdTextFull = inputText.slice(rangeStart);

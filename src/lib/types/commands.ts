@@ -97,8 +97,7 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
     description: "Rename conversation",
     icon: "✏️",
     behavior: "action",
-    argType: "text",
-    argPlaceholder: "new title",
+    argType: "none",
     requiresConversation: true,
   },
   {
@@ -122,8 +121,7 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
     description: "Export conversation",
     icon: "📤",
     behavior: "action",
-    argType: "format",
-    argPlaceholder: "md or json",
+    argType: "none",
     requiresConversation: true,
   },
   {
