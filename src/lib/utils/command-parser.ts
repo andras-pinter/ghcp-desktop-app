@@ -218,6 +218,12 @@ function filterCommands(query: string, hasConversation: boolean): SlashCommand[]
     return help ? [help] : [];
   }
 
+  // /web is an alias for /fetch
+  if (query === "web") {
+    const fetch = SLASH_COMMANDS.find((c) => c.name === "fetch");
+    return fetch ? [fetch] : [];
+  }
+
   return available.filter((c) => c.name.startsWith(query));
 }
 

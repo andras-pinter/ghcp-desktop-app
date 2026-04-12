@@ -16,7 +16,6 @@
     exportConversationMarkdown,
     exportConversationJson,
     saveExportFile,
-    webSearch,
   } from "$lib/utils/commands";
   import { onContextSummarized } from "$lib/utils/events";
   import { onMount, onDestroy } from "svelte";
@@ -44,7 +43,6 @@
   import { getSettings } from "$lib/stores/settings.svelte";
   import { getNetwork } from "$lib/stores/network.svelte";
   import { getSkillStore } from "$lib/stores/skills.svelte";
-  import type { SearchResult } from "$lib/types/web-research";
   import { SLASH_COMMANDS } from "$lib/types/commands";
 
   const greetings = [
@@ -478,7 +476,7 @@
   const enabledSkills = $derived(skillStore.skills.filter((s) => s.enabled));
 
   /** Handle slash command dispatched from InputArea. */
-  async function handleCommand(name: string, arg?: string) {
+  async function handleCommand(name: string) {
     const convId = store.activeConversationId;
     switch (name) {
       case "delete":
@@ -495,16 +493,6 @@
         break;
       case "export":
         if (convId) showExportDialog = true;
-        break;
-      case "web":
-        if (arg) {
-          try {
-            const _results: SearchResult[] = await webSearch(arg);
-            console.log(`Web search for "${arg}" returned ${_results.length} results`);
-          } catch (e) {
-            console.error("Web search failed:", e);
-          }
-        }
         break;
       case "help":
         showHelpModal = true;

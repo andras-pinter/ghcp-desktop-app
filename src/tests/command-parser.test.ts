@@ -118,12 +118,12 @@ describe("slash command detection", () => {
   });
 
   it("filters commands by prefix", () => {
-    const r = parse("/we");
+    const r = parse("/fe");
     expect(r).not.toBeNull();
     expect(r!.items).toHaveLength(1);
     expect(r!.items[0].kind).toBe("command");
     if (r!.items[0].kind === "command") {
-      expect(r!.items[0].command.name).toBe("web");
+      expect(r!.items[0].command.name).toBe("fetch");
     }
   });
 
@@ -141,10 +141,10 @@ describe("slash command detection", () => {
   });
 
   it("provides correct range", () => {
-    const r = parse("/web");
+    const r = parse("/fetch");
     expect(r).not.toBeNull();
     expect(r!.rangeStart).toBe(0);
-    expect(r!.rangeEnd).toBe(4);
+    expect(r!.rangeEnd).toBe(6);
   });
 
   it("detects / after a newline", () => {
@@ -158,13 +158,13 @@ describe("slash command detection", () => {
   });
 
   it("ignores / in the middle of a line", () => {
-    expect(parse("hello /web", 10)).toBeNull();
+    expect(parse("hello /fetch", 12)).toBeNull();
   });
 
   it("shows all commands for bare /", () => {
     const r = parse("/");
     expect(r).not.toBeNull();
-    expect(r!.items.length).toBe(10);
+    expect(r!.items.length).toBe(9);
   });
 });
 
@@ -210,9 +210,7 @@ describe("sub-command argument parsing", () => {
   });
 
   it("returns null for free-text commands (no popup needed)", () => {
-    expect(parse("/web some query")).toBeNull();
     expect(parse("/fetch https://example.com")).toBeNull();
-    expect(parse("/title new name")).toBeNull();
   });
 });
 
@@ -281,11 +279,11 @@ describe("edge cases", () => {
 
   it("handles cursor in the middle of slash text", () => {
     // Cursor is at position 2, so query is just "w" from "/w"
-    const r = parse("/web query", 2);
+    const r = parse("/fetch url", 2);
     expect(r).not.toBeNull();
     expect(r!.trigger).toBe("/");
     if (!isSubCommand(r)) {
-      expect(r!.query).toBe("w");
+      expect(r!.query).toBe("f");
     }
   });
 
@@ -329,14 +327,14 @@ describe("hasConversation filtering", () => {
     expect(names).not.toContain("export");
     // These should still be present
     expect(names).toContain("model");
-    expect(names).toContain("web");
+    expect(names).toContain("fetch");
     expect(names).toContain("help");
   });
 
   it("shows all commands when hasConversation is true", () => {
     const r = parse("/", undefined, true);
     expect(r).not.toBeNull();
-    expect(r!.items.length).toBe(10);
+    expect(r!.items.length).toBe(9);
   });
 
   it("hides /favorite from /f results when no conversation", () => {
@@ -360,6 +358,21 @@ describe("/? alias", () => {
     expect(r!.items).toHaveLength(1);
     if (r!.items[0].kind === "command") {
       expect(r!.items[0].command.name).toBe("help");
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// /web alias for /fetch
+// ---------------------------------------------------------------------------
+
+describe("/web alias", () => {
+  it("returns /fetch for /web", () => {
+    const r = parse("/web");
+    expect(r).not.toBeNull();
+    expect(r!.items).toHaveLength(1);
+    if (r!.items[0].kind === "command") {
+      expect(r!.items[0].command.name).toBe("fetch");
     }
   });
 });

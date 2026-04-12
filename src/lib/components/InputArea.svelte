@@ -170,9 +170,10 @@
     // Intercept slash commands that would otherwise be sent as text
     const cmdMatch = trimmed.match(/^\/(\S+)(?:\s+(.*))?$/);
     if (cmdMatch) {
-      const cmdName = cmdMatch[1];
+      // Resolve aliases
+      const rawName = cmdMatch[1] === "web" ? "fetch" : cmdMatch[1] === "?" ? "help" : cmdMatch[1];
       const cmdArg = cmdMatch[2]?.trim() || undefined;
-      const cmd = SLASH_COMMANDS.find((c) => c.name === cmdName);
+      const cmd = SLASH_COMMANDS.find((c) => c.name === rawName);
       if (cmd) {
         inputText = "";
         commandResult = null;
@@ -705,21 +706,7 @@
         commandResult = null;
         onCommand?.("export");
         break;
-      case "web": {
-        // /web <query> — everything after "/web " is the search query
-        const cmdTextFull = inputText.slice(rangeStart);
-        const spacePos = cmdTextFull.indexOf(" ");
-        const query = spacePos >= 0 ? cmdTextFull.slice(spacePos + 1).trim() : "";
-        if (query) {
-          inputText =
-            inputText.slice(0, rangeStart) + inputText.slice(rangeStart + cmdTextFull.length);
-          commandResult = null;
-          onCommand?.("web", query);
-        }
-        break;
-      }
       case "fetch": {
-        // /fetch <url> — everything after "/fetch " is the URL
         const cmdTextFull = inputText.slice(rangeStart);
         const spacePos = cmdTextFull.indexOf(" ");
         const url = spacePos >= 0 ? cmdTextFull.slice(spacePos + 1).trim() : "";

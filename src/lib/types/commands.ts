@@ -68,14 +68,6 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
     argPlaceholder: "skill name",
   },
   {
-    name: "web",
-    description: "Web search",
-    icon: "🌐",
-    behavior: "context",
-    argType: "text",
-    argPlaceholder: "search query",
-  },
-  {
     name: "fetch",
     description: "Fetch URL content",
     icon: "🔗",
