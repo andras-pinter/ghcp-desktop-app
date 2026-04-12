@@ -309,7 +309,7 @@ pub async fn search_catalog(
 
     // 1) Fetch aitmpl.com results (if enabled and included)
     let mut items: Vec<crate::registry::RegistryItem> = if aitmpl_enabled {
-        let aitmpl_result = crate::registry::search_registries(client, &query, u32::MAX).await;
+        let aitmpl_result = crate::registry::search_registries(client, &query, 10_000).await;
         match aitmpl_result {
             Ok(r) => r.items,
             Err(e) => {

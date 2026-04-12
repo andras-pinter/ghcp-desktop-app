@@ -197,6 +197,7 @@ export async function loadMoreAgents(sourceIds?: string[] | null): Promise<void>
     registryOffset += result.items.length;
   } catch (e) {
     logFrontend("error", `Load more agents failed: ${e}`);
+    registryHasMore = false;
   } finally {
     registryLoadingMore = false;
   }

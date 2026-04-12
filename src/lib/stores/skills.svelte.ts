@@ -155,6 +155,7 @@ export async function loadMoreSkills(sourceIds?: string[] | null): Promise<void>
     registryOffset += result.items.length;
   } catch (e) {
     logFrontend("error", `Load more skills failed: ${e}`);
+    registryHasMore = false;
   } finally {
     registryLoadingMore = false;
   }
