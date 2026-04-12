@@ -522,7 +522,7 @@
         : await exportConversationMarkdown(convId);
     const title = store.activeConversation?.title ?? "conversation";
     const fileName = `${title.replace(/[^a-zA-Z0-9-_ ]/g, "").slice(0, 50)}.${fmt === "json" ? "json" : "md"}`;
-    await saveExportFile(fileName, data);
+    await saveExportFile(data, fileName);
   }
 
   async function submitTitle() {
