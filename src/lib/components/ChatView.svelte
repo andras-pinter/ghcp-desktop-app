@@ -69,7 +69,12 @@
   let showSearch = $state(false);
   let extractingFiles = $state(false);
   let showHelpModal = $state(false);
+  let helpOverlayEl: HTMLDivElement | undefined = $state();
   const greeting = greetings[Math.floor(Math.random() * greetings.length)];
+
+  $effect(() => {
+    if (showHelpModal && helpOverlayEl) helpOverlayEl.focus();
+  });
 
   // Derive streaming state from store (not local)
   let streaming = $derived(
@@ -761,6 +766,7 @@
 
 {#if showHelpModal}
   <div
+    bind:this={helpOverlayEl}
     class="help-overlay"
     role="dialog"
     aria-modal="true"
