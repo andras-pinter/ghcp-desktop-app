@@ -122,6 +122,8 @@ const AITMPL_CACHE_TTL: Duration = Duration::from_secs(3600); // 1 hour
 struct AitmplCache {
     data: AitmplComponentsJson,
     fetched_at: Instant,
+    /// Prevents multiple concurrent background refreshes.
+    refreshing: bool,
 }
 
 /// Global cache instance (lazy-initialized).
@@ -130,19 +132,9 @@ fn aitmpl_cache() -> &'static RwLock<Option<AitmplCache>> {
     CACHE.get_or_init(|| RwLock::new(None))
 }
 
-/// Fetch components.json, returning a cached copy if still valid.
-async fn get_aitmpl_data(client: &Client) -> Result<AitmplComponentsJson, String> {
-    // Fast path: check read lock for a valid cache entry
-    {
-        let guard = aitmpl_cache().read().await;
-        if let Some(cached) = guard.as_ref() {
-            if cached.fetched_at.elapsed() < AITMPL_CACHE_TTL {
-                return Ok(cached.data.clone());
-            }
-        }
-    }
-
-    // Cache miss or expired — fetch and update
+/// Fetch components.json from the remote and store it in the cache.
+async fn refresh_aitmpl_cache() -> Result<AitmplComponentsJson, String> {
+    let client = Client::new();
     let resp = client
         .get(AITMPL_COMPONENTS_URL)
         .send()
@@ -165,18 +157,59 @@ async fn get_aitmpl_data(client: &Client) -> Result<AitmplComponentsJson, String
     *guard = Some(AitmplCache {
         data: data.clone(),
         fetched_at: Instant::now(),
+        refreshing: false,
     });
 
     Ok(data)
 }
 
+/// Fetch components.json with stale-while-revalidate caching.
+///
+/// - Cache hit (fresh): return immediately.
+/// - Cache hit (stale): return stale data, spawn background refresh.
+/// - Cache miss: fetch synchronously (first call).
+async fn get_aitmpl_data() -> Result<AitmplComponentsJson, String> {
+    // Fast path: check read lock
+    {
+        let guard = aitmpl_cache().read().await;
+        if let Some(cached) = guard.as_ref() {
+            if cached.fetched_at.elapsed() < AITMPL_CACHE_TTL {
+                return Ok(cached.data.clone());
+            }
+            // Stale — return data now, refresh in background
+            let stale_data = cached.data.clone();
+            let already_refreshing = cached.refreshing;
+            drop(guard);
+
+            if !already_refreshing {
+                // Mark as refreshing to prevent duplicate spawns
+                if let Ok(mut w) = aitmpl_cache().try_write() {
+                    if let Some(ref mut c) = *w {
+                        c.refreshing = true;
+                    }
+                }
+                tokio::spawn(async {
+                    if let Err(e) = refresh_aitmpl_cache().await {
+                        log::warn!("Background registry refresh failed: {e}");
+                    }
+                });
+            }
+
+            return Ok(stale_data);
+        }
+    }
+
+    // Cache miss (first call) — must fetch synchronously
+    refresh_aitmpl_cache().await
+}
+
 /// Search aitmpl.com by fetching components.json from GitHub and filtering locally.
 pub async fn search_aitmpl(
-    client: &Client,
+    _client: &Client,
     query: &str,
     limit: u32,
 ) -> Result<Vec<RegistryItem>, String> {
-    let data = get_aitmpl_data(client).await?;
+    let data = get_aitmpl_data().await?;
 
     let query_lower = query.to_lowercase();
     let query_words: Vec<&str> = query_lower.split_whitespace().collect();
@@ -617,8 +650,8 @@ pub async fn fetch_skill_content(
 }
 
 /// Fetch the content for an aitmpl.com item by re-fetching components.json.
-async fn fetch_aitmpl_content(client: &Client, item_id: &str) -> Result<String, String> {
-    let data = get_aitmpl_data(client).await?;
+async fn fetch_aitmpl_content(_client: &Client, item_id: &str) -> Result<String, String> {
+    let data = get_aitmpl_data().await?;
 
     // Match by path-based ID or name
     for item in data.agents.iter().chain(data.skills.iter()) {
