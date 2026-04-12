@@ -7,6 +7,7 @@
 use async_trait::async_trait;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::OnceLock;
 use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
@@ -122,14 +123,19 @@ const AITMPL_CACHE_TTL: Duration = Duration::from_secs(3600); // 1 hour
 struct AitmplCache {
     data: AitmplComponentsJson,
     fetched_at: Instant,
-    /// Prevents multiple concurrent background refreshes.
-    refreshing: bool,
 }
 
 /// Global cache instance (lazy-initialized).
 fn aitmpl_cache() -> &'static RwLock<Option<AitmplCache>> {
     static CACHE: OnceLock<RwLock<Option<AitmplCache>>> = OnceLock::new();
     CACHE.get_or_init(|| RwLock::new(None))
+}
+
+/// Atomic flag preventing duplicate background refresh spawns.
+/// Uses AtomicBool so it can be safely reset from Drop (no lock needed).
+fn aitmpl_refreshing() -> &'static AtomicBool {
+    static FLAG: AtomicBool = AtomicBool::new(false);
+    &FLAG
 }
 
 /// Maximum allowed size for components.json response (10 MB).
@@ -171,7 +177,6 @@ async fn refresh_aitmpl_cache() -> Result<AitmplComponentsJson, String> {
     *guard = Some(AitmplCache {
         data: data.clone(),
         fetched_at: Instant::now(),
-        refreshing: false,
     });
 
     Ok(data)
@@ -183,7 +188,7 @@ async fn refresh_aitmpl_cache() -> Result<AitmplComponentsJson, String> {
 /// - Cache hit (stale): return stale data, spawn background refresh.
 /// - Cache miss: fetch synchronously (first call).
 async fn get_aitmpl_data() -> Result<AitmplComponentsJson, String> {
-    // Fast path: check read lock
+    // Fast path: check read lock for a fresh cache entry
     {
         let guard = aitmpl_cache().read().await;
         if let Some(cached) = guard.as_ref() {
@@ -194,57 +199,52 @@ async fn get_aitmpl_data() -> Result<AitmplComponentsJson, String> {
             let stale_data = cached.data.clone();
             drop(guard);
 
-            // Acquire write lock and re-check: another thread may have refreshed
-            let (should_spawn, data) = {
-                let mut w = aitmpl_cache().write().await;
-                if let Some(ref mut c) = *w {
-                    if c.fetched_at.elapsed() < AITMPL_CACHE_TTL {
-                        // Another thread refreshed while we waited — use fresh data
-                        (false, c.data.clone())
-                    } else if !c.refreshing {
-                        c.refreshing = true;
-                        (true, stale_data)
-                    } else {
-                        (false, stale_data)
-                    }
-                } else {
-                    (false, stale_data)
-                }
-            };
+            // Atomically claim the refresh slot (lock-free, safe from Drop)
+            if aitmpl_refreshing()
+                .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+                .is_ok()
+            {
+                // Re-check under write lock: another thread may have refreshed
+                let already_fresh = {
+                    let r = aitmpl_cache().read().await;
+                    r.as_ref()
+                        .is_some_and(|c| c.fetched_at.elapsed() < AITMPL_CACHE_TTL)
+                };
 
-            if should_spawn {
+                if already_fresh {
+                    aitmpl_refreshing().store(false, Ordering::Release);
+                    let guard = aitmpl_cache().read().await;
+                    if let Some(cached) = guard.as_ref() {
+                        return Ok(cached.data.clone());
+                    }
+                }
+
                 tokio::spawn(async {
-                    // Guard ensures refreshing is reset even on panic
+                    // Guard resets the atomic flag on drop (panic or error)
                     struct ResetOnDrop;
                     impl Drop for ResetOnDrop {
                         fn drop(&mut self) {
-                            // Use try_write to avoid blocking in a drop impl.
-                            // If the lock is held, refresh_aitmpl_cache itself
-                            // will set refreshing=false on its next success.
-                            if let Ok(mut w) = aitmpl_cache().try_write() {
-                                if let Some(ref mut c) = *w {
-                                    c.refreshing = false;
-                                }
-                            }
+                            aitmpl_refreshing().store(false, Ordering::Release);
                         }
                     }
                     let _guard = ResetOnDrop;
 
                     match refresh_aitmpl_cache().await {
                         Ok(_) => {
-                            // Success: refresh_aitmpl_cache already set refreshing=false.
-                            // Defuse the guard by forgetting it.
+                            // Success path — defuse the guard, flag is reset
+                            // by clearing it explicitly before forget
+                            aitmpl_refreshing().store(false, Ordering::Release);
                             std::mem::forget(_guard);
                         }
                         Err(e) => {
                             log::warn!("Background registry refresh failed: {e}");
-                            // _guard drops here, resetting refreshing=false
+                            // _guard drops here, resetting the flag
                         }
                     }
                 });
             }
 
-            return Ok(data);
+            return Ok(stale_data);
         }
     }
 
