@@ -132,6 +132,9 @@ fn aitmpl_cache() -> &'static RwLock<Option<AitmplCache>> {
     CACHE.get_or_init(|| RwLock::new(None))
 }
 
+/// Maximum allowed size for components.json response (10 MB).
+const AITMPL_MAX_RESPONSE_BYTES: usize = 10 * 1024 * 1024;
+
 /// Fetch components.json from the remote and store it in the cache.
 async fn refresh_aitmpl_cache() -> Result<AitmplComponentsJson, String> {
     let client = Client::new();
@@ -148,10 +151,21 @@ async fn refresh_aitmpl_cache() -> Result<AitmplComponentsJson, String> {
         ));
     }
 
-    let data: AitmplComponentsJson = resp
-        .json()
+    let bytes = resp
+        .bytes()
         .await
-        .map_err(|e| format!("aitmpl.com parse failed: {e}"))?;
+        .map_err(|e| format!("aitmpl.com read failed: {e}"))?;
+
+    if bytes.len() > AITMPL_MAX_RESPONSE_BYTES {
+        return Err(format!(
+            "aitmpl.com response too large ({} bytes, limit {})",
+            bytes.len(),
+            AITMPL_MAX_RESPONSE_BYTES
+        ));
+    }
+
+    let data: AitmplComponentsJson =
+        serde_json::from_slice(&bytes).map_err(|e| format!("aitmpl.com parse failed: {e}"))?;
 
     let mut guard = aitmpl_cache().write().await;
     *guard = Some(AitmplCache {
@@ -176,21 +190,34 @@ async fn get_aitmpl_data() -> Result<AitmplComponentsJson, String> {
             if cached.fetched_at.elapsed() < AITMPL_CACHE_TTL {
                 return Ok(cached.data.clone());
             }
-            // Stale — return data now, refresh in background
+            // Stale — clone data before releasing read lock
             let stale_data = cached.data.clone();
-            let already_refreshing = cached.refreshing;
             drop(guard);
 
-            if !already_refreshing {
-                // Mark as refreshing to prevent duplicate spawns
-                if let Ok(mut w) = aitmpl_cache().try_write() {
-                    if let Some(ref mut c) = *w {
+            // Atomically check-and-set refreshing flag under write lock
+            let should_spawn = {
+                let mut w = aitmpl_cache().write().await;
+                if let Some(ref mut c) = *w {
+                    if !c.refreshing {
                         c.refreshing = true;
+                        true
+                    } else {
+                        false
                     }
+                } else {
+                    false
                 }
+            };
+
+            if should_spawn {
                 tokio::spawn(async {
                     if let Err(e) = refresh_aitmpl_cache().await {
                         log::warn!("Background registry refresh failed: {e}");
+                        // Reset flag so next stale read will retry
+                        let mut w = aitmpl_cache().write().await;
+                        if let Some(ref mut c) = *w {
+                            c.refreshing = false;
+                        }
                     }
                 });
             }
