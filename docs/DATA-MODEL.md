@@ -191,6 +191,7 @@ INSERT INTO config (key, value) VALUES ('schema_version', '6');
 - **User preferences** (theme, font size, hotkey, send shortcut, auto-update, default agent) → SQLite `config` table (e.g., keys: `theme`, `font_size`, `global_hotkey`, `send_shortcut`, `auto_update_enabled`, `auto_update_frequency`, `default_agent_id`)
 - **File contents** for project pinned files → SQLite `project_files.content` as BLOB
 - **Attached file contents** in chat → stored in `messages.attachments` as metadata only; full content is ephemeral (in-memory during conversation, not persisted)
+- **Registry cache** — in-memory SWR cache for aitmpl.com `components.json` (not persisted to SQLite); recreated on each app launch with 1-hour TTL
 - **No localStorage/sessionStorage** for sensitive data — all persistence goes through Tauri commands to Rust backend
 
 ### Schema Migrations

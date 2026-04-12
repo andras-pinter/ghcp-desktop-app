@@ -25,6 +25,7 @@ Chuck provides a dedicated chat interface for GitHub Copilot — inspired by sta
 - 🔀 **Model selector** — pick from available Copilot models
 - 🖥️ **System tray** — minimize to tray; streaming continues when window is hidden
 - 🔒 **Privacy-first** — zero filesystem access; files enter only via drag-and-drop/picker, read once into memory
+- ⌨️ **Slash commands** — quick actions via `/` prefix: `/help`, `/delete`, `/title`, `/export`, `/web`, `/model`, `/edit`, `/regenerate`
 - ⌨️ **Keyboard shortcuts** — global hotkey to summon from anywhere + full app navigation
 - 🖥️ **Native performance** — Rust backend + system webview, ~5-10MB bundle
 - 🔄 **Auto-update** — seamless updates from GitHub Releases

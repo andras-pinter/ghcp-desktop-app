@@ -7,6 +7,10 @@
 use async_trait::async_trait;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::OnceLock;
+use std::time::{Duration, Instant};
+use tokio::sync::RwLock;
 
 /// A unified registry search result item.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -101,7 +105,7 @@ struct AitmplComponent {
 }
 
 /// The full components.json structure from aitmpl.com GitHub repo.
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 struct AitmplComponentsJson {
     #[serde(default)]
     agents: Vec<AitmplComponent>,
@@ -112,12 +116,40 @@ struct AitmplComponentsJson {
 const AITMPL_COMPONENTS_URL: &str =
     "https://raw.githubusercontent.com/davila7/claude-code-templates/main/docs/components.json";
 
-/// Search aitmpl.com by fetching components.json from GitHub and filtering locally.
-pub async fn search_aitmpl(
-    client: &Client,
-    query: &str,
-    limit: u32,
-) -> Result<Vec<RegistryItem>, String> {
+/// How long a cached components.json response stays valid before re-fetching.
+const AITMPL_CACHE_TTL: Duration = Duration::from_secs(3600); // 1 hour
+
+/// In-memory cache for the parsed components.json payload.
+struct AitmplCache {
+    data: AitmplComponentsJson,
+    fetched_at: Instant,
+}
+
+/// Global cache instance (lazy-initialized).
+fn aitmpl_cache() -> &'static RwLock<Option<AitmplCache>> {
+    static CACHE: OnceLock<RwLock<Option<AitmplCache>>> = OnceLock::new();
+    CACHE.get_or_init(|| RwLock::new(None))
+}
+
+/// Atomic flag preventing duplicate background refresh spawns.
+/// Uses AtomicBool so it can be safely reset from Drop (no lock needed).
+fn aitmpl_refreshing() -> &'static AtomicBool {
+    static FLAG: AtomicBool = AtomicBool::new(false);
+    &FLAG
+}
+
+/// Maximum allowed size for components.json response (10 MB).
+const AITMPL_MAX_RESPONSE_BYTES: usize = 10 * 1024 * 1024;
+
+/// HTTP timeout for background registry fetches (30 seconds).
+const AITMPL_FETCH_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
+
+/// Fetch components.json from the remote and store it in the cache.
+async fn refresh_aitmpl_cache() -> Result<AitmplComponentsJson, String> {
+    let client = Client::builder()
+        .timeout(AITMPL_FETCH_TIMEOUT)
+        .build()
+        .map_err(|e| format!("Failed to build HTTP client: {e}"))?;
     let resp = client
         .get(AITMPL_COMPONENTS_URL)
         .send()
@@ -131,10 +163,108 @@ pub async fn search_aitmpl(
         ));
     }
 
-    let data: AitmplComponentsJson = resp
-        .json()
+    let bytes = resp
+        .bytes()
         .await
-        .map_err(|e| format!("aitmpl.com parse failed: {e}"))?;
+        .map_err(|e| format!("aitmpl.com read failed: {e}"))?;
+
+    if bytes.len() > AITMPL_MAX_RESPONSE_BYTES {
+        return Err(format!(
+            "aitmpl.com response too large ({} bytes, limit {})",
+            bytes.len(),
+            AITMPL_MAX_RESPONSE_BYTES
+        ));
+    }
+
+    let data: AitmplComponentsJson =
+        serde_json::from_slice(&bytes).map_err(|e| format!("aitmpl.com parse failed: {e}"))?;
+
+    let mut guard = aitmpl_cache().write().await;
+    *guard = Some(AitmplCache {
+        data: data.clone(),
+        fetched_at: Instant::now(),
+    });
+
+    Ok(data)
+}
+
+/// Fetch components.json with stale-while-revalidate caching.
+///
+/// - Cache hit (fresh): return immediately.
+/// - Cache hit (stale): return stale data, spawn background refresh.
+/// - Cache miss: fetch synchronously (first call).
+async fn get_aitmpl_data() -> Result<AitmplComponentsJson, String> {
+    // Fast path: check read lock for a fresh cache entry
+    {
+        let guard = aitmpl_cache().read().await;
+        if let Some(cached) = guard.as_ref() {
+            if cached.fetched_at.elapsed() < AITMPL_CACHE_TTL {
+                return Ok(cached.data.clone());
+            }
+            // Stale — clone data before releasing read lock
+            let stale_data = cached.data.clone();
+            drop(guard);
+
+            // Atomically claim the refresh slot (lock-free, safe from Drop)
+            if aitmpl_refreshing()
+                .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+                .is_ok()
+            {
+                // Re-check under write lock: another thread may have refreshed
+                let already_fresh = {
+                    let r = aitmpl_cache().read().await;
+                    r.as_ref()
+                        .is_some_and(|c| c.fetched_at.elapsed() < AITMPL_CACHE_TTL)
+                };
+
+                if already_fresh {
+                    aitmpl_refreshing().store(false, Ordering::Release);
+                    let guard = aitmpl_cache().read().await;
+                    if let Some(cached) = guard.as_ref() {
+                        return Ok(cached.data.clone());
+                    }
+                }
+
+                tokio::spawn(async {
+                    // Guard resets the atomic flag on drop (panic or error)
+                    struct ResetOnDrop;
+                    impl Drop for ResetOnDrop {
+                        fn drop(&mut self) {
+                            aitmpl_refreshing().store(false, Ordering::Release);
+                        }
+                    }
+                    let _guard = ResetOnDrop;
+
+                    match refresh_aitmpl_cache().await {
+                        Ok(_) => {
+                            // Success path — defuse the guard, flag is reset
+                            // by clearing it explicitly before forget
+                            aitmpl_refreshing().store(false, Ordering::Release);
+                            std::mem::forget(_guard);
+                        }
+                        Err(e) => {
+                            log::warn!("Background registry refresh failed: {e}");
+                            // _guard drops here, resetting the flag
+                        }
+                    }
+                });
+            }
+
+            return Ok(stale_data);
+        }
+    }
+
+    // Cache miss (first call) — must fetch synchronously
+    refresh_aitmpl_cache().await
+}
+
+/// Search aitmpl.com by fetching components.json from GitHub and filtering locally.
+pub async fn search_aitmpl(
+    _client: &Client,
+    query: &str,
+    limit: u32,
+) -> Result<Vec<RegistryItem>, String> {
+    let data = get_aitmpl_data().await?;
 
     let query_lower = query.to_lowercase();
     let query_words: Vec<&str> = query_lower.split_whitespace().collect();
@@ -575,21 +705,8 @@ pub async fn fetch_skill_content(
 }
 
 /// Fetch the content for an aitmpl.com item by re-fetching components.json.
-async fn fetch_aitmpl_content(client: &Client, item_id: &str) -> Result<String, String> {
-    let resp = client
-        .get(AITMPL_COMPONENTS_URL)
-        .send()
-        .await
-        .map_err(|e| format!("Failed to fetch components.json: {e}"))?;
-
-    if !resp.status().is_success() {
-        return Err(format!("components.json returned {}", resp.status()));
-    }
-
-    let data: AitmplComponentsJson = resp
-        .json()
-        .await
-        .map_err(|e| format!("Failed to parse components.json: {e}"))?;
+async fn fetch_aitmpl_content(_client: &Client, item_id: &str) -> Result<String, String> {
+    let data = get_aitmpl_data().await?;
 
     // Match by path-based ID or name
     for item in data.agents.iter().chain(data.skills.iter()) {
