@@ -798,12 +798,7 @@ where
         .await
         .map_err(|e| format!("Failed to parse tree response: {e}"))?;
 
-    // Collect matching paths per kind with separate caps (500 each).
-    // A single global cap would let one kind exhaust all slots
-    // (e.g., agents sorted before skills alphabetically).
-    const PER_KIND_CAP: usize = 500;
-    let mut skill_count = 0usize;
-    let mut agent_count = 0usize;
+    // Collect all matching paths, separated by kind to allow filtering.
     let def_paths: Vec<(String, &str)> = tree
         .tree
         .iter()
@@ -814,21 +809,6 @@ where
                 if kind != filter {
                     return None;
                 }
-            }
-            match kind {
-                "skill" => {
-                    if skill_count >= PER_KIND_CAP {
-                        return None;
-                    }
-                    skill_count += 1;
-                }
-                "agent" => {
-                    if agent_count >= PER_KIND_CAP {
-                        return None;
-                    }
-                    agent_count += 1;
-                }
-                _ => {}
             }
             Some((t.path.clone(), kind))
         })
