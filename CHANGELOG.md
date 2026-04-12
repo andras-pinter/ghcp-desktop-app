@@ -14,6 +14,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/).
 - **ui:** scroll to bottom after messages actually load (f18bb92)
 - **ui:** scroll existing chats to bottom when opened (3755269)
 
+### Performance
+
+- **registry:** stale-while-revalidate (SWR) cache for aitmpl.com components.json — 1-hour TTL, lock-free AtomicBool background refresh, 10 MB size limit, 30s HTTP timeout
+
 ## [0.7.0] — 2026-04-12
 
 ### Features

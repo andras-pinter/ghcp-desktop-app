@@ -762,7 +762,65 @@ Mono font, bordered, subtle shadow to mimic physical key.
 
 ---
 
-## 26. Panel-Specific Scoped Styles
+## 26. Slash Command Popup
+
+Floating popover for `/` prefix command completions in `InputArea`.
+
+```svelte
+<div class="slash-popup">
+  {#each filtered as cmd, i}
+    <button class="slash-popup-item" class:selected={i === selectedIndex}>
+      <span class="slash-popup-name">/{cmd.name}</span>
+      {#if cmd.aliases?.length}
+        <span class="slash-popup-alias">· /{cmd.aliases[0]}</span>
+      {/if}
+      <span class="slash-popup-desc">{cmd.description}</span>
+    </button>
+  {/each}
+</div>
+```
+
+| Token         | Value                          | Usage                               |
+| ------------- | ------------------------------ | ----------------------------------- |
+| Background    | `var(--color-bg-secondary)`    | Popup container                     |
+| Border        | `var(--color-border)`          | Popup border                        |
+| Selected bg   | `var(--color-bg-hover)`        | Highlighted command row             |
+| Name text     | `var(--color-text-primary)`    | Command name (e.g., `/help`)        |
+| Alias text    | `var(--color-text-secondary)`  | Alias hint (e.g., `· /web`) at 13px |
+| Description   | `var(--color-text-secondary)`  | Command description                 |
+| Shadow        | `var(--shadow-lg)`             | Popup elevation                     |
+| Border radius | `var(--radius-md)`             | Popup corners                       |
+| Max width     | Constrained to input box width | Popup positioning                   |
+
+**Keyboard interaction:** ↑/↓ navigate (wraps around at edges), Tab or click to accept, Escape to dismiss. Typing filters the list in real time.
+
+---
+
+## 27. Scroll-to-Bottom Button
+
+Floating action button in `ChatView` that appears when the user has scrolled away from the bottom.
+
+```svelte
+{#if userScrolledAway}
+  <button class="scroll-to-bottom-btn" onclick={scrollToBottom}>↓</button>
+{/if}
+```
+
+| Token         | Value                                      | Usage                    |
+| ------------- | ------------------------------------------ | ------------------------ |
+| Background    | `var(--color-bg-secondary)`                | Button fill              |
+| Border        | `var(--color-border)`                      | Button border            |
+| Text          | `var(--color-text-primary)`                | Arrow icon               |
+| Hover bg      | `var(--color-bg-hover)`                    | Hover state              |
+| Shadow        | `var(--shadow-md)`                         | Button elevation         |
+| Border radius | `50%`                                      | Circular shape           |
+| Size          | `36px × 36px`                              | Button dimensions        |
+| Position      | Absolute, bottom-right of chat scroll area | Above the floating input |
+| Transition    | `opacity 200ms ease`                       | Fade in/out              |
+
+---
+
+## 28. Panel-Specific Scoped Styles
 
 Each component keeps **only** styles that are unique to its layout and cannot be generalized.
 These remain in Svelte's `<style>` block (scoped). The global unified classes handle everything else.
@@ -777,6 +835,8 @@ These remain in Svelte's `<style>` block (scoped). The global unified classes ha
 | **McpServerForm** | Prefill notice, server form layout, split form actions                                                                                                    | Minimal — only 6 selectors. Prefill notice is unique to registry pre-fill |
 | **SettingsPanel** | Account card (avatar + details), shortcut rows, cleanup controls, export buttons, settings card variants, tab pill SVG styling                            | Account display is unique; shortcut key display is custom                 |
 | **ProjectView**   | Project card grid, chevron, inline edit, conversation list, assign modal, danger zone, file list actions                                                  | Project card layout and assign modal are unique                           |
+| **InputArea**     | Slash command popup, @-mention popup, command item highlight, alias text styling, help modal layout                                                       | Slash popup is unique to InputArea; popup positioning relative to input   |
+| **ChatView**      | Scroll-to-bottom button positioning, fade-in animation, floating placement above input area                                                               | Button must be positioned absolutely within the chat scroll container     |
 
 ### Rule of Thumb
 
@@ -793,7 +853,7 @@ If none of these fit, create a scoped style — but name it descriptively and ke
 
 ---
 
-## 27. Do's and Don'ts
+## 29. Do's and Don'ts
 
 ### ✅ Do
 
@@ -833,7 +893,7 @@ If none of these fit, create a scoped style — but name it descriptively and ke
 
 ---
 
-## 28. Agents Panel Reference
+## 30. Agents Panel Reference
 
 ### Views
 
@@ -892,7 +952,7 @@ The Agents panel has 3 views sharing one `.panel` container:
 
 ---
 
-## 29. Skills Panel Reference
+## 31. Skills Panel Reference
 
 ### Views
 
@@ -930,7 +990,7 @@ The Agents panel has 3 views sharing one `.panel` container:
 
 ---
 
-## 30. MCP Panel Reference
+## 32. MCP Panel Reference
 
 ### Views
 
@@ -984,7 +1044,7 @@ This is the **canonical reference implementation** for how to use global classes
 
 ---
 
-## 31. Settings Panel Reference
+## 33. Settings Panel Reference
 
 ### Layout
 
@@ -1040,7 +1100,7 @@ Each settings section uses `.section-heading` + `.settings-card` + repeated `.se
 
 ---
 
-## 32. Projects Panel Reference
+## 34. Projects Panel Reference
 
 ### Views
 

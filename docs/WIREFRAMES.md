@@ -75,6 +75,8 @@ The primary app surface. Sidebar is collapsible (Cmd+Shift+S). Chat fills remain
 - ★ icon appears on hover of conversation items; click to toggle favourite
 - Header shows conversation title (click to inline-edit); auto-generated title can be overridden
 - Chat scrolls independently; auto-scroll on new tokens, pauses if user scrolled up
+- Floating `↓` scroll-to-bottom button appears when user has scrolled away from the bottom; click smooth-scrolls to latest message
+- Existing conversations auto-scroll to the bottom when opened
 - Message actions appear on hover: ✏️ edit (user msgs), 📋 copy, ⟳ regenerate (last assistant msg)
 - Code block [Copy] button always visible; message-level 📋 copy appears on hover
 - Cmd+F activates `SearchOverlay.svelte`: floating search bar at top of chat with match count, ↑/↓ arrows, Escape to dismiss
@@ -83,15 +85,25 @@ The primary app surface. Sidebar is collapsible (Cmd+Shift+S). Chat fills remain
 
 ### 2. Input Area (Detail)
 
-Multi-line input with attachment support, agent/model selection, and action buttons.
+Multi-line input with attachment support, agent/model selection, slash commands, and action buttons.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
 │  📎 config.json ✕ │ 📎 schema.sql ✕ │ 🌐 https://docs.rs/serde ✕     │  ← attachment pills
 ├─────────────────────────────────────────────────────────────────────────┤
 │                                                                         │
-│  Can you review these files and explain the schema?                      │  ← multi-line input
-│  I'm especially interested in the migration strategy.                    │     (auto-grows)
+│  /                                                                      │  ← typing "/" triggers
+│                                                                         │     slash command popup
+│  ┌── / Commands ─────────────────────────┐                              │
+│  │  /help · /?       Command reference   │  ← highlighted (selected)   │
+│  │  /delete          Clear conversation  │                              │
+│  │  /title           Regenerate title    │                              │
+│  │  /export          Save conversation   │                              │
+│  │  /fetch · /web    Toggle web search   │  ← alias shown inline       │
+│  │  /model           Per-message model   │                              │
+│  │  /edit            Edit last message   │                              │
+│  │  /regenerate      Resend last reply   │                              │
+│  └───────────────────────────────────────┘                              │
 │                                                                         │
 ├─────────────────────────────────────────────────────────────────────────┤
 │  📎 Attach  🌐 Web  │  Agent: Research ▾  │  Model: GPT-4o ▾  │ Send ➤ │  ← toolbar
@@ -104,6 +116,8 @@ Drag-and-drop zone covers entire input area (visual highlight on drag-over)
 
 - Input auto-grows up to ~6 lines, then scrolls internally
 - Enter sends (default); Shift+Enter for newline. Configurable in Settings to use Cmd+Enter (Ctrl+Enter) to send instead (Enter always inserts newline in that mode)
+- **Slash commands:** typing `/` at the start of empty input opens a popup with all available commands. Typing further filters the list (e.g., `/he` matches `/help`). ↑/↓ to navigate (wraps around), Tab or click to accept, Escape to dismiss. Aliases shown inline (e.g., `/fetch · /web`). `/?` alias for `/help`.
+- **@-mentions:** typing `@` shows an agent autocomplete popup. Selecting an agent sets it as an override for the current message only.
 - Attachment pills show filename + size + ✕ remove button
 - URL pills show favicon + domain + ✕ remove; content fetched on paste
 - 📎 opens native file picker (`tauri-plugin-dialog`)

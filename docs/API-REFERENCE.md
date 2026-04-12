@@ -324,6 +324,15 @@ Chuck can browse, search, and install skills/agents from the aitmpl.com public r
 
 **Prefetch on startup:** All three registries (MCP, Skills, Agents) are prefetched after authentication completes, so popular items are immediately visible when the user opens any catalog panel — no search required. The aitmpl.com catalog is fetched once (browse-all mode with empty query, sorted by installs descending, top 200) and cached client-side; clearing a search restores the cached browse results instantly.
 
+**Registry caching (Stale-While-Revalidate):** The aitmpl.com `components.json` file is cached in-memory in the Rust backend (`src-tauri/src/registry.rs`) using a stale-while-revalidate (SWR) pattern:
+
+- **First fetch:** synchronous HTTP request; result cached with timestamp
+- **Within 1-hour TTL:** return cached data immediately (no network request)
+- **After TTL expires:** return stale cached data immediately while spawning a background `tokio::spawn` refresh task
+- **Background refresh:** lock-free `AtomicBool` flag prevents duplicate spawns; `ResetOnDrop` guard ensures cleanup on panic
+- **Safety limits:** 10 MB max response size; 30-second HTTP timeout; re-checks staleness under write lock before spawning
+- **Cache is in-memory only** — not persisted to SQLite; recreated on each app launch
+
 **Installation flow:**
 
 1. User searches or browses the aitmpl.com catalog → sees results sorted by download count
@@ -357,6 +366,25 @@ Messages = [Conversation history]
 - Skills are exposed as `tools` / `functions` in the API request (OpenAI function calling format)
 - When the AI calls a tool, the Rust backend routes it: Copilot Extensions → GitHub API, MCP tools → MCP server, built-in tools (web search) → web-research crate
 - Tool results are sent back as `tool` role messages in the next API call
+
+### Slash Commands (Client-Side)
+
+Slash commands are processed entirely in the frontend (`src/lib/utils/slash-commands.ts` + `InputArea.svelte`). They do **not** create new Tauri commands — they invoke existing ones or perform UI actions directly.
+
+| Command       | Alias  | Action                                     | Delegates to                                                |
+| ------------- | ------ | ------------------------------------------ | ----------------------------------------------------------- |
+| `/help`       | `/?`   | Open command reference modal               | Frontend-only (modal)                                       |
+| `/delete`     | —      | Clear all messages in current conversation | `deleteConversation` + `createConversation`                 |
+| `/title`      | —      | Regenerate conversation title              | `generate_title` Tauri command                              |
+| `/export`     | —      | Export conversation as JSON or Markdown    | `export_conversation_json` / `export_conversation_markdown` |
+| `/fetch`      | `/web` | Toggle web search for the next message     | Frontend toggle (`webSearchEnabled`)                        |
+| `/model`      | —      | Select model for this message only         | Frontend UI (model dropdown)                                |
+| `/edit`       | —      | Edit the last sent user message            | Frontend action (enter edit mode)                           |
+| `/regenerate` | —      | Regenerate the last assistant response     | `send_message` with last user message                       |
+
+**Popup behavior:** typing `/` at the start of an empty input opens the slash command popup. Further typing filters commands (e.g., `/he` → `/help`). ↑/↓ arrows navigate with wrap-around; Tab or click accepts; Escape dismisses. Aliases match partial prefixes (e.g., `/w` matches `/fetch` via its `/web` alias).
+
+**@-mentions:** typing `@` opens an agent autocomplete popup. Selecting an agent overrides the conversation's agent for that single message only.
 
 ### Default Agent
 

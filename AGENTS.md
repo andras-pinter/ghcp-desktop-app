@@ -238,6 +238,8 @@ custom agent personas, and streaming responses.
 - **Database management** — show DB size in settings, offer cleanup of old conversations, warn at 500MB
 - **Accessibility** — semantic HTML, ARIA attributes, keyboard navigation, screen reader support, focus management
 - **Window state persistence** — remember window position, size, and maximized state across restarts via `tauri-plugin-store`; validate against connected monitors on restore
+- **Slash commands** — quick actions via `/` prefix in the input area. Commands: `/help` (reference modal), `/delete` (clear conversation), `/title` (regenerate title), `/export` (save as JSON/Markdown), `/web` or `/fetch` (toggle web search), `/model` (per-message model picker), `/edit` (edit last sent message), `/regenerate` (resend last response). Popup autocomplete with keyboard navigation (↑/↓ with wrap-around), Tab to accept, aliases shown inline (e.g., `/fetch · /web`). `/?` alias for `/help`.
+- **Scroll-to-bottom button** — floating `↓` button appears in chat when the user has scrolled away from the bottom; click to smooth-scroll to latest message. Existing conversations auto-scroll to bottom when opened.
 
 ### ⛔ Hard Requirement: No Filesystem / Machine Access
 
@@ -459,6 +461,7 @@ copilot-desktop/
 │   │       ├── markdown.ts              # Markdown rendering (marked + DOMPurify)
 │   │       ├── syntax.ts               # Syntax highlighting (Shiki)
 │   │       ├── commands.ts              # Typed wrappers around tauri invoke()
+│   │       ├── slash-commands.ts        # Slash command definitions, parser, popup types
 │   │       ├── events.ts               # Typed wrappers around tauri listen()
 │   │       └── format.ts              # Date formatting, text truncation, etc.
 │   └── tests/                    # Frontend tests (Vitest)
