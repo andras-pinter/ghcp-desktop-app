@@ -467,7 +467,7 @@
   async function handleCommand(name: string, arg?: string) {
     const convId = store.activeConversationId;
     switch (name) {
-      case "clear":
+      case "delete":
         if (convId && store.messages.length > 0) {
           // Delete all messages (re-use deleteMessagesAfter with sortOrder -1)
           await deleteMessagesAfter(convId, -1);

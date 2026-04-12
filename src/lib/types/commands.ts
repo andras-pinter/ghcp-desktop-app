@@ -110,8 +110,8 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
     requiresConversation: true,
   },
   {
-    name: "clear",
-    description: "Clear conversation",
+    name: "delete",
+    description: "Delete conversation",
     icon: "🗑️",
     behavior: "action",
     argType: "none",

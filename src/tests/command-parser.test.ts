@@ -325,7 +325,7 @@ describe("hasConversation filtering", () => {
     const names = r!.items.map((i) => (i.kind === "command" ? i.command.name : ""));
     expect(names).not.toContain("title");
     expect(names).not.toContain("favorite");
-    expect(names).not.toContain("clear");
+    expect(names).not.toContain("delete");
     expect(names).not.toContain("export");
     // These should still be present
     expect(names).toContain("model");
