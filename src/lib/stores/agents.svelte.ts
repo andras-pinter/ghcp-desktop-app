@@ -16,6 +16,8 @@ import type { Agent } from "$lib/types/agent";
 import type { RegistryItem, RegistrySearchResult } from "$lib/types/registry";
 import { SvelteSet } from "svelte/reactivity";
 
+const PAGE_SIZE = 30;
+
 let agents = $state<Agent[]>([]);
 let loaded = $state(false);
 let selectedAgentId = $state<string | null>(null);
@@ -24,8 +26,12 @@ let selectedAgentId = $state<string | null>(null);
 let registryResults = $state<RegistryItem[]>([]);
 let registrySearching = $state(false);
 let registryQuery = $state("");
+let registryHasMore = $state(false);
+let registryLoadingMore = $state(false);
+let registryOffset = $state(0);
 
-/** Source filter selection (persists across component mount/unmount). */
+/** Monotonic counter incremented on every new search/prefetch to detect stale loadMore results. */
+let requestVersion = 0;
 const selectedSourceIds = new SvelteSet<string>();
 
 /** Load agents from the backend. Call once after auth. */
@@ -95,18 +101,21 @@ export function getDefaultAgent(): Agent | undefined {
 
 // ── Registry ────────────────────────────────────────────────────
 
-/** Cached browse results so clearing search restores instantly. */
+/** Cached browse results (first page) so clearing search restores instantly. */
 let browseCache: RegistryItem[] = [];
+let browseCacheHasMore = false;
 
 /** Pending request queued while a search is in-flight. */
 let pendingRequest: { query: string; sourceIds?: string[] | null } | null = null;
 
-/** Prefetch popular agents from registries (browse mode with empty query). */
+/** Prefetch agents from catalog (browse mode with empty query). */
 export async function prefetchAgentRegistry(sourceIds?: string[] | null): Promise<void> {
   // If we have cached browse results and no source filter, restore instantly
   if (browseCache.length > 0 && (!sourceIds || sourceIds.length === 0)) {
     registryQuery = "";
     registryResults = browseCache;
+    registryHasMore = browseCacheHasMore;
+    registryOffset = browseCache.length;
     return;
   }
   if (registrySearching) {
@@ -114,22 +123,35 @@ export async function prefetchAgentRegistry(sourceIds?: string[] | null): Promis
     return;
   }
   registrySearching = true;
+  registryOffset = 0;
+  requestVersion++;
   try {
-    const result: RegistrySearchResult = await searchCatalogCmd("", "agent", 200, sourceIds);
+    const result: RegistrySearchResult = await searchCatalogCmd(
+      "",
+      "agent",
+      PAGE_SIZE,
+      sourceIds,
+      0,
+    );
     if (!sourceIds || sourceIds.length === 0) {
       browseCache = result.items;
+      browseCacheHasMore = result.hasMore;
     }
     registryQuery = "";
     registryResults = result.items;
+    registryHasMore = result.hasMore;
+    registryOffset = result.items.length;
   } catch (e) {
     logFrontend("warn", `Agent registry prefetch failed: ${e}`);
+    registryResults = [];
+    registryHasMore = false;
   } finally {
     registrySearching = false;
     drainPendingRequest();
   }
 }
 
-/** Search registries for agents and update results. */
+/** Search catalog for agents and update results (resets to first page). */
 export async function searchAgentRegistries(
   query: string,
   sourceIds?: string[] | null,
@@ -140,15 +162,51 @@ export async function searchAgentRegistries(
   }
   registryQuery = query;
   registrySearching = true;
+  registryOffset = 0;
+  requestVersion++;
   try {
-    const result: RegistrySearchResult = await searchCatalogCmd(query, "agent", null, sourceIds);
+    const result: RegistrySearchResult = await searchCatalogCmd(
+      query,
+      "agent",
+      PAGE_SIZE,
+      sourceIds,
+      0,
+    );
     registryResults = result.items;
+    registryHasMore = result.hasMore;
+    registryOffset = result.items.length;
   } catch (e) {
     logFrontend("error", `Agent registry search failed: ${e}`);
     registryResults = [];
+    registryHasMore = false;
   } finally {
     registrySearching = false;
     drainPendingRequest();
+  }
+}
+
+/** Load the next page of results and append to the current list. */
+export async function loadMoreAgents(sourceIds?: string[] | null): Promise<void> {
+  if (registryLoadingMore || !registryHasMore) return;
+  registryLoadingMore = true;
+  const version = requestVersion;
+  try {
+    const result: RegistrySearchResult = await searchCatalogCmd(
+      registryQuery,
+      "agent",
+      PAGE_SIZE,
+      sourceIds,
+      registryOffset,
+    );
+    if (version !== requestVersion) return;
+    registryResults = [...registryResults, ...result.items];
+    registryHasMore = result.hasMore;
+    registryOffset += result.items.length;
+  } catch (e) {
+    logFrontend("error", `Load more agents failed: ${e}`);
+    registryHasMore = false;
+  } finally {
+    registryLoadingMore = false;
   }
 }
 
@@ -197,7 +255,10 @@ export async function installAgentFromRegistry(item: RegistryItem): Promise<Agen
 /** Invalidate the browse cache so next prefetch fetches fresh data. */
 export function invalidateAgentCatalogCache(): void {
   browseCache = [];
+  browseCacheHasMore = false;
   registryResults = [];
+  registryHasMore = false;
+  registryOffset = 0;
 }
 
 /** Reactive getters. */
@@ -220,6 +281,12 @@ export function getAgentStore() {
     },
     get registryQuery() {
       return registryQuery;
+    },
+    get registryHasMore() {
+      return registryHasMore;
+    },
+    get registryLoadingMore() {
+      return registryLoadingMore;
     },
     get selectedSourceIds() {
       return selectedSourceIds;

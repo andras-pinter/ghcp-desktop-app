@@ -13,6 +13,7 @@
     installAgentFromRegistry,
     prefetchAgentRegistry,
     invalidateAgentCatalogCache,
+    loadMoreAgents,
   } from "$lib/stores/agents.svelte";
   import { getSkillStore, initSkills } from "$lib/stores/skills.svelte";
   import { getMcpState, initMcp } from "$lib/stores/mcp.svelte";
@@ -138,6 +139,30 @@
       });
     }
   }
+
+  // ── Infinite scroll ──────────────────────────────────────────
+  let scrollSentinel = $state<HTMLElement | null>(null);
+  let scrollObserver: IntersectionObserver | null = null;
+
+  $effect(() => {
+    scrollObserver?.disconnect();
+    if (scrollSentinel && registryExpanded) {
+      scrollObserver = new IntersectionObserver(
+        (entries) => {
+          if (
+            entries[0]?.isIntersecting &&
+            agentStore.registryHasMore &&
+            !agentStore.registryLoadingMore
+          ) {
+            loadMoreAgents(sourceIdsParam());
+          }
+        },
+        { rootMargin: "200px" },
+      );
+      scrollObserver.observe(scrollSentinel);
+    }
+    return () => scrollObserver?.disconnect();
+  });
 
   // ── Lifecycle ───────────────────────────────────────────────
 
@@ -627,6 +652,13 @@
                     </div>
                   </article>
                 {/each}
+                <!-- Infinite scroll sentinel -->
+                <div bind:this={scrollSentinel} class="scroll-sentinel" aria-hidden="true"></div>
+                {#if agentStore.registryLoadingMore}
+                  <div class="registry-loading-more">
+                    <span class="spinner spinner--small"></span> Loading more…
+                  </div>
+                {/if}
               </div>
             {:else if registrySearchInput.trim() && !agentStore.registrySearching}
               <p class="section-empty">No agent templates found.</p>
@@ -931,5 +963,26 @@
   .check-item-status {
     font-size: var(--font-size-2xs);
     flex-shrink: 0;
+  }
+
+  .scroll-sentinel {
+    height: 1px;
+    width: 100%;
+  }
+
+  .registry-loading-more {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-sm) 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+  }
+
+  .spinner--small {
+    width: 14px;
+    height: 14px;
+    border-width: 2px;
   }
 </style>

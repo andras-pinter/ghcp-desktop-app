@@ -507,11 +507,13 @@ export async function searchCatalog(
   kind?: string | null,
   limit?: number | null,
   sourceIds?: string[] | null,
+  offset?: number | null,
 ): Promise<RegistrySearchResult> {
   return invoke<RegistrySearchResult>("search_catalog", {
     query,
     kind: kind ?? null,
     limit: limit ?? null,
+    offset: offset ?? null,
     sourceIds: sourceIds ?? null,
   });
 }

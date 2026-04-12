@@ -12,7 +12,6 @@ export interface RegistryItem {
   /** Display name of the source (e.g. "aitmpl.com" or git source name). Absent when not set. */
   sourceName?: string | null;
   url: string | null;
-  installs: number | null;
   kind: RegistryItemKind;
   sourceRepo: string | null;
   /** Full SKILL.md content (available for aitmpl items and git catalog items). */
@@ -22,6 +21,8 @@ export interface RegistryItem {
 export interface RegistrySearchResult {
   items: RegistryItem[];
   total: number | null;
+  /** Whether more items are available beyond the current page. */
+  hasMore: boolean;
 }
 
 /** A discovered definition file (SKILL.md or *.agent.md) from a git repository. */

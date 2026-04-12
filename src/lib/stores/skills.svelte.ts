@@ -14,6 +14,8 @@ import type { Skill } from "$lib/types/skill";
 import type { RegistryItem, RegistrySearchResult } from "$lib/types/registry";
 import { SvelteSet } from "svelte/reactivity";
 
+const PAGE_SIZE = 30;
+
 let skills = $state<Skill[]>([]);
 let loaded = $state(false);
 
@@ -22,8 +24,12 @@ let registryQuery = $state("");
 let registryResults = $state<RegistryItem[]>([]);
 let registrySearching = $state(false);
 let registryTotal = $state<number | null>(null);
+let registryHasMore = $state(false);
+let registryLoadingMore = $state(false);
+let registryOffset = $state(0);
 
-/** Source filter selection (persists across component mount/unmount). */
+/** Monotonic counter incremented on every new search/prefetch to detect stale loadMore results. */
+let requestVersion = 0;
 const selectedSourceIds = new SvelteSet<string>();
 
 /** Load skills from the backend. Call once after auth. */
@@ -52,19 +58,22 @@ export async function removeSkill(id: string): Promise<void> {
 
 // ── Registry ────────────────────────────────────────────────────
 
-/** Cached browse results so clearing search restores instantly. */
+/** Cached browse results (first page) so clearing search restores instantly. */
 let browseCache: RegistryItem[] = [];
+let browseCacheHasMore = false;
 
 /** Pending request queued while a search is in-flight. */
 let pendingRequest: { query: string; sourceIds?: string[] | null } | null = null;
 
-/** Prefetch popular skills from registries (browse mode with empty query). */
+/** Prefetch skills from catalog (browse mode with empty query). */
 export async function prefetchRegistry(sourceIds?: string[] | null): Promise<void> {
   // If we have cached browse results and no source filter, restore instantly
   if (browseCache.length > 0 && (!sourceIds || sourceIds.length === 0)) {
     registryQuery = "";
     registryResults = browseCache;
     registryTotal = browseCache.length;
+    registryHasMore = browseCacheHasMore;
+    registryOffset = browseCache.length;
     return;
   }
   if (registrySearching) {
@@ -72,23 +81,37 @@ export async function prefetchRegistry(sourceIds?: string[] | null): Promise<voi
     return;
   }
   registrySearching = true;
+  registryOffset = 0;
+  requestVersion++;
   try {
-    const result: RegistrySearchResult = await searchCatalogCmd("", "skill", 200, sourceIds);
+    const result: RegistrySearchResult = await searchCatalogCmd(
+      "",
+      "skill",
+      PAGE_SIZE,
+      sourceIds,
+      0,
+    );
     if (!sourceIds || sourceIds.length === 0) {
       browseCache = result.items;
+      browseCacheHasMore = result.hasMore;
     }
     registryQuery = "";
     registryResults = result.items;
-    registryTotal = result.items.length;
+    registryTotal = result.total ?? result.items.length;
+    registryHasMore = result.hasMore;
+    registryOffset = result.items.length;
   } catch (e) {
     logFrontend("warn", `Skills registry prefetch failed: ${e}`);
+    registryResults = [];
+    registryTotal = null;
+    registryHasMore = false;
   } finally {
     registrySearching = false;
     drainPendingRequest();
   }
 }
 
-/** Search registries and update results. */
+/** Search catalog and update results (resets to first page). */
 export async function searchRegistries(query: string, sourceIds?: string[] | null): Promise<void> {
   if (registrySearching) {
     pendingRequest = { query, sourceIds };
@@ -96,17 +119,53 @@ export async function searchRegistries(query: string, sourceIds?: string[] | nul
   }
   registryQuery = query;
   registrySearching = true;
+  registryOffset = 0;
+  requestVersion++;
   try {
-    const result: RegistrySearchResult = await searchCatalogCmd(query, "skill", null, sourceIds);
+    const result: RegistrySearchResult = await searchCatalogCmd(
+      query,
+      "skill",
+      PAGE_SIZE,
+      sourceIds,
+      0,
+    );
     registryResults = result.items;
-    registryTotal = result.items.length;
+    registryTotal = result.total ?? result.items.length;
+    registryHasMore = result.hasMore;
+    registryOffset = result.items.length;
   } catch (e) {
     logFrontend("error", `Registry search failed: ${e}`);
     registryResults = [];
     registryTotal = null;
+    registryHasMore = false;
   } finally {
     registrySearching = false;
     drainPendingRequest();
+  }
+}
+
+/** Load the next page of results and append to the current list. */
+export async function loadMoreSkills(sourceIds?: string[] | null): Promise<void> {
+  if (registryLoadingMore || !registryHasMore) return;
+  registryLoadingMore = true;
+  const version = requestVersion;
+  try {
+    const result: RegistrySearchResult = await searchCatalogCmd(
+      registryQuery,
+      "skill",
+      PAGE_SIZE,
+      sourceIds,
+      registryOffset,
+    );
+    if (version !== requestVersion) return;
+    registryResults = [...registryResults, ...result.items];
+    registryHasMore = result.hasMore;
+    registryOffset += result.items.length;
+  } catch (e) {
+    logFrontend("error", `Load more skills failed: ${e}`);
+    registryHasMore = false;
+  } finally {
+    registryLoadingMore = false;
   }
 }
 
@@ -177,8 +236,11 @@ export async function addManualSkill(
 /** Invalidate the browse cache so next prefetch fetches fresh data. */
 export function invalidateSkillCatalogCache(): void {
   browseCache = [];
+  browseCacheHasMore = false;
   registryResults = [];
   registryTotal = null;
+  registryHasMore = false;
+  registryOffset = 0;
 }
 
 /** Reactive getters. */
@@ -201,6 +263,12 @@ export function getSkillStore() {
     },
     get registryTotal() {
       return registryTotal;
+    },
+    get registryHasMore() {
+      return registryHasMore;
+    },
+    get registryLoadingMore() {
+      return registryLoadingMore;
     },
     get selectedSourceIds() {
       return selectedSourceIds;

@@ -265,6 +265,7 @@ pub async fn search_catalog(
     query: String,
     kind: Option<String>,
     limit: Option<u32>,
+    offset: Option<u32>,
     source_ids: Option<Vec<String>>,
 ) -> Result<crate::registry::RegistrySearchResult, String> {
     let state = app.state::<AppState>();
@@ -308,8 +309,7 @@ pub async fn search_catalog(
 
     // 1) Fetch aitmpl.com results (if enabled and included)
     let mut items: Vec<crate::registry::RegistryItem> = if aitmpl_enabled {
-        let aitmpl_result =
-            crate::registry::search_registries(client, &query, limit.unwrap_or(200)).await;
+        let aitmpl_result = crate::registry::search_registries(client, &query, 10_000).await;
         match aitmpl_result {
             Ok(r) => r.items,
             Err(e) => {
@@ -376,7 +376,6 @@ pub async fn search_catalog(
                 source: crate::registry::RegistrySource::Git,
                 source_name: sname,
                 url: None,
-                installs: None,
                 kind: item_kind,
                 source_repo: None,
                 content: Some(gi.content),
@@ -384,22 +383,24 @@ pub async fn search_catalog(
         }
     }
 
-    // Sort: aitmpl items by installs (highest first), then git items alphabetically
-    items.sort_by(|a, b| {
-        let a_is_git = a.source == crate::registry::RegistrySource::Git;
-        let b_is_git = b.source == crate::registry::RegistrySource::Git;
-        match (a_is_git, b_is_git) {
-            (false, true) => std::cmp::Ordering::Less,
-            (true, false) => std::cmp::Ordering::Greater,
-            (false, false) => b.installs.unwrap_or(0).cmp(&a.installs.unwrap_or(0)),
-            (true, true) => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
-        }
-    });
+    // Sort all items alphabetically by name (case-insensitive)
+    items.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
 
+    // Apply pagination
     let total = items.len() as u64;
+    let page_limit = limit.unwrap_or(30) as usize;
+    let page_offset = offset.unwrap_or(0) as usize;
+    let has_more = page_offset + page_limit < items.len();
+    let page_items: Vec<_> = items
+        .into_iter()
+        .skip(page_offset)
+        .take(page_limit)
+        .collect();
+
     Ok(crate::registry::RegistrySearchResult {
-        items,
+        items: page_items,
         total: Some(total),
+        has_more,
     })
 }
 
