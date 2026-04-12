@@ -218,10 +218,12 @@ function filterCommands(query: string, hasConversation: boolean): SlashCommand[]
     return help ? [help] : [];
   }
 
-  // /web is an alias for /fetch
-  if (query === "web") {
+  // /web is an alias for /fetch — match partial prefixes too (w, we, web)
+  if ("web".startsWith(query) || query.startsWith("web")) {
     const fetch = SLASH_COMMANDS.find((c) => c.name === "fetch");
-    return fetch ? [fetch] : [];
+    const normal = available.filter((c) => c.name.startsWith(query));
+    if (fetch && !normal.includes(fetch)) return [...normal, fetch];
+    return normal;
   }
 
   return available.filter((c) => c.name.startsWith(query));
