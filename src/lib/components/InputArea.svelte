@@ -5,7 +5,7 @@
   import type { UrlPreview } from "$lib/types/web-research";
   import type { ChatFileData } from "$lib/types/project";
   import type { PopupItem, MessageOverrides, SlashCommand } from "$lib/types/commands";
-  import { emptyOverrides } from "$lib/types/commands";
+  import { emptyOverrides, SLASH_COMMANDS } from "$lib/types/commands";
   import { parseCommand, type CommandParseResult } from "$lib/utils/command-parser";
   import CommandPopup from "./CommandPopup.svelte";
   import { fetchUrl, pickFileForChat } from "$lib/utils/commands";
@@ -166,6 +166,22 @@
     if (!trimmed || streaming) return;
     // Don't send while files are still being read from disk
     if (attachedFiles.some((f) => f.loading)) return;
+
+    // Intercept slash commands that would otherwise be sent as text
+    const cmdMatch = trimmed.match(/^\/(\S+)(?:\s+(.*))?$/);
+    if (cmdMatch) {
+      const cmdName = cmdMatch[1];
+      const cmdArg = cmdMatch[2]?.trim() || undefined;
+      const cmd = SLASH_COMMANDS.find((c) => c.name === cmdName);
+      if (cmd) {
+        inputText = "";
+        commandResult = null;
+        if (textareaEl) textareaEl.style.height = "auto";
+        onCommand?.(cmd.name, cmdArg);
+        return;
+      }
+    }
+
     const urls = attachedUrls.filter((u) => u.content !== null);
     const hasOverrides =
       overrides.agentId !== null || overrides.modelId !== null || overrides.skillIds.length > 0;
@@ -669,10 +685,10 @@
         commandResult = null;
         onCommand?.("help");
         break;
-      case "clear":
+      case "delete":
         replaceCommandText(rangeStart, rangeEnd, "");
         commandResult = null;
-        onCommand?.("clear");
+        onCommand?.("delete");
         break;
       case "favorite":
         replaceCommandText(rangeStart, rangeEnd, "");

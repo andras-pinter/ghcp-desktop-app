@@ -3,6 +3,7 @@
   import InputArea from "./InputArea.svelte";
   import MessageBubble from "./MessageBubble.svelte";
   import SearchOverlay from "./SearchOverlay.svelte";
+  import ConfirmDialog from "./ConfirmDialog.svelte";
   import type { Message, ChatMessage } from "$lib/types/message";
   import type { UrlPreview } from "$lib/types/web-research";
   import type { ChatFileData } from "$lib/types/project";
@@ -36,6 +37,7 @@
     cancelStreamingState,
     renameConversation,
     toggleFavourite,
+    removeConversation,
   } from "$lib/stores/conversations.svelte";
   import { getModelStore, setDefaultModel } from "$lib/stores/models.svelte";
   import { getAgentStore, selectAgent } from "$lib/stores/agents.svelte";
@@ -70,6 +72,7 @@
   let extractingFiles = $state(false);
   let showHelpModal = $state(false);
   let helpOverlayEl: HTMLDivElement | undefined = $state();
+  let showDeleteConfirm = $state(false);
   const greeting = greetings[Math.floor(Math.random() * greetings.length)];
 
   $effect(() => {
@@ -468,10 +471,7 @@
     const convId = store.activeConversationId;
     switch (name) {
       case "delete":
-        if (convId && store.messages.length > 0) {
-          // Delete all messages (re-use deleteMessagesAfter with sortOrder -1)
-          await deleteMessagesAfter(convId, -1);
-        }
+        if (convId) showDeleteConfirm = true;
         break;
       case "favorite":
         if (convId) await toggleFavourite(convId);
@@ -495,35 +495,15 @@
         if (arg) {
           try {
             const _results: SearchResult[] = await webSearch(arg);
-            // Web results are handled as URL attachments in the InputArea flow — delegate there
-            // For now, this just triggers the search. Full integration with the InputArea URL pills
-            // would require refactoring the URL attachment flow, so we log and let the user know.
             console.log(`Web search for "${arg}" returned ${_results.length} results`);
           } catch (e) {
             console.error("Web search failed:", e);
           }
         }
         break;
-      case "help": {
-        // Insert a local-only help message (not sent to API)
-        const helpLines = SLASH_COMMANDS.map((c) => `\`/${c.name}\` — ${c.description}`);
-        const helpContent = `**Available Commands**\n\n${helpLines.join("\n")}\n\n**@ Mentions**\n\nType \`@\` followed by an agent name to set a per-message agent override.`;
-        if (convId) {
-          const helpMsg: Message = {
-            id: crypto.randomUUID(),
-            conversationId: convId,
-            role: "assistant",
-            content: helpContent,
-            createdAt: new Date().toISOString(),
-            sortOrder: store.messages.length,
-          };
-          await addMessage(helpMsg);
-        } else {
-          // No conversation yet — show a modal popup instead
-          showHelpModal = true;
-        }
+      case "help":
+        showHelpModal = true;
         break;
-      }
     }
   }
 
@@ -806,6 +786,19 @@
     </div>
   </div>
 {/if}
+
+<ConfirmDialog
+  open={showDeleteConfirm}
+  title="Delete this conversation?"
+  detail="This will permanently remove the conversation and all its messages."
+  confirmLabel="Delete"
+  onconfirm={async () => {
+    const convId = store.activeConversationId;
+    showDeleteConfirm = false;
+    if (convId) await removeConversation(convId);
+  }}
+  oncancel={() => (showDeleteConfirm = false)}
+/>
 
 <style>
   .chat-view {
