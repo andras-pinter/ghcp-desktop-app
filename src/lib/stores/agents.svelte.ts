@@ -77,6 +77,11 @@ export async function removeAgent(id: string): Promise<void> {
   if (selectedAgentId === id) {
     selectedAgentId = null;
   }
+  // Reset default agent setting if the deleted agent was the default
+  const { getSettings, updateSetting } = await import("$lib/stores/settings.svelte");
+  if (getSettings().defaultAgentId === id) {
+    await updateSetting("defaultAgentId", "default");
+  }
 }
 
 /** Assign skills to an agent. */
