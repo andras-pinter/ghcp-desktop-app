@@ -134,7 +134,9 @@ Users are responsible for ensuring their use of this application complies with a
 
 ### License
 
-This project is released into the public domain under the [Unlicense](./LICENSE).
+This project is licensed under the [Apache License 2.0](./LICENSE).
+
+Copyright 2026 Andras Pinter.
 
 ### Third-Party Notices
 

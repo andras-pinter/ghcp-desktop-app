@@ -5,7 +5,7 @@ resolver = "2"
 [workspace.package]
 version = "0.3.0"
 edition = "2021"
-license = "Unlicense"
+license = "Apache-2.0"
 repository = "https://github.com/pinter-copilot/ghcp-desktop-app"
 
 [workspace.dependencies]
