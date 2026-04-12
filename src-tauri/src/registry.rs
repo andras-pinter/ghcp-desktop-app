@@ -798,10 +798,10 @@ where
         .await
         .map_err(|e| format!("Failed to parse tree response: {e}"))?;
 
-    // Collect matching paths per kind with separate caps (100 each).
+    // Collect matching paths per kind with separate caps (500 each).
     // A single global cap would let one kind exhaust all slots
     // (e.g., agents sorted before skills alphabetically).
-    const PER_KIND_CAP: usize = 100;
+    const PER_KIND_CAP: usize = 500;
     let mut skill_count = 0usize;
     let mut agent_count = 0usize;
     let def_paths: Vec<(String, &str)> = tree
@@ -852,7 +852,7 @@ where
 
     let mut found = Vec::new();
     let mut fetched = 0usize;
-    const BATCH_SIZE: usize = 10;
+    const BATCH_SIZE: usize = 20;
 
     for batch in def_paths.chunks(BATCH_SIZE) {
         let mut handles = Vec::new();
