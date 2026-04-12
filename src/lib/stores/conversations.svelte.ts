@@ -22,6 +22,8 @@ import {
   updateConversation,
   logFrontend,
 } from "$lib/utils/commands";
+import { getSettings } from "$lib/stores/settings.svelte";
+import { selectAgent as selectAgentFn } from "$lib/stores/agents.svelte";
 import {
   onStreamingToken,
   onStreamingComplete,
@@ -303,12 +305,19 @@ export async function initConversations(): Promise<void> {
 
 // ── Conversation CRUD ───────────────────────────────────────────
 
-/** Create a new conversation and make it active. */
+/** Create a new conversation and make it active. Auto-selects the default agent. */
 export async function newConversation(model: string): Promise<Conversation> {
   const id = crypto.randomUUID();
   const conv = await createConvCmd(id, null, null, null, model);
   conversations = [conv, ...conversations];
   await switchConversation(conv.id);
+
+  // Auto-select the default agent from settings
+  const settings = getSettings();
+  if (settings.defaultAgentId) {
+    selectAgentFn(settings.defaultAgentId);
+  }
+
   return conv;
 }
 
@@ -342,10 +351,17 @@ export async function switchConversation(id: string): Promise<void> {
   }
 }
 
-/** Clear the active conversation (go to welcome screen). */
+/** Clear the active conversation (go to welcome screen). Resets agent to user default. */
 export function clearActiveConversation(): void {
   activeConversationId = null;
   messages = [];
+  // Select the user's default agent for the new chat
+  const settings = getSettings();
+  if (settings.defaultAgentId) {
+    selectAgentFn(settings.defaultAgentId);
+  } else {
+    selectAgentFn(null);
+  }
 }
 
 /** Rename a conversation. */

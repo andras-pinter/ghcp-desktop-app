@@ -17,7 +17,7 @@
     initStreamingListeners,
   } from "$lib/stores/conversations.svelte";
   import { initMcp, loadRegistry as prefetchMcpRegistry } from "$lib/stores/mcp.svelte";
-  import { initAgents, prefetchAgentRegistry } from "$lib/stores/agents.svelte";
+  import { initAgents, selectAgent, prefetchAgentRegistry } from "$lib/stores/agents.svelte";
   import { initSkills, prefetchRegistry as prefetchSkillRegistry } from "$lib/stores/skills.svelte";
   import { initProjects } from "$lib/stores/projects.svelte";
   import {
@@ -163,6 +163,10 @@
         initProjects(),
         initSources(),
       ]).then(() => {
+        // Select the user's default agent for the initial welcome screen
+        if (settingsRef.defaultAgentId) {
+          selectAgent(settingsRef.defaultAgentId);
+        }
         // Prefetch registries in the background after core data is loaded
         prefetchMcpRegistry();
         prefetchSkillRegistry();

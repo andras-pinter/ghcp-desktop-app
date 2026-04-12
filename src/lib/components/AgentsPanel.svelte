@@ -18,7 +18,7 @@
   import { getSkillStore, initSkills } from "$lib/stores/skills.svelte";
   import { getMcpState, initMcp } from "$lib/stores/mcp.svelte";
   import { getSourceStore, initSources } from "$lib/stores/sources.svelte";
-  import { getSettings } from "$lib/stores/settings.svelte";
+  import { getSettings, updateSetting, SETTING_KEYS } from "$lib/stores/settings.svelte";
   import type { Agent } from "$lib/types/agent";
   import type { RegistryItem } from "$lib/types/registry";
   import { renderMarkdown, stripFrontmatter } from "$lib/utils/markdown";
@@ -116,9 +116,18 @@
 
   // ── Derived ─────────────────────────────────────────────────
 
-  let defaultAgent = $derived(agentStore.agents.find((a) => a.isDefault));
+  let builtInAgents = $derived(agentStore.agents.filter((a) => a.isDefault));
   let customAgents = $derived(agentStore.agents.filter((a) => !a.isDefault));
   let enabledSkills = $derived(skillStore.skills.filter((s) => s.enabled));
+
+  /** Check if an agent is the user's chosen default for new conversations. */
+  function isUserDefault(agentId: string): boolean {
+    return settings.defaultAgentId === agentId;
+  }
+
+  async function setAsDefault(agentId: string): Promise<void> {
+    await updateSetting(SETTING_KEYS.defaultAgentId, agentId);
+  }
 
   function handleClickOutside(event: MouseEvent) {
     const target = event.target as HTMLElement;
@@ -420,45 +429,60 @@
     {:else if view.kind === "list"}
       <!-- ── List View ───────────────────────────────────── -->
       <div class="agents-list" role="list">
-        <!-- Default agent -->
-        {#if defaultAgent}
-          <div
-            class="card card--featured"
-            role="listitem"
-            ondblclick={() => toggleExpandAgent(defaultAgent.id)}
-            title="Double-click to expand"
-          >
-            <div class="card-header">
-              <button
-                class="expand-btn"
-                class:expanded={expandedAgentId === defaultAgent.id}
-                onclick={(e: MouseEvent) => {
-                  e.stopPropagation();
-                  toggleExpandAgent(defaultAgent.id);
-                }}
-                aria-expanded={expandedAgentId === defaultAgent.id}
-                aria-label={expandedAgentId === defaultAgent.id
-                  ? "Collapse details"
-                  : "Expand details"}>▶</button
-              >
-              <span class="card-icon">{defaultAgent.avatar ?? "🤖"}</span>
-              <span class="card-title">{defaultAgent.name}</span>
-              <span class="badge badge--copper">built-in</span>
-            </div>
-            {#if expandedAgentId !== defaultAgent.id}
-              <p class="card-desc">{truncatePrompt(defaultAgent.systemPrompt)}</p>
-            {/if}
-            {#if expandedAgentId === defaultAgent.id}
-              <div class="card-detail">
-                <div class="detail-content-scroll markdown-prose">
-                  {@html renderMarkdown(defaultAgent.systemPrompt)}
-                </div>
+        <!-- Built-in agents -->
+        {#if builtInAgents.length > 0}
+          {#each builtInAgents as agent (agent.id)}
+            <div
+              class="card"
+              class:card--featured={isUserDefault(agent.id)}
+              role="listitem"
+              ondblclick={() => toggleExpandAgent(agent.id)}
+              title="Double-click to expand"
+            >
+              <div class="card-header">
+                <button
+                  class="expand-btn"
+                  class:expanded={expandedAgentId === agent.id}
+                  onclick={(e: MouseEvent) => {
+                    e.stopPropagation();
+                    toggleExpandAgent(agent.id);
+                  }}
+                  aria-expanded={expandedAgentId === agent.id}
+                  aria-label={expandedAgentId === agent.id ? "Collapse details" : "Expand details"}
+                  >▶</button
+                >
+                <span class="card-icon">{agent.avatar ?? "🤖"}</span>
+                <span class="card-title">{agent.name}</span>
+                <span class="badge badge--copper">built-in</span>
+                {#if !isUserDefault(agent.id)}
+                  <div class="card-actions">
+                    <button
+                      class="btn btn--sm"
+                      onclick={() => setAsDefault(agent.id)}
+                      aria-label="Set {agent.name} as default agent"
+                    >
+                      Set as default
+                    </button>
+                  </div>
+                {/if}
               </div>
-            {/if}
-            <div class="card-meta">
-              <span class="badge badge--neutral">Default for new conversations</span>
+              {#if expandedAgentId !== agent.id}
+                <p class="card-desc">{truncatePrompt(agent.systemPrompt)}</p>
+              {/if}
+              {#if expandedAgentId === agent.id}
+                <div class="card-detail">
+                  <div class="detail-content-scroll markdown-prose">
+                    {@html renderMarkdown(agent.systemPrompt)}
+                  </div>
+                </div>
+              {/if}
+              <div class="card-meta">
+                {#if isUserDefault(agent.id)}
+                  <span class="badge badge--neutral">Default for new conversations</span>
+                {/if}
+              </div>
             </div>
-          </div>
+          {/each}
         {/if}
 
         <!-- Custom agents -->
@@ -467,6 +491,7 @@
           {#each customAgents as agent (agent.id)}
             <div
               class="card"
+              class:card--featured={isUserDefault(agent.id)}
               role="listitem"
               ondblclick={() => toggleExpandAgent(agent.id)}
               title="Double-click to expand"
@@ -489,6 +514,15 @@
                   <span class="badge badge--neutral">{sourceLabel(agent)}</span>
                 {/if}
                 <div class="card-actions">
+                  {#if !isUserDefault(agent.id)}
+                    <button
+                      class="btn btn--sm"
+                      onclick={() => setAsDefault(agent.id)}
+                      aria-label="Set {agent.name} as default agent"
+                    >
+                      Set as default
+                    </button>
+                  {/if}
                   <button
                     class="btn btn--sm"
                     onclick={() => openEditForm(agent)}
@@ -526,9 +560,14 @@
                   {/if}
                 </div>
               {/if}
+              {#if isUserDefault(agent.id)}
+                <div class="card-meta">
+                  <span class="badge badge--neutral">Default for new conversations</span>
+                </div>
+              {/if}
             </div>
           {/each}
-        {:else if !defaultAgent}
+        {:else if builtInAgents.length === 0}
           <p class="section-empty">No agents configured. Create one to get started.</p>
         {/if}
       </div>

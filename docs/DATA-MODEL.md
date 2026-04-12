@@ -64,7 +64,7 @@ CREATE TABLE agents (
     name TEXT NOT NULL,
     avatar TEXT,                   -- Emoji or icon identifier
     system_prompt TEXT NOT NULL,
-    is_default INTEGER DEFAULT 0,  -- 1 for the built-in default agent
+    is_default INTEGER DEFAULT 0,  -- 1 for built-in agents (protected from deletion)
     source_url TEXT,               -- Registry permalink or git URL (NULL for local)
     source_type TEXT DEFAULT 'local', -- "local", "registry_aitmpl", "git"
     git_source_id TEXT REFERENCES git_sources(id) ON DELETE SET NULL, -- Links to managing git source
@@ -179,16 +179,16 @@ CREATE INDEX idx_git_source_items_kind ON git_source_items(kind);
 
 -- ── Initial seed data ──
 
-INSERT INTO config (key, value) VALUES ('schema_version', '5');
+INSERT INTO config (key, value) VALUES ('schema_version', '6');
 ```
 
-> _Note: The schema above reflects the **final state** after all migrations (v1→v2→v3→v4→v5). See `src-tauri/src/db/migrations.rs` for the incremental ALTER TABLE statements that evolve the schema across versions. Migration v4 adds the `git_sources` table, `git_source_id` FK columns on skills/agents, and backfills sources from existing git-imported items. Migration v5 adds the `git_source_items` table for persisting discovered items from source scans, enabling catalog browsing without re-fetching from git._
+> _Note: The schema above reflects the **final state** after all migrations (v1→v2→v3→v4→v5→v6). See `src-tauri/src/db/migrations.rs` for the incremental ALTER TABLE statements that evolve the schema across versions. Migration v4 adds the `git_sources` table, `git_source_id` FK columns on skills/agents, and backfills sources from existing git-imported items. Migration v5 adds the `git_source_items` table for persisting discovered items from source scans, enabling catalog browsing without re-fetching from git. Migration v6 upgrades the built-in Default agent prompt, inserts a built-in Research agent (id='research', is_default=1), and seeds the `default_agent_id` config key for user-configurable default agent selection._
 
 ### Persistence Rules
 
 - **Conversations, messages, projects, agents, skills, MCP configs** → SQLite (managed by Rust backend)
 - **OAuth tokens, API keys, MCP auth headers** → OS keychain via `keyring` crate (never in SQLite or localStorage)
-- **User preferences** (theme, font size, hotkey, send shortcut, auto-update) → SQLite `config` table (e.g., keys: `theme`, `font_size`, `global_hotkey`, `send_shortcut`, `auto_update_enabled`, `auto_update_frequency`)
+- **User preferences** (theme, font size, hotkey, send shortcut, auto-update, default agent) → SQLite `config` table (e.g., keys: `theme`, `font_size`, `global_hotkey`, `send_shortcut`, `auto_update_enabled`, `auto_update_frequency`, `default_agent_id`)
 - **File contents** for project pinned files → SQLite `project_files.content` as BLOB
 - **Attached file contents** in chat → stored in `messages.attachments` as metadata only; full content is ephemeral (in-memory during conversation, not persisted)
 - **No localStorage/sessionStorage** for sensitive data — all persistence goes through Tauri commands to Rust backend

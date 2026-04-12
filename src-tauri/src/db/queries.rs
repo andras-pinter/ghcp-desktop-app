@@ -1722,9 +1722,9 @@ mod tests {
     fn test_settings() {
         let conn = setup_db();
 
-        // Schema version was seeded (v5 after all migrations)
+        // Schema version was seeded (v6 after all migrations)
         let ver = get_setting(&conn, "schema_version").unwrap();
-        assert_eq!(ver, Some("5".to_string()));
+        assert_eq!(ver, Some("6".to_string()));
 
         // Set new value
         set_setting(&conn, "theme", "dark").unwrap();
@@ -1834,37 +1834,40 @@ mod tests {
     fn test_agent_crud() {
         let conn = setup_db();
 
-        // Default agent should already exist
+        // Default + Research agents should already exist
         let agents = list_agents(&conn).unwrap();
-        assert_eq!(agents.len(), 1);
+        assert_eq!(agents.len(), 2);
         assert!(agents[0].is_default);
         assert_eq!(agents[0].name, "Default");
+        assert!(agents[1].is_default);
+        assert_eq!(agents[1].name, "Research");
 
         // Create
         let agent = create_agent(
             &conn,
             "a1",
-            "Research Agent",
+            "Custom Agent",
             Some("🔬"),
-            "You are a research assistant.",
+            "You are a custom assistant.",
             None,
             "local",
             None,
         )
         .unwrap();
-        assert_eq!(agent.name, "Research Agent");
+        assert_eq!(agent.name, "Custom Agent");
         assert_eq!(agent.avatar, Some("🔬".to_string()));
         assert!(!agent.is_default);
 
-        // List (default first)
+        // List (defaults first, then custom)
         let agents = list_agents(&conn).unwrap();
-        assert_eq!(agents.len(), 2);
+        assert_eq!(agents.len(), 3);
         assert!(agents[0].is_default);
-        assert_eq!(agents[1].id, "a1");
+        assert!(agents[1].is_default);
+        assert_eq!(agents[2].id, "a1");
 
         // Get
         let found = get_agent(&conn, "a1").unwrap().unwrap();
-        assert_eq!(found.system_prompt, "You are a research assistant.");
+        assert_eq!(found.system_prompt, "You are a custom assistant.");
 
         // Update
         update_agent(
@@ -1890,6 +1893,11 @@ mod tests {
         let deleted = delete_agent(&conn, "default").unwrap();
         assert!(!deleted);
         assert!(get_agent(&conn, "default").unwrap().is_some());
+
+        // Cannot delete research agent either
+        let deleted = delete_agent(&conn, "research").unwrap();
+        assert!(!deleted);
+        assert!(get_agent(&conn, "research").unwrap().is_some());
 
         // Delete custom agent
         let deleted = delete_agent(&conn, "a1").unwrap();

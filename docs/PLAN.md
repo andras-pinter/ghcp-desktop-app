@@ -108,6 +108,7 @@
 ### Improvements (post-Phase 13)
 
 55. ✅ **floating-chat-input** — Chat input area floats over messages using absolute positioning with gradient fade. `chat-input-float` wrapper (z-index 2, pointer-events none) with `chat-input-container` (pointer-events auto). Messages get bottom padding clearance. Gradient from transparent → `--color-bg-primary` over 3rem provides smooth visual transition. Works correctly in both light and dark themes.
+56. ✅ **default-agents** — DB migration v6: upgraded Default agent system prompt (smart general assistant), added Research agent (id='research', web search focused). `default_agent_id` config key seeded. Settings store `defaultAgentId` with full init/update/getter. Default Agent dropdown in Settings Panel. Auto-select default agent on `newConversation()`. AgentsPanel shows all built-in agents with "Set as default" button and visual indicator. Both built-in agents protected from deletion/editing (`is_default=1`).
 
 ---
 

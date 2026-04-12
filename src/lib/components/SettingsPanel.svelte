@@ -2,6 +2,7 @@
   import { getSettings, updateSetting, SETTING_KEYS } from "$lib/stores/settings.svelte";
   import { getAuth, logout } from "$lib/stores/auth.svelte";
   import { getModelStore } from "$lib/stores/models.svelte";
+  import { getAgentStore, initAgents } from "$lib/stores/agents.svelte";
   import {
     getDbSize,
     deleteOldConversations,
@@ -21,6 +22,7 @@
   const settings = getSettings();
   const auth = getAuth();
   const modelStore = getModelStore();
+  const agentStore = getAgentStore();
 
   let dbSize = $state<number | null>(null);
   let cleanupDays = $state(90);
@@ -30,6 +32,7 @@
 
   onMount(() => {
     loadDbSize();
+    if (!agentStore.loaded) initAgents();
   });
 
   async function loadDbSize() {
@@ -238,9 +241,34 @@
     </div>
 
     <!-- ═══════════════════ DEFAULTS ═══════════════════ -->
-    {#if modelStore.models.length > 1}
-      <h2 class="section-heading">Defaults</h2>
-      <div class="settings-card">
+    <h2 class="section-heading">Defaults</h2>
+    <div class="settings-card">
+      <div class="setting-row">
+        <div class="setting-info">
+          <span class="setting-label">Default agent</span>
+          <span class="setting-desc">Pre-selected agent for new conversations</span>
+        </div>
+        <select
+          id="default-agent"
+          class="form-select"
+          value={settings.defaultAgentId}
+          onchange={(e) => {
+            const val = (e.target as HTMLSelectElement).value;
+            if (val) updateSetting(SETTING_KEYS.defaultAgentId, val);
+          }}
+        >
+          {#each agentStore.agents as agent (agent.id)}
+            <option value={agent.id}>
+              {agent.avatar ?? "🤖"}
+              {agent.name}{agent.isDefault ? " (built-in)" : ""}
+            </option>
+          {/each}
+        </select>
+      </div>
+
+      {#if modelStore.models.length > 1}
+        <div class="setting-divider"></div>
+
         <div class="setting-row">
           <div class="setting-info">
             <span class="setting-label">Default model</span>
@@ -264,8 +292,8 @@
             {/each}
           </select>
         </div>
-      </div>
-    {/if}
+      {/if}
+    </div>
 
     <!-- ═══════════════════ AUTO-UPDATE ═══════════════════ -->
     <h2 class="section-heading">Auto-Update</h2>
