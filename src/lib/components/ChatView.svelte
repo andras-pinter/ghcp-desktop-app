@@ -483,7 +483,13 @@
         if (convId) showDeleteConfirm = true;
         break;
       case "favorite":
-        if (convId) await toggleFavourite(convId);
+        if (convId) {
+          try {
+            await toggleFavourite(convId);
+          } catch (e) {
+            console.error("Failed to toggle favourite:", e);
+          }
+        }
         break;
       case "title":
         if (convId) {
@@ -504,20 +510,30 @@
     const convId = store.activeConversationId;
     if (!convId) return;
     showExportDialog = false;
-    const data =
-      fmt === "json"
-        ? await exportConversationJson(convId)
-        : await exportConversationMarkdown(convId);
-    const title = store.activeConversation?.title ?? "conversation";
-    const fileName = `${title.replace(/[^a-zA-Z0-9-_ ]/g, "").slice(0, 50)}.${fmt === "json" ? "json" : "md"}`;
-    await saveExportFile(data, fileName);
+    try {
+      const data =
+        fmt === "json"
+          ? await exportConversationJson(convId)
+          : await exportConversationMarkdown(convId);
+      const title = store.activeConversation?.title ?? "conversation";
+      const fileName = `${title.replace(/[^a-zA-Z0-9-_ ]/g, "").slice(0, 50)}.${fmt === "json" ? "json" : "md"}`;
+      await saveExportFile(data, fileName);
+    } catch (e) {
+      console.error("Export failed:", e);
+    }
   }
 
   async function submitTitle() {
     const convId = store.activeConversationId;
     const name = titleInput.trim();
     showTitleDialog = false;
-    if (convId && name) await renameConversation(convId, name);
+    if (convId && name) {
+      try {
+        await renameConversation(convId, name);
+      } catch (e) {
+        console.error("Failed to rename conversation:", e);
+      }
+    }
   }
 
   function handleDraftChange(text: string) {

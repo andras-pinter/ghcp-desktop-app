@@ -24,7 +24,7 @@ export type CommandBehavior =
   | "context";
 
 /** Argument type expected after the command keyword. */
-export type ArgType = "none" | "text" | "url" | "agent" | "model" | "skill" | "format";
+export type ArgType = "none" | "text" | "url" | "agent" | "model" | "skill";
 
 /** A single slash-command definition. */
 export interface SlashCommand {

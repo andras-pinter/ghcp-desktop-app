@@ -236,7 +236,7 @@ function filterAgents(query: string, agents: Agent[]): PopupItem[] {
 
 /**
  * Return filtered arg items for commands that have enumerable arguments
- * (model, skill, format). Returns `null` for free-text commands.
+ * (model, skill). Returns `null` for free-text commands.
  */
 function filterArgItems(
   command: SlashCommand,
@@ -262,10 +262,6 @@ function filterArgItems(
       const list =
         q.length === 0 ? enabled : enabled.filter((s) => s.name.toLowerCase().includes(q));
       return list.map((s) => ({ kind: "skill", skill: s }));
-    }
-    case "format": {
-      // Static list — no dynamic data needed.
-      return [];
     }
     // Free-text args: don't show a popup.
     case "text":

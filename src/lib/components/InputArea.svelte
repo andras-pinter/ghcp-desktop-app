@@ -464,6 +464,9 @@
     const trimmed = raw.trim();
     if (!trimmed) return;
 
+    // Reject dangerous URL schemes before processing
+    if (/^(javascript|data|file|vbscript|about|blob):/i.test(trimmed)) return;
+
     // Auto-upgrade http:// to https:// for safety; add https:// if no scheme
     let url = trimmed;
     if (/^http:\/\//i.test(url)) {
@@ -643,8 +646,8 @@
           enterSubCommandMode(cmd, rangeStart, rangeEnd);
           return;
         }
-        // Free-text/url/format args: insert "/{name} " and let user type
-        if (cmd.argType === "text" || cmd.argType === "url" || cmd.argType === "format") {
+        // Free-text/url args: insert "/{name} " and let user type
+        if (cmd.argType === "text" || cmd.argType === "url") {
           replaceCommandText(rangeStart, rangeEnd, `/${cmd.name} `);
           return;
         }
@@ -757,8 +760,6 @@
   $effect(() => {
     if (dropdownOpen || agentDropdownOpen) {
       document.addEventListener("click", handleWindowClick);
-    } else {
-      document.removeEventListener("click", handleWindowClick);
     }
     return () => document.removeEventListener("click", handleWindowClick);
   });
