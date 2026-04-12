@@ -1225,6 +1225,7 @@
   }
 
   .input-box {
+    position: relative;
     border: 1px solid var(--color-border-primary);
     border-radius: var(--radius-lg);
     background: var(--color-bg-input);
