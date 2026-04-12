@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.8.0] — 2026-04-12
+
+### Features
+
+- **ui:** add floating scroll-to-bottom button in chat view (157cf52)
+
+### Bug Fixes
+
+- **ui:** scroll to bottom after messages actually load (f18bb92)
+- **ui:** scroll existing chats to bottom when opened (3755269)
+
 ## [0.7.0] — 2026-04-12
 
 ### Features
