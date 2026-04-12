@@ -424,20 +424,32 @@ pub fn install_catalog_item(app: AppHandle, item_id: String) -> Result<String, S
     // affect functionality since items are fetched via API, not these URLs.
     let source_url = format!("{}/blob/main/{}", source.url, catalog_item.path);
 
+    // Parse content: try strict parser first, fall back to lenient
+    let (name, description, instructions) = match crate::skillmd::parse(&catalog_item.content) {
+        Ok(parsed) => (parsed.name, parsed.description, parsed.instructions),
+        Err(_) => {
+            let (n, d, i) =
+                crate::registry::parse_content_lenient(&catalog_item.content, &catalog_item.name);
+            (n, d, i)
+        }
+    };
+
     match catalog_item.kind.as_str() {
         "skill" => {
-            let parsed = crate::skillmd::parse(&catalog_item.content)
-                .map_err(|e| format!("Parse error: {e}"))?;
-            let db_id = format!("git-{}-{}", &source.id[..8], parsed.name);
+            let db_id = format!(
+                "git-{}-{}",
+                &source.id[..8.min(source.id.len())],
+                name.to_lowercase().replace(' ', "-")
+            );
             queries::create_skill(
                 &db,
                 &db_id,
-                &parsed.name,
-                Some(&parsed.description),
+                &name,
+                Some(&description),
                 "git",
                 None,
                 None,
-                Some(&parsed.instructions),
+                Some(&instructions),
                 Some(&source_url),
                 "git",
                 Some(&source.id),
@@ -450,9 +462,6 @@ pub fn install_catalog_item(app: AppHandle, item_id: String) -> Result<String, S
             Ok(db_id)
         }
         "agent" => {
-            let parsed = crate::skillmd::parse(&catalog_item.content)
-                .map_err(|e| format!("Parse error: {e}"))?;
-
             // Check for existing agent with same source_url to prevent duplicates
             let existing = queries::list_agents(&db).map_err(|e| e.to_string())?;
             if let Some(a) = existing
@@ -469,9 +478,9 @@ pub fn install_catalog_item(app: AppHandle, item_id: String) -> Result<String, S
             queries::create_agent(
                 &db,
                 &id,
-                &parsed.name,
+                &name,
                 None,
-                &parsed.instructions,
+                &instructions,
                 Some(&source_url),
                 "git",
                 Some(&source.id),
@@ -529,21 +538,26 @@ fn import_skill_item(
     source: &queries::GitSource,
     item: &ImportItem,
 ) -> Result<(), String> {
-    let parsed = crate::skillmd::parse(&item.content).map_err(|e| format!("Parse error: {e}"))?;
+    // Parse content: try strict parser first, fall back to lenient
+    let (name, description, instructions) = match crate::skillmd::parse(&item.content) {
+        Ok(parsed) => (parsed.name, parsed.description, parsed.instructions),
+        Err(_) => crate::registry::parse_content_lenient(&item.content, &item.path),
+    };
 
-    let db_id = format!("git-{}-{}", &source.id[..8], parsed.name);
+    let slug = name.to_lowercase().replace(' ', "-");
+    let db_id = format!("git-{}-{}", &source.id[..8.min(source.id.len())], slug);
     // TODO: `blob/main` assumes default branch — cosmetic only, see install_catalog_item
     let source_url = format!("{}/blob/main/{}", source.url, item.path);
 
     queries::create_skill(
         db,
         &db_id,
-        &parsed.name,
-        Some(&parsed.description),
+        &name,
+        Some(&description),
         "git",
         None,
         None,
-        Some(&parsed.instructions),
+        Some(&instructions),
         Some(&source_url),
         "git",
         Some(&source.id),
@@ -559,7 +573,11 @@ fn import_agent_item(
     source: &queries::GitSource,
     item: &ImportItem,
 ) -> Result<(), String> {
-    let parsed = crate::skillmd::parse(&item.content).map_err(|e| format!("Parse error: {e}"))?;
+    // Parse content: try strict parser first, fall back to lenient
+    let (name, _description, instructions) = match crate::skillmd::parse(&item.content) {
+        Ok(parsed) => (parsed.name, parsed.description, parsed.instructions),
+        Err(_) => crate::registry::parse_content_lenient(&item.content, &item.path),
+    };
 
     let id = uuid::Uuid::new_v4().to_string();
     // TODO: `blob/main` assumes default branch — cosmetic only, see install_catalog_item
@@ -568,9 +586,9 @@ fn import_agent_item(
     queries::create_agent(
         db,
         &id,
-        &parsed.name,
+        &name,
         None,
-        &parsed.instructions,
+        &instructions,
         Some(&source_url),
         "git",
         Some(&source.id),
@@ -595,32 +613,34 @@ fn update_existing_items(
         let source_url = item.source_url.as_deref().unwrap_or_default();
         // Match by path suffix in source_url
         if let Some(file) = files.iter().find(|f| source_url.ends_with(&f.path)) {
-            // Re-parse and update content if parseable
-            if let Ok(parsed) = crate::skillmd::parse(&file.content) {
-                match item.kind.as_str() {
-                    "skill" => {
-                        let _ = queries::update_skill(
-                            &db,
-                            &item.id,
-                            &parsed.name,
-                            Some(&parsed.description),
-                            Some(&parsed.instructions),
-                            None,
-                        );
-                    }
-                    "agent" => {
-                        let _ = queries::update_agent(
-                            &db,
-                            &item.id,
-                            &parsed.name,
-                            None,
-                            &parsed.instructions,
-                            None,
-                            "git",
-                        );
-                    }
-                    _ => {}
+            // Parse content: try strict first, fall back to lenient
+            let (name, description, instructions) = match crate::skillmd::parse(&file.content) {
+                Ok(parsed) => (parsed.name, parsed.description, parsed.instructions),
+                Err(_) => crate::registry::parse_content_lenient(&file.content, &item.name),
+            };
+            match item.kind.as_str() {
+                "skill" => {
+                    let _ = queries::update_skill(
+                        &db,
+                        &item.id,
+                        &name,
+                        Some(&description),
+                        Some(&instructions),
+                        None,
+                    );
                 }
+                "agent" => {
+                    let _ = queries::update_agent(
+                        &db,
+                        &item.id,
+                        &name,
+                        None,
+                        &instructions,
+                        None,
+                        "git",
+                    );
+                }
+                _ => {}
             }
         }
     }

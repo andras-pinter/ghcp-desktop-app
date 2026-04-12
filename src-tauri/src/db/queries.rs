@@ -935,6 +935,23 @@ pub struct GitSource {
     pub updated_at: String,
 }
 
+/// Ensure a datetime string from SQLite is parsed as UTC by appending `Z`
+/// if it lacks a timezone indicator. SQLite `datetime('now')` returns
+/// bare strings like `"2026-04-11 23:55:00"` which JavaScript's `Date()`
+/// would otherwise interpret as local time.
+fn ensure_utc_suffix(dt: String) -> String {
+    if dt.ends_with('Z') || dt.contains('+') || dt.ends_with("UTC") {
+        dt
+    } else {
+        format!("{dt}Z")
+    }
+}
+
+/// Same as [`ensure_utc_suffix`] but for `Option<String>`.
+fn ensure_utc_suffix_opt(dt: Option<String>) -> Option<String> {
+    dt.map(ensure_utc_suffix)
+}
+
 /// An item (skill or agent) linked to a git source.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -959,10 +976,10 @@ pub fn list_git_sources(conn: &Connection) -> Result<Vec<GitSource>, rusqlite::E
             name: row.get(1)?,
             url: row.get(2)?,
             enabled: row.get(3)?,
-            last_synced_at: row.get(4)?,
+            last_synced_at: ensure_utc_suffix_opt(row.get(4)?),
             item_count: row.get(5)?,
-            created_at: row.get(6)?,
-            updated_at: row.get(7)?,
+            created_at: ensure_utc_suffix(row.get(6)?),
+            updated_at: ensure_utc_suffix(row.get(7)?),
         })
     })?;
     rows.collect()
@@ -981,10 +998,10 @@ pub fn get_git_source(conn: &Connection, id: &str) -> Result<Option<GitSource>, 
             name: row.get(1)?,
             url: row.get(2)?,
             enabled: row.get(3)?,
-            last_synced_at: row.get(4)?,
+            last_synced_at: ensure_utc_suffix_opt(row.get(4)?),
             item_count: row.get(5)?,
-            created_at: row.get(6)?,
-            updated_at: row.get(7)?,
+            created_at: ensure_utc_suffix(row.get(6)?),
+            updated_at: ensure_utc_suffix(row.get(7)?),
         })
     })?;
     rows.next().transpose()
@@ -2192,5 +2209,57 @@ mod tests {
         delete_project(&conn, "p1").unwrap();
         let files = list_project_files(&conn, "p1").unwrap();
         assert!(files.is_empty());
+    }
+
+    #[test]
+    fn test_ensure_utc_suffix() {
+        // Bare datetime gets Z appended
+        assert_eq!(
+            ensure_utc_suffix("2026-04-11 23:55:00".into()),
+            "2026-04-11 23:55:00Z"
+        );
+        // Already has Z — unchanged
+        assert_eq!(
+            ensure_utc_suffix("2026-04-11T23:55:00Z".into()),
+            "2026-04-11T23:55:00Z"
+        );
+        // Has offset — unchanged
+        assert_eq!(
+            ensure_utc_suffix("2026-04-11T23:55:00+02:00".into()),
+            "2026-04-11T23:55:00+02:00"
+        );
+        // Optional variant
+        assert_eq!(
+            ensure_utc_suffix_opt(Some("2026-04-11 12:00:00".into())),
+            Some("2026-04-11 12:00:00Z".to_string())
+        );
+        assert_eq!(ensure_utc_suffix_opt(None), None);
+    }
+
+    #[test]
+    fn test_git_source_timestamps_have_utc_suffix() {
+        let conn = setup_db();
+        create_git_source(&conn, "gs1", "Test Source", "https://github.com/test/repo").unwrap();
+        update_git_source_synced(&conn, "gs1", 5).unwrap();
+
+        let source = get_git_source(&conn, "gs1").unwrap().unwrap();
+        assert!(
+            source.created_at.ends_with('Z'),
+            "created_at should end with Z: {}",
+            source.created_at
+        );
+        assert!(
+            source.updated_at.ends_with('Z'),
+            "updated_at should end with Z: {}",
+            source.updated_at
+        );
+        let synced = source.last_synced_at.unwrap();
+        assert!(
+            synced.ends_with('Z'),
+            "last_synced_at should end with Z: {synced}"
+        );
+
+        let sources = list_git_sources(&conn).unwrap();
+        assert!(sources[0].created_at.ends_with('Z'));
     }
 }

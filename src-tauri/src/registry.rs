@@ -473,18 +473,24 @@ pub fn parse_content_lenient(content: &str, fallback_id: &str) -> (String, Strin
                 i += 1;
             }
 
+            // If no description in frontmatter, try extracting from the markdown body
+            if desc.is_none() || desc.as_deref() == Some("") {
+                desc = extract_body_description(content);
+            }
+
             return (
                 name.unwrap_or_else(|| fallback_id.to_string()),
-                desc.unwrap_or_else(|| "Imported from registry".to_string()),
+                desc.unwrap_or_default(),
                 body.trim().to_string(),
             );
         }
     }
 
-    // No frontmatter — use whole content as instructions
+    // No frontmatter — try to extract description from body, use whole content as instructions
+    let body_desc = extract_body_description(content).unwrap_or_default();
     (
         fallback_id.to_string(),
-        "Imported from registry".to_string(),
+        body_desc,
         content.trim().to_string(),
     )
 }
@@ -921,5 +927,48 @@ mod tests {
         let parsed = parse_git_url("  octocat/hello-world  ").unwrap();
         assert_eq!(parsed.owner, "octocat");
         assert_eq!(parsed.repo, "hello-world");
+    }
+
+    #[test]
+    fn test_parse_content_lenient_yaml_description() {
+        let content =
+            "---\nname: 'My Agent'\ndescription: Does cool things\n---\nInstructions here.\n";
+        let (name, desc, body) = parse_content_lenient(content, "fallback");
+        assert_eq!(name, "My Agent");
+        assert_eq!(desc, "Does cool things");
+        assert_eq!(body, "Instructions here.");
+    }
+
+    #[test]
+    fn test_parse_content_lenient_strips_quotes() {
+        let content = "---\nname: 'Quoted Name'\ndescription: \"Quoted desc\"\n---\nBody.\n";
+        let (name, desc, _) = parse_content_lenient(content, "fallback");
+        assert_eq!(name, "Quoted Name");
+        assert_eq!(desc, "Quoted desc");
+    }
+
+    #[test]
+    fn test_parse_content_lenient_body_description_fallback() {
+        // No description in YAML — should fall back to body extraction
+        let content = "---\nname: test-agent\n---\n\nThis agent helps with code review.\n\nIt checks for bugs.\n";
+        let (name, desc, _) = parse_content_lenient(content, "fallback");
+        assert_eq!(name, "test-agent");
+        assert_eq!(desc, "This agent helps with code review.");
+    }
+
+    #[test]
+    fn test_parse_content_lenient_no_frontmatter() {
+        let content = "# My Agent\n\nThis is a simple agent.\n\nIt does things.\n";
+        let (name, desc, _) = parse_content_lenient(content, "my-fallback");
+        assert_eq!(name, "my-fallback");
+        assert!(!desc.is_empty(), "Should extract body description");
+    }
+
+    #[test]
+    fn test_parse_content_lenient_multiline_description() {
+        let content = "---\nname: ml-agent\ndescription: >\n  This is a long\n  multi-line description\n---\nBody.\n";
+        let (_, desc, _) = parse_content_lenient(content, "fallback");
+        assert!(desc.contains("This is a long"));
+        assert!(desc.contains("multi-line description"));
     }
 }

@@ -8,6 +8,7 @@
     searchRegistries,
     installFromRegistry,
     prefetchRegistry,
+    invalidateSkillCatalogCache,
   } from "$lib/stores/skills.svelte";
   import { getMcpState } from "$lib/stores/mcp.svelte";
   import { getSourceStore, initSources } from "$lib/stores/sources.svelte";
@@ -281,6 +282,8 @@
   onMount(async () => {
     initSkills();
     if (!sourceStore.loaded) initSources();
+    // Ensure catalog shows fresh data when panel mounts
+    invalidateSkillCatalogCache();
   });
 
   onDestroy(() => {

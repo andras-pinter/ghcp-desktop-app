@@ -12,6 +12,7 @@
     searchAgentRegistries,
     installAgentFromRegistry,
     prefetchAgentRegistry,
+    invalidateAgentCatalogCache,
   } from "$lib/stores/agents.svelte";
   import { getSkillStore, initSkills } from "$lib/stores/skills.svelte";
   import { getMcpState, initMcp } from "$lib/stores/mcp.svelte";
@@ -146,6 +147,8 @@
     if (!skillStore.loaded) initSkills();
     if (mcpState.servers.length === 0) initMcp();
     if (!sourceStore.loaded) initSources();
+    // Ensure catalog shows fresh data when panel mounts
+    invalidateAgentCatalogCache();
   });
 
   onDestroy(() => {

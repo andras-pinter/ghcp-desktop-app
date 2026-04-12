@@ -197,6 +197,7 @@ export async function installAgentFromRegistry(item: RegistryItem): Promise<Agen
 /** Invalidate the browse cache so next prefetch fetches fresh data. */
 export function invalidateAgentCatalogCache(): void {
   browseCache = [];
+  registryResults = [];
 }
 
 /** Reactive getters. */

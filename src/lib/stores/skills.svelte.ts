@@ -177,6 +177,8 @@ export async function addManualSkill(
 /** Invalidate the browse cache so next prefetch fetches fresh data. */
 export function invalidateSkillCatalogCache(): void {
   browseCache = [];
+  registryResults = [];
+  registryTotal = null;
 }
 
 /** Reactive getters. */
