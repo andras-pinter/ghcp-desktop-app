@@ -209,12 +209,12 @@
     if (popupVisible) {
       if (event.key === "ArrowDown") {
         event.preventDefault();
-        popupFocusIndex = Math.min(popupFocusIndex + 1, popupItems.length - 1);
+        popupFocusIndex = popupFocusIndex < popupItems.length - 1 ? popupFocusIndex + 1 : 0;
         return;
       }
       if (event.key === "ArrowUp") {
         event.preventDefault();
-        popupFocusIndex = Math.max(popupFocusIndex - 1, -1);
+        popupFocusIndex = popupFocusIndex > 0 ? popupFocusIndex - 1 : popupItems.length - 1;
         return;
       }
       if (event.key === "Tab" || (event.key === "Enter" && !event.shiftKey)) {
@@ -385,10 +385,10 @@
 
     if (event.key === "ArrowDown") {
       event.preventDefault();
-      focusedModelIndex = Math.min(focusedModelIndex + 1, opts.length - 1);
+      focusedModelIndex = focusedModelIndex < opts.length - 1 ? focusedModelIndex + 1 : 0;
     } else if (event.key === "ArrowUp") {
       event.preventDefault();
-      focusedModelIndex = Math.max(focusedModelIndex - 1, 0);
+      focusedModelIndex = focusedModelIndex > 0 ? focusedModelIndex - 1 : opts.length - 1;
     } else if (event.key === "Home") {
       event.preventDefault();
       focusedModelIndex = 0;
@@ -415,10 +415,10 @@
 
     if (event.key === "ArrowDown") {
       event.preventDefault();
-      focusedAgentIndex = Math.min(focusedAgentIndex + 1, agents.length - 1);
+      focusedAgentIndex = focusedAgentIndex < agents.length - 1 ? focusedAgentIndex + 1 : 0;
     } else if (event.key === "ArrowUp") {
       event.preventDefault();
-      focusedAgentIndex = Math.max(focusedAgentIndex - 1, 0);
+      focusedAgentIndex = focusedAgentIndex > 0 ? focusedAgentIndex - 1 : agents.length - 1;
     } else if (event.key === "Home") {
       event.preventDefault();
       focusedAgentIndex = 0;
