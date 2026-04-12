@@ -18,7 +18,7 @@
     saveExportFile,
   } from "$lib/utils/commands";
   import { onContextSummarized } from "$lib/utils/events";
-  import { onMount, onDestroy } from "svelte";
+  import { onMount, onDestroy, tick } from "svelte";
   import { getCurrentWebview } from "@tauri-apps/api/webview";
   import type { UnlistenFn } from "@tauri-apps/api/event";
   import {
@@ -203,12 +203,16 @@
     }
   });
 
-  // Reset summarization banner and scroll state when switching conversations
+  // Reset summarization banner and scroll state when switching conversations,
+  // then scroll to bottom after messages render so chats open at the end.
   $effect(() => {
     // eslint-disable-next-line @typescript-eslint/no-unused-expressions
     store.activeConversationId;
     summarizedCount = 0;
     userScrolledAway = false;
+    tick().then(() => {
+      if (chatContainer) chatContainer.scrollTop = chatContainer.scrollHeight;
+    });
   });
 
   // Auto-scroll when active conversation receives streaming tokens.
