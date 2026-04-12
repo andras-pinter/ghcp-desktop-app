@@ -3,6 +3,22 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.6.0] — 2026-04-12
+
+### Features
+
+- **ui:** add default agent setting with auto-select on new conversations (4f73651)
+- **tauri:** add built-in Research agent and upgrade Default agent prompt (1e68a4e)
+
+### Bug Fixes
+
+- **ui:** use correct DB key when resetting default agent on deletion (d25430b)
+- **ui:** show loading spinner for agent picker until ready (5b0d9a1)
+- **ui:** select default agent on app startup after data loads (da239d6)
+- **ui:** reset agent to user default when starting a new chat (6dece8a)
+- **ui:** fix agent dropdown to properly distinguish user default from built-in (54c4743)
+- **ui:** reset default agent setting when agent is deleted (c4d40be)
+
 ## [0.5.0] — 2026-04-12
 
 ### Features
