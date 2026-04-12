@@ -47,6 +47,21 @@ export const strings = {
     copilot: "Copilot",
   },
 
+  commands: {
+    heading: "Commands",
+    agentsHeading: "Agents",
+    modelsHeading: "Models",
+    skillsHeading: "Skills",
+    noMatches: "No matches",
+    overrideBadgeAgent: "Agent",
+    overrideBadgeModel: "Model",
+    overrideBadgeSkill: "Skill",
+    helpTitle: "Available Commands",
+    helpSlashHint: "Type / at the start of a line for commands",
+    helpMentionHint: "Type @ to mention an agent for this message",
+    clearConfirm: "Clear all messages in this conversation?",
+  },
+
   status: {
     online: "● Online",
     offline: "● Offline",

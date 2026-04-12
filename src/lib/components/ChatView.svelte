@@ -3,14 +3,19 @@
   import InputArea from "./InputArea.svelte";
   import MessageBubble from "./MessageBubble.svelte";
   import SearchOverlay from "./SearchOverlay.svelte";
+  import ConfirmDialog from "./ConfirmDialog.svelte";
   import type { Message, ChatMessage } from "$lib/types/message";
   import type { UrlPreview } from "$lib/types/web-research";
   import type { ChatFileData } from "$lib/types/project";
+  import type { MessageOverrides } from "$lib/types/commands";
   import {
     sendMessage,
     stopStreaming,
     extractFileText,
     readDroppedFiles,
+    exportConversationMarkdown,
+    exportConversationJson,
+    saveExportFile,
   } from "$lib/utils/commands";
   import { onContextSummarized } from "$lib/utils/events";
   import { onMount, onDestroy } from "svelte";
@@ -29,11 +34,16 @@
     startStreaming,
     isStreaming as isConvStreaming,
     cancelStreamingState,
+    renameConversation,
+    toggleFavourite,
+    removeConversation,
   } from "$lib/stores/conversations.svelte";
   import { getModelStore, setDefaultModel } from "$lib/stores/models.svelte";
   import { getAgentStore, selectAgent } from "$lib/stores/agents.svelte";
   import { getSettings } from "$lib/stores/settings.svelte";
   import { getNetwork } from "$lib/stores/network.svelte";
+  import { getSkillStore } from "$lib/stores/skills.svelte";
+  import { SLASH_COMMANDS } from "$lib/types/commands";
 
   const greetings = [
     "Your co-pilot is ready. Where to?",
@@ -49,6 +59,7 @@
   const store = getConversationStore();
   const modelStore = getModelStore();
   const agentStore = getAgentStore();
+  const skillStore = getSkillStore();
   const settings = getSettings();
   const network = getNetwork();
   let chatContainer: HTMLElement | undefined = $state();
@@ -57,7 +68,25 @@
   let draftTimer: ReturnType<typeof setTimeout> | undefined;
   let showSearch = $state(false);
   let extractingFiles = $state(false);
+  let showHelpModal = $state(false);
+  let helpOverlayEl: HTMLDivElement | undefined = $state();
+  let showDeleteConfirm = $state(false);
+  let showTitleDialog = $state(false);
+  let titleInput = $state("");
+  let titleInputEl: HTMLInputElement | undefined = $state();
+  let showExportDialog = $state(false);
   const greeting = greetings[Math.floor(Math.random() * greetings.length)];
+
+  $effect(() => {
+    if (showHelpModal && helpOverlayEl) helpOverlayEl.focus();
+  });
+
+  $effect(() => {
+    if (showTitleDialog && titleInputEl) {
+      titleInputEl.focus();
+      titleInputEl.select();
+    }
+  });
 
   // Derive streaming state from store (not local)
   let streaming = $derived(
@@ -239,7 +268,12 @@
     if (draftTimer) clearTimeout(draftTimer);
   });
 
-  async function handleSend(text: string, urls?: UrlPreview[], files?: ChatFileData[]) {
+  async function handleSend(
+    text: string,
+    urls?: UrlPreview[],
+    files?: ChatFileData[],
+    overrides?: MessageOverrides,
+  ) {
     // User just sent a message — follow the response
     userScrolledAway = false;
 
@@ -369,7 +403,7 @@
 
     // Build API message array — include all user + non-empty assistant messages.
     // For the current user message, append extracted file content for the API only.
-    const apiMessages: ChatMessage[] = store.messages
+    let apiMessages: ChatMessage[] = store.messages
       .filter((m) => m.role === "user" || (m.role === "assistant" && m.content))
       .map((m) => {
         if (m.id === userMessage.id && hasFiles) {
@@ -387,12 +421,28 @@
       extractionStatuses = { ...extractionStatuses };
     }
 
+    // Build skill instructions for per-message skill overrides
+    let skillInstructions = "";
+    if (overrides?.skillIds && overrides.skillIds.length > 0) {
+      const enabledSkills = skillStore.skills.filter((s) => overrides.skillIds.includes(s.id));
+      if (enabledSkills.length > 0) {
+        skillInstructions = enabledSkills
+          .map((s) => `[Skill: ${s.name}]\n${s.instructions}`)
+          .join("\n\n");
+      }
+    }
+
+    // If skill overrides present, prepend instructions to the API messages
+    if (skillInstructions && apiMessages.length > 0) {
+      apiMessages = [{ role: "system", content: skillInstructions }, ...apiMessages];
+    }
+
     try {
       await sendMessage(
         convId,
         apiMessages,
-        selectedModel,
-        agentStore.selectedAgentId,
+        overrides?.modelId ?? selectedModel,
+        overrides?.agentId ?? agentStore.selectedAgentId,
         store.activeConversation?.projectId,
       );
     } catch (e) {
@@ -420,6 +470,70 @@
 
   function handleModelChange(model: string) {
     selectedModel = model;
+  }
+
+  /** Enabled skills for command popup (only show skills that are toggled on). */
+  const enabledSkills = $derived(skillStore.skills.filter((s) => s.enabled));
+
+  /** Handle slash command dispatched from InputArea. */
+  async function handleCommand(name: string) {
+    const convId = store.activeConversationId;
+    switch (name) {
+      case "delete":
+        if (convId) showDeleteConfirm = true;
+        break;
+      case "favorite":
+        if (convId) {
+          try {
+            await toggleFavourite(convId);
+          } catch (e) {
+            console.error("Failed to toggle favourite:", e);
+          }
+        }
+        break;
+      case "title":
+        if (convId) {
+          titleInput = store.activeConversation?.title ?? "";
+          showTitleDialog = true;
+        }
+        break;
+      case "export":
+        if (convId) showExportDialog = true;
+        break;
+      case "help":
+        showHelpModal = true;
+        break;
+    }
+  }
+
+  async function exportAs(fmt: "json" | "md") {
+    const convId = store.activeConversationId;
+    if (!convId) return;
+    showExportDialog = false;
+    try {
+      const data =
+        fmt === "json"
+          ? await exportConversationJson(convId)
+          : await exportConversationMarkdown(convId);
+      const title = store.activeConversation?.title ?? "conversation";
+      const fileName = `${title.replace(/[^a-zA-Z0-9-_ ]/g, "").slice(0, 50)}.${fmt === "json" ? "json" : "md"}`;
+      await saveExportFile(data, fileName);
+    } catch (e) {
+      console.error("Export failed:", e);
+    }
+  }
+
+  async function submitTitle() {
+    const convId = store.activeConversationId;
+    const name = titleInput.trim();
+    showTitleDialog = false;
+    if (convId && name) {
+      try {
+        await renameConversation(convId, name);
+      } catch (e) {
+        console.error("Failed to rename conversation:", e);
+      }
+    }
   }
 
   function handleDraftChange(text: string) {
@@ -576,6 +690,9 @@
           externalFiles={pendingDropFiles}
           onExternalFilesConsumed={clearPendingDropFiles}
           {extractionStatuses}
+          skills={enabledSkills}
+          onCommand={handleCommand}
+          hasConversation={false}
         />
       </div>
     </div>
@@ -647,11 +764,156 @@
           externalFiles={pendingDropFiles}
           onExternalFilesConsumed={clearPendingDropFiles}
           {extractionStatuses}
+          skills={enabledSkills}
+          onCommand={handleCommand}
+          hasConversation={true}
         />
       </div>
     </div>
   {/if}
 </div>
+
+{#if showHelpModal}
+  <div
+    bind:this={helpOverlayEl}
+    class="help-overlay"
+    role="dialog"
+    aria-modal="true"
+    aria-label="Command reference"
+    tabindex="-1"
+    onkeydown={(e) => {
+      if (e.key === "Escape") showHelpModal = false;
+    }}
+    onclick={(e) => {
+      if (e.target === e.currentTarget) showHelpModal = false;
+    }}
+  >
+    <div class="help-modal">
+      <div class="help-header">
+        <h3>Command Reference</h3>
+        <button class="help-close" onclick={() => (showHelpModal = false)} aria-label="Close"
+          >×</button
+        >
+      </div>
+      <div class="help-body">
+        <div class="help-section">
+          <h4>Slash Commands</h4>
+          <dl class="help-commands">
+            {#each SLASH_COMMANDS as cmd (cmd.name)}
+              <div class="help-cmd-row">
+                <dt>
+                  <code>/{cmd.name}</code>{#if cmd.aliases?.length}{#each cmd.aliases as a (a)}
+                      <code>/{a}</code>{/each}{/if}
+                </dt>
+                <dd>{cmd.description}</dd>
+              </div>
+            {/each}
+          </dl>
+        </div>
+        <div class="help-section">
+          <h4>@ Mentions</h4>
+          <p>Type <code>@</code> followed by an agent name to set a per-message agent override.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+{/if}
+
+<ConfirmDialog
+  open={showDeleteConfirm}
+  title="Delete this conversation?"
+  detail="This will permanently remove the conversation and all its messages."
+  confirmLabel="Delete"
+  onconfirm={async () => {
+    const convId = store.activeConversationId;
+    showDeleteConfirm = false;
+    if (convId) await removeConversation(convId);
+  }}
+  oncancel={() => (showDeleteConfirm = false)}
+/>
+
+{#if showTitleDialog}
+  <div
+    class="cmd-overlay"
+    role="dialog"
+    aria-modal="true"
+    aria-label="Rename conversation"
+    tabindex="-1"
+    onkeydown={(e) => {
+      if (e.key === "Escape") showTitleDialog = false;
+    }}
+    onclick={(e) => {
+      if (e.target === e.currentTarget) showTitleDialog = false;
+    }}
+  >
+    <div class="cmd-dialog">
+      <div class="cmd-dialog-header">
+        <h3>Rename Conversation</h3>
+        <button
+          class="cmd-dialog-close"
+          onclick={() => (showTitleDialog = false)}
+          aria-label="Close">×</button
+        >
+      </div>
+      <form
+        class="cmd-dialog-body"
+        onsubmit={(e) => {
+          e.preventDefault();
+          submitTitle();
+        }}
+      >
+        <input
+          bind:this={titleInputEl}
+          bind:value={titleInput}
+          class="cmd-dialog-input"
+          type="text"
+          placeholder="Conversation title…"
+          maxlength="200"
+        />
+        <div class="cmd-dialog-actions">
+          <button type="button" class="cmd-btn secondary" onclick={() => (showTitleDialog = false)}
+            >Cancel</button
+          >
+          <button type="submit" class="cmd-btn primary" disabled={!titleInput.trim()}>Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+{/if}
+
+{#if showExportDialog}
+  <div
+    class="cmd-overlay"
+    role="dialog"
+    aria-modal="true"
+    aria-label="Export conversation"
+    tabindex="-1"
+    onkeydown={(e) => {
+      if (e.key === "Escape") showExportDialog = false;
+    }}
+    onclick={(e) => {
+      if (e.target === e.currentTarget) showExportDialog = false;
+    }}
+  >
+    <div class="cmd-dialog">
+      <div class="cmd-dialog-header">
+        <h3>Export Conversation</h3>
+        <button
+          class="cmd-dialog-close"
+          onclick={() => (showExportDialog = false)}
+          aria-label="Close">×</button
+        >
+      </div>
+      <div class="cmd-dialog-body">
+        <p class="cmd-dialog-detail">Choose export format:</p>
+        <div class="cmd-dialog-actions export-actions">
+          <button class="cmd-btn secondary" onclick={() => exportAs("md")}>📝 Markdown</button>
+          <button class="cmd-btn secondary" onclick={() => exportAs("json")}>🗂️ JSON</button>
+        </div>
+      </div>
+    </div>
+  </div>
+{/if}
 
 <style>
   .chat-view {
@@ -829,5 +1091,286 @@
     margin: 0 auto;
     padding: 0 var(--spacing-xl) var(--spacing-xl);
     pointer-events: auto;
+  }
+
+  /* ── Help modal ── */
+
+  .help-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.45);
+    animation: fadeIn 120ms ease;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  .help-modal {
+    background: var(--color-bg-primary);
+    border: 1px solid var(--color-border-primary);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.2);
+    width: 420px;
+    max-width: 90vw;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: slideUp 180ms ease;
+  }
+
+  @keyframes slideUp {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .help-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--spacing-md) var(--spacing-lg);
+    border-bottom: 1px solid var(--color-border-secondary);
+  }
+
+  .help-header h3 {
+    margin: 0;
+    font-size: var(--font-size-base);
+    font-weight: 600;
+    font-family: var(--font-sans);
+    color: var(--color-text-primary);
+  }
+
+  .help-close {
+    background: none;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    color: var(--color-text-tertiary);
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+    line-height: 1;
+  }
+
+  .help-close:hover {
+    background: var(--color-bg-secondary);
+    color: var(--color-text-primary);
+  }
+
+  .help-body {
+    padding: var(--spacing-lg);
+    overflow-y: auto;
+  }
+
+  .help-section + .help-section {
+    margin-top: var(--spacing-lg);
+    padding-top: var(--spacing-lg);
+    border-top: 1px solid var(--color-border-secondary);
+  }
+
+  .help-section h4 {
+    margin: 0 0 var(--spacing-sm);
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    font-family: var(--font-sans);
+    color: var(--color-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .help-section p {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    font-family: var(--font-sans);
+    color: var(--color-text-secondary);
+    line-height: 1.5;
+  }
+
+  .help-commands {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+  }
+
+  .help-cmd-row {
+    display: flex;
+    align-items: baseline;
+    gap: var(--spacing-sm);
+    font-family: var(--font-sans);
+    font-size: var(--font-size-sm);
+  }
+
+  .help-cmd-row dt {
+    flex-shrink: 0;
+    min-width: 90px;
+  }
+
+  .help-cmd-row dt code {
+    font-family: var(--font-mono);
+    font-size: var(--font-size-sm);
+    color: var(--color-accent-primary);
+    background: var(--color-bg-secondary);
+    padding: 1px 5px;
+    border-radius: var(--radius-sm);
+  }
+
+  .help-cmd-row dd {
+    margin: 0;
+    color: var(--color-text-secondary);
+  }
+
+  /* ── Command dialog (title / export) ── */
+
+  .cmd-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.45);
+    animation: fadeIn 120ms ease;
+  }
+
+  .cmd-dialog {
+    background: var(--color-bg-primary);
+    border: 1px solid var(--color-border-primary);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.2);
+    width: 380px;
+    max-width: 90vw;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: slideUp 180ms ease;
+  }
+
+  .cmd-dialog-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--spacing-md) var(--spacing-lg);
+    border-bottom: 1px solid var(--color-border-secondary);
+  }
+
+  .cmd-dialog-header h3 {
+    margin: 0;
+    font-size: var(--font-size-base);
+    font-weight: 600;
+    font-family: var(--font-sans);
+    color: var(--color-text-primary);
+  }
+
+  .cmd-dialog-close {
+    background: none;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    color: var(--color-text-tertiary);
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+    line-height: 1;
+  }
+
+  .cmd-dialog-close:hover {
+    background: var(--color-bg-secondary);
+    color: var(--color-text-primary);
+  }
+
+  .cmd-dialog-body {
+    padding: var(--spacing-lg);
+  }
+
+  .cmd-dialog-detail {
+    margin: 0 0 var(--spacing-md);
+    font-family: var(--font-sans);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+  }
+
+  .cmd-dialog-input {
+    width: 100%;
+    padding: var(--spacing-sm) var(--spacing-md);
+    font-family: var(--font-sans);
+    font-size: var(--font-size-base);
+    color: var(--color-text-primary);
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border-primary);
+    border-radius: var(--radius-md);
+    outline: none;
+    box-sizing: border-box;
+    margin-bottom: var(--spacing-md);
+  }
+
+  .cmd-dialog-input:focus {
+    border-color: var(--color-accent-primary);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent-primary) 25%, transparent);
+  }
+
+  .cmd-dialog-actions {
+    display: flex;
+    gap: var(--spacing-sm);
+    justify-content: flex-end;
+  }
+
+  .cmd-dialog-actions.export-actions {
+    justify-content: center;
+  }
+
+  .cmd-btn {
+    padding: 7px 18px;
+    border: 1px solid var(--color-border-primary);
+    border-radius: 9999px;
+    font-family: var(--font-sans);
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 120ms ease;
+    line-height: 1.3;
+  }
+
+  .cmd-btn:focus-visible {
+    outline: 2px solid var(--color-accent-primary);
+    outline-offset: 2px;
+  }
+
+  .cmd-btn.secondary {
+    background: transparent;
+    color: var(--color-text-primary);
+  }
+
+  .cmd-btn.secondary:hover {
+    background: var(--color-bg-hover);
+  }
+
+  .cmd-btn.primary {
+    background: var(--color-accent-primary);
+    border-color: var(--color-accent-primary);
+    color: #fff;
+  }
+
+  .cmd-btn.primary:hover:not(:disabled) {
+    filter: brightness(1.1);
+  }
+
+  .cmd-btn.primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 </style>
