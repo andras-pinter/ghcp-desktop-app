@@ -46,8 +46,13 @@
 
   function itemLabel(item: PopupItem): string {
     switch (item.kind) {
-      case "command":
+      case "command": {
+        const aliases = item.command.aliases;
+        if (aliases?.length) {
+          return `/${item.command.name} · ${aliases.map((a) => `/${a}`).join(" · ")}`;
+        }
         return `/${item.command.name}`;
+      }
       case "agent":
         return item.agent.name;
       case "model":

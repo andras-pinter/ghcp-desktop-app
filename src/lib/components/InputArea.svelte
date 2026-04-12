@@ -170,8 +170,10 @@
     // Intercept slash commands that would otherwise be sent as text
     const cmdMatch = trimmed.match(/^\/(\S+)(?:\s+(.*))?$/);
     if (cmdMatch) {
-      // Resolve aliases
-      const rawName = cmdMatch[1] === "web" ? "fetch" : cmdMatch[1] === "?" ? "help" : cmdMatch[1];
+      // Resolve aliases (e.g. /web → fetch, /? → help)
+      let rawName = cmdMatch[1];
+      const aliased = SLASH_COMMANDS.find((c) => c.aliases?.includes(rawName));
+      if (aliased) rawName = aliased.name;
       const cmdArg = cmdMatch[2]?.trim() || undefined;
       const cmd = SLASH_COMMANDS.find((c) => c.name === rawName);
       if (cmd) {

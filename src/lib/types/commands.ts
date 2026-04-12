@@ -42,6 +42,8 @@ export interface SlashCommand {
   readonly argPlaceholder?: string;
   /** If true, this command is only shown when a conversation is active. */
   readonly requiresConversation?: boolean;
+  /** Alternative names that also resolve to this command (e.g. ["web"] for fetch). */
+  readonly aliases?: readonly string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -74,6 +76,7 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
     behavior: "context",
     argType: "url",
     argPlaceholder: "https://…",
+    aliases: ["web"],
   },
 
   // ── Action commands (execute immediately) ──────────────────────────────
@@ -122,6 +125,7 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
     icon: "❓",
     behavior: "action",
     argType: "none",
+    aliases: ["?"],
   },
 ] as const;
 

@@ -212,21 +212,16 @@ function filterCommands(query: string, hasConversation: boolean): SlashCommand[]
 
   if (query.length === 0) return available;
 
-  // /? is an alias for /help
-  if (query === "?") {
-    const help = SLASH_COMMANDS.find((c) => c.name === "help");
-    return help ? [help] : [];
-  }
+  // Match by name prefix
+  const byName = available.filter((c) => c.name.startsWith(query));
 
-  // /web is an alias for /fetch — match partial prefixes too (w, we, web)
-  if ("web".startsWith(query) || query.startsWith("web")) {
-    const fetch = SLASH_COMMANDS.find((c) => c.name === "fetch");
-    const normal = available.filter((c) => c.name.startsWith(query));
-    if (fetch && !normal.includes(fetch)) return [...normal, fetch];
-    return normal;
-  }
+  // Match by alias prefix (e.g. /? → help, /web → fetch)
+  const byAlias = available.filter(
+    (c) =>
+      !byName.includes(c) && c.aliases?.some((a) => a.startsWith(query) || query.startsWith(a)),
+  );
 
-  return available.filter((c) => c.name.startsWith(query));
+  return [...byName, ...byAlias];
 }
 
 function filterAgents(query: string, agents: Agent[]): PopupItem[] {
