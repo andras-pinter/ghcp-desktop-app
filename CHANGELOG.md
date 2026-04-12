@@ -3,6 +3,32 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.7.0] — 2026-04-12
+
+### Features
+
+- **ui:** show alias hints in command popup (e.g. /fetch · /web) (08a9dcb)
+- **ui:** show modal dialogs for /title and /export commands (f0c86d3)
+- **ui:** add slash commands and @-mention autocomplete (4710954)
+
+### Bug Fixes
+
+- **ui:** address review findings — security, dead code, error handling (7d812a5)
+- **ui:** show command aliases in Command Reference modal (0f4a9f8)
+- **ui:** /web alias matches partial prefixes like /w and /we (6951dde)
+- **ui:** wrap-around arrow navigation in command popup and dropdowns (793887e)
+- **ui:** swap export arguments — content was used as filename (8d29e20)
+- **ui:** fix command dispatch, help modal, and delete behavior (ffe4971)
+- **ui:** constrain command popup width to input box (2b57b51)
+- **ui:** auto-focus help modal overlay so Escape key works (6360fca)
+- **ui:** resolve /model sub-command popup and add /help modal for new chat (260fcf9)
+- **ui:** fix slash command bugs — selection, conversation context, scroll, /? alias (89b3182)
+
+### Refactoring
+
+- **ui:** merge /web into /fetch as alias, remove dead code (feeb797)
+- **ui:** rename /clear command to /delete (1b63ff9)
+
 ## [0.6.0] — 2026-04-12
 
 ### Features
