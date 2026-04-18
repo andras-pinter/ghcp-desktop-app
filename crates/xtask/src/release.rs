@@ -131,12 +131,28 @@ fn ensure_clean_worktree() -> Result<(), String> {
         .map_err(|e| format!("Failed to run git status: {e}"))?;
 
     let status = String::from_utf8_lossy(&output.stdout);
-    if !status.trim().is_empty() {
-        return Err(
-            "Working tree is not clean. Commit or stash changes before releasing.".to_string(),
-        );
+    let dirty: Vec<&str> = status.lines().filter(|l| !l.trim().is_empty()).collect();
+
+    if dirty.is_empty() {
+        return Ok(());
     }
-    Ok(())
+
+    // Allow lock file changes — the release commit (git add -A) will include them
+    let only_lock_files = dirty.iter().all(|line| {
+        let path = line.trim().trim_start_matches(|c: char| !c.is_whitespace());
+        let path = path.trim();
+        path == "Cargo.lock" || path == "pnpm-lock.yaml"
+    });
+
+    if only_lock_files {
+        println!("ℹ  Lock file changes detected — will be included in release commit.");
+        return Ok(());
+    }
+
+    Err(format!(
+        "Working tree is not clean. Commit or stash changes before releasing.\nDirty files:\n{}",
+        dirty.join("\n")
+    ))
 }
 
 fn git_cmd(args: &[&str]) -> Result<(), String> {
