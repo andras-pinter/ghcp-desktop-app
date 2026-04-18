@@ -93,9 +93,9 @@
 47. ✅ **versioning-strategy** — Workspace version inheritance: single `version` in root `Cargo.toml` `[workspace.package]`, all crates use `version.workspace = true`. Rust `xtask` crate with 4 commands: `bump` (major/minor/patch across Cargo.toml + package.json + tauri.conf.json), `check-version` (verify all files in sync), `changelog` (generate from conventional commits), `release` (auto-detect bump level from commit history + bump + changelog + commit + tag).
 48. ✅ **window-state-persistence** — Save/restore window position, size, and maximized state via `tauri-plugin-store` (`window-state.json`). Save on close-to-tray and quit. Restore on launch with monitor validation (`is_position_visible()` checks all connected monitors with 200px margin). Size sanity bounds (400–10000). Safe integer conversions via `try_from()`. Entirely Rust-side — no new IPC surface.
 
-### Phase 12: Distribution
+### Phase 12: Distribution ✅
 
-49. ⬚ **app-packaging** — `cargo tauri build` for all platforms. `.dmg` (macOS with code signing + App Sandbox + notarization), `.AppImage`/`.deb` (Linux), `.msi`/`.nsis` (Windows). GitHub Actions CI/CD for automated builds. Publish releases to GitHub Releases for auto-update consumption.
+49. ✅ **app-packaging** — Full CI/CD pipeline via GitHub Actions: `release.yml` (tag-triggered cross-platform builds with `tauri-action`) + `ci.yml` (PR/push checks — Rust fmt/clippy/build/test + frontend check/lint/test/build + version sync). macOS: `.dmg` with App Sandbox entitlements, code signing, notarization. Linux: `.AppImage` + `.deb` with correct WebKitGTK dependencies. Windows: `.msi` + `.nsis` with DigiCert timestamping. Ed25519 updater signing keys generated + pubkey committed. `createUpdaterArtifacts: true` produces `latest.json` + `.sig` files for auto-update. Release guide in `docs/RELEASE.md`.
 
 ### Phase 13: Git Sources & Unified Catalog ✅
 

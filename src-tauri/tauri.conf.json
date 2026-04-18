@@ -35,7 +35,40 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "targets": "all"
+    "targets": "all",
+    "category": "Productivity",
+    "shortDescription": "A native desktop chat client for GitHub Copilot",
+    "longDescription": "Chuck is a polished, native desktop app for GitHub Copilot with conversation management, file attachments, projects, web research, MCP tool integration, custom agents, and streaming responses.",
+    "macOS": {
+      "entitlements": "Entitlements.plist",
+      "signingIdentity": "-",
+      "minimumSystemVersion": "10.15"
+    },
+    "windows": {
+      "certificateThumbprint": null,
+      "digestAlgorithm": "sha256",
+      "timestampUrl": "http://timestamp.digicert.com",
+      "nsis": {
+        "displayLanguageSelector": false,
+        "installerIcon": "icons/icon.ico",
+        "languages": ["English"],
+        "startMenuFolder": "Chuck"
+      }
+    },
+    "linux": {
+      "appimage": {
+        "bundleMediaFramework": false
+      },
+      "deb": {
+        "depends": [
+          "libwebkit2gtk-4.1-0",
+          "libgtk-3-0",
+          "libayatana-appindicator3-1"
+        ],
+        "section": "utils"
+      }
+    },
+    "createUpdaterArtifacts": true
   },
   "identifier": "com.chuck-app.dev",
   "plugins": {
@@ -43,7 +76,7 @@
       "endpoints": [
         "https://github.com/andras-pinter/ghcp-desktop-app/releases/latest/download/latest.json"
       ],
-      "pubkey": "PLACEHOLDER_PUBKEY_GENERATE_WITH_CARGO_TAURI_SIGNER_GENERATE"
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEI0RTgwMEVGRUI4M0E3MjUKUldRbHA0UHI3d0RvdEtvL2tJME1kNXBETHVNTnYvYk0rbnNDNGFoT3JEUHg5TmdzM3o0dmdaVGIK"
     }
   },
   "productName": "Chuck",
