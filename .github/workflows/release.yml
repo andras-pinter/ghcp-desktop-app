@@ -34,6 +34,8 @@ jobs:
 
     name: Build — ${{ matrix.label }}
     runs-on: ${{ matrix.platform }}
+    permissions:
+      contents: write
 
     # Expose APPLE_CERTIFICATE at job level so step `if:` conditions can check it
     env:
