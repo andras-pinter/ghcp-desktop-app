@@ -76,9 +76,9 @@ jobs:
             libgtk-3-dev \
             libayatana-appindicator3-dev
 
-      # Import Apple signing certificate
+      # Import Apple signing certificate (only if secrets are configured)
       - name: Import Apple certificate
-        if: startsWith(matrix.platform, 'macos')
+        if: startsWith(matrix.platform, 'macos') && env.APPLE_CERTIFICATE != ''
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
