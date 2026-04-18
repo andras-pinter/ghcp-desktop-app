@@ -756,7 +756,7 @@ an MCP server binary. This is the **only** exception to the no-subprocess rule:
 
 ## Implementation Plan, Build & Run, Risks, Design Reference
 
-> 📄 **See [docs/PLAN.md](docs/PLAN.md)** for the full implementation plan (12 phases, all ✅ through Phase 11),
+> 📄 **See [docs/PLAN.md](docs/PLAN.md)** for the complete feature inventory,
 > build/run commands, risk mitigations, and the "Warm Ink" visual design system reference.
 >
 > **Quick build reference:**
