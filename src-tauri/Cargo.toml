@@ -13,7 +13,7 @@ crate-type = ["lib", "cdylib", "staticlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = ["tray-icon", "devtools"] }
+tauri = { version = "2", features = ["tray-icon"] }
 tauri-plugin-dialog = "2"
 tauri-plugin-global-shortcut = "2"
 tauri-plugin-updater = "2"
@@ -59,3 +59,8 @@ pdf-extract = "0.10"
 lopdf = "0.38"
 zip = "2"
 tauri-plugin-process = "2.3.1"
+
+[features]
+default = []
+custom-protocol = ["tauri/custom-protocol"]
+devtools = ["tauri/devtools"]
