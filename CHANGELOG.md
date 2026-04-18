@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.9.0] — 2026-04-18
+
+### Features
+
+- **ci:** add cross-platform CI/CD and release pipeline (e564ca2)
+
+### Bug Fixes
+
+- **ci:** address security and correctness review findings (c1541fe)
+- **ci:** make Apple signing optional in release workflow (3cf0c88)
+
 ## [0.8.1] — 2026-04-13
 
 ### Bug Fixes

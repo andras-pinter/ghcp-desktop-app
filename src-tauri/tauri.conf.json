@@ -28,6 +28,8 @@
   },
   "bundle": {
     "active": true,
+    "category": "Productivity",
+    "createUpdaterArtifacts": true,
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -35,36 +37,40 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "targets": "all",
-    "category": "Productivity",
-    "shortDescription": "A native desktop chat client for GitHub Copilot",
-    "longDescription": "Chuck is a polished, native desktop app for GitHub Copilot with conversation management, file attachments, projects, web research, MCP tool integration, custom agents, and streaming responses.",
-    "macOS": {
-      "entitlements": "Entitlements.plist",
-      "signingIdentity": "-",
-      "minimumSystemVersion": "10.15"
-    },
-    "windows": {
-      "certificateThumbprint": null,
-      "digestAlgorithm": "sha256",
-      "timestampUrl": "https://timestamp.digicert.com",
-      "nsis": {
-        "displayLanguageSelector": false,
-        "installerIcon": "icons/icon.ico",
-        "languages": ["English"],
-        "startMenuFolder": "Chuck"
-      }
-    },
     "linux": {
       "appimage": {
         "bundleMediaFramework": false
       },
       "deb": {
-        "depends": ["libwebkit2gtk-4.1-0", "libgtk-3-0", "libayatana-appindicator3-1"],
+        "depends": [
+          "libwebkit2gtk-4.1-0",
+          "libgtk-3-0",
+          "libayatana-appindicator3-1"
+        ],
         "section": "utils"
       }
     },
-    "createUpdaterArtifacts": true
+    "longDescription": "Chuck is a polished, native desktop app for GitHub Copilot with conversation management, file attachments, projects, web research, MCP tool integration, custom agents, and streaming responses.",
+    "macOS": {
+      "entitlements": "Entitlements.plist",
+      "minimumSystemVersion": "10.15",
+      "signingIdentity": "-"
+    },
+    "shortDescription": "A native desktop chat client for GitHub Copilot",
+    "targets": "all",
+    "windows": {
+      "certificateThumbprint": null,
+      "digestAlgorithm": "sha256",
+      "nsis": {
+        "displayLanguageSelector": false,
+        "installerIcon": "icons/icon.ico",
+        "languages": [
+          "English"
+        ],
+        "startMenuFolder": "Chuck"
+      },
+      "timestampUrl": "https://timestamp.digicert.com"
+    }
   },
   "identifier": "com.chuck-app.dev",
   "plugins": {
@@ -76,5 +82,5 @@
     }
   },
   "productName": "Chuck",
-  "version": "0.8.1"
+  "version": "0.9.0"
 }
