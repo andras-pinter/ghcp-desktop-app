@@ -392,7 +392,7 @@ and **events** (`listen()`/`emit()`). This is the only bridge between the two la
 ## Project Structure
 
 ```
-copilot-desktop/
+ghcp-desktop-app/
 ├── Cargo.toml                    # Rust workspace manifest
 ├── Cargo.lock                    # Rust dependency lock file (committed)
 ├── package.json                  # Frontend dependencies (pnpm)

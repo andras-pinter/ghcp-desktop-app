@@ -169,9 +169,9 @@ Uses the **OAuth device flow** — the same flow VS Code uses to authenticate wi
 ### Database & Storage
 
 - SQLite database stored in the **platform-standard app data directory** via Tauri's `app.path().app_data_dir()`:
-  - macOS: `~/Library/Application Support/com.copilot-desktop.app/`
-  - Linux: `~/.local/share/com.copilot-desktop.app/` (XDG_DATA_HOME)
-  - Windows: `%APPDATA%\com.copilot-desktop.app\`
+  - macOS: `~/Library/Application Support/com.chuck-app.dev/`
+  - Linux: `~/.local/share/com.chuck-app.dev/` (XDG_DATA_HOME)
+  - Windows: `%APPDATA%\com.chuck-app.dev\`
 - Show database size in settings
 - Offer "Delete conversations older than X days" cleanup option
 - Warn if database exceeds 500MB with a suggestion to clean up old conversations

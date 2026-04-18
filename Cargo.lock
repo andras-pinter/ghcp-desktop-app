@@ -623,7 +623,7 @@ dependencies = [
 
 [[package]]
 name = "chuck"
-version = "0.10.1"
+version = "0.11.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -726,7 +726,7 @@ dependencies = [
 
 [[package]]
 name = "copilot-api"
-version = "0.10.1"
+version = "0.11.0"
 dependencies = [
  "chrono",
  "futures-util",
@@ -2892,7 +2892,7 @@ checksum = "2532096657941c2fea9c289d370a250971c689d4f143798ff67113ec042024a5"
 
 [[package]]
 name = "mcp-client"
-version = "0.10.1"
+version = "0.11.0"
 dependencies = [
  "log",
  "reqwest 0.12.28",
@@ -4485,9 +4485,9 @@ checksum = "f87165f0995f63a9fbeea62b64d10b4d9d8e78ec6d7d51fb2125fda7bb36788f"
 
 [[package]]
 name = "rustls-webpki"
-version = "0.103.10"
+version = "0.103.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "df33b2b81ac578cabaf06b89b0631153a3f416b0a886e8a7a1707fb51abbd1ef"
+checksum = "8279bb85272c9f10811ae6a6c547ff594d6a7f3c6c6b02ee9726d1d0dcfcdd06"
 dependencies = [
  "ring",
  "rustls-pki-types",
@@ -6603,7 +6603,7 @@ dependencies = [
 
 [[package]]
 name = "web-research"
-version = "0.10.1"
+version = "0.11.0"
 dependencies = [
  "dom_smoothie",
  "futures-util",
@@ -7477,7 +7477,7 @@ checksum = "b9cc00251562a284751c9973bace760d86c0276c471b4be569fe6b068ee97a56"
 
 [[package]]
 name = "xtask"
-version = "0.10.1"
+version = "0.11.0"
 dependencies = [
  "semver",
  "serde_json",
