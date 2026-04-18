@@ -3,6 +3,21 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.9.2] — 2026-04-18
+
+### Bug Fixes
+
+- **tauri:** add explicit default features, update entitlement docs (4854622)
+- **tauri:** grant read-write entitlement for file export (43a14a7)
+- **tauri:** disable devtools in production builds (ec4b04d)
+- **ci:** add contents:write permission to build jobs (e0775db)
+- **ci:** resolve Linux dep conflict, Windows build, and clean up workflows (659a0f5)
+- **ci:** support unsigned macOS builds and upgrade to ubuntu-24.04 (bcabc8c)
+
+### Chores
+
+- **tauri:** regenerate updater signing keypair (dcf5026)
+
 ## [0.9.1] — 2026-04-18
 
 ### Bug Fixes
