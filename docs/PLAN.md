@@ -18,7 +18,7 @@ All features are complete and shipped. Grouped by domain:
 
 ### Persistence & Data
 
-- **SQLite database** — 12 tables, 11 indexes, forward-only migrations (v1→v6), app data directory
+- **SQLite database** — 14 tables, 11 indexes, forward-only migrations (v1→v6), app data directory
 - **Conversation CRUD** — Full lifecycle with reactive Svelte store, auto-generated titles, favourites, date grouping
 - **Draft auto-save** — 3-second debounced save/restore across conversation switches and app launches
 - **Versioning** — `cargo xtask` CLI: `bump`, `check-version`, `changelog`, `release` — lockstep across Cargo.toml + package.json + tauri.conf.json
@@ -27,7 +27,7 @@ All features are complete and shipped. Grouped by domain:
 
 - **Streaming display** — Token-by-token rendering via Tauri events, pulsing indicator with aviation catchphrases, stop button
 - **Markdown rendering** — `marked` v15 + DOMPurify sanitization, custom code block placeholders, safe link handling
-- **Code blocks** — Shiki v3 with dual themes, 30 pre-loaded languages, copy button, language labels
+- **Code blocks** — Shiki v3 with dual themes, 28 pre-loaded languages + dynamic loading, copy button, language labels
 - **Thinking/reasoning** — Collapsible `<details>` section for model reasoning tokens
 - **Message actions** — Edit (discard subsequent + reload), regenerate, copy — with hover reveal
 - **In-conversation search** — Cmd+F overlay with real-time highlighting, match navigation, TreeWalker-based
@@ -246,7 +246,7 @@ The app uses a distinctive **"Warm Ink"** aesthetic — warm paper/ink neutrals 
 
 **CSS Architecture:**
 
-- All design tokens as CSS custom properties in `src/app.css` (70+ variables)
+- All design tokens as CSS custom properties in `src/app.css` (160+ variables)
 - Three theme modes: `:root` (light default), `[data-theme="dark"]`, `[data-theme="system"]`
 - Components must use `var(--token-name)` — no hardcoded colors, font sizes, or spacing values
 - Global reset, scrollbar styling, focus-visible, selection colors defined in `app.css`

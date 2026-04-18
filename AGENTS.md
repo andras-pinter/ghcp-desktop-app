@@ -743,7 +743,7 @@ an MCP server binary. This is the **only** exception to the no-subprocess rule:
 
 ## Data Model (SQLite)
 
-> 📄 **See [docs/DATA-MODEL.md](docs/DATA-MODEL.md)** for the complete SQLite schema (12 tables, 8 indexes),
+> 📄 **See [docs/DATA-MODEL.md](docs/DATA-MODEL.md)** for the complete SQLite schema (14 tables, 11 indexes),
 > persistence rules, migration strategy (v1→v2→v3), and the versioning/release system.
 >
 > **Key points:**
