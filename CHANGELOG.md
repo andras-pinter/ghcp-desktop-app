@@ -3,6 +3,20 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.10.0] — 2026-04-18
+
+### Features
+
+- **ui:** add chat width toggle (centered/wide) (44ade79)
+
+### Bug Fixes
+
+- **ui:** improve width toggle icon and styling (10f09ca)
+
+### Refactoring
+
+- **ui:** move width toggle above input area (1ecf18c)
+
 ## [0.9.2] — 2026-04-18
 
 ### Bug Fixes
