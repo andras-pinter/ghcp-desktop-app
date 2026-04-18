@@ -3,6 +3,28 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.11.2] — 2026-04-19
+
+### Bug Fixes
+
+- **deps:** sync tauri-plugin-dialog Rust crate to 2.7.0 (7e17d4a)
+- redact token Debug output, fix docs, update deps (0014c87)
+- **ci:** remove notarization env vars to skip notarization (ab841e2)
+- **ci:** force bash shell for changelog extraction step (b6128f1)
+- **ci:** set up keychain manually for self-signed codesign (5cb8ed7)
+
+### Chores
+
+- release v0.11.1 (3b38e90)
+- **deps:** bump globals from 16.5.0 to 17.5.0 (069c5aa)
+- **deps:** bump @sveltejs/vite-plugin-svelte from 5.1.1 to 6.2.4 (0bf66c4)
+- **deps:** bump shiki from 3.23.0 to 4.0.2 (65d02d9)
+- **deps:** bump @tauri-apps/plugin-updater from 2.10.0 to 2.10.1 (#24) (424366d)
+- **deps:** bump typescript from 5.9.3 to 6.0.3 (a88ce4c)
+- **ci:** bump the actions-all group with 5 updates (0bc23e9)
+- **deps:** bump the npm-minor-patch group with 6 updates (#15) (b8047ea)
+- **ci:** group Dependabot PRs and auto-merge minor/patch (8703d3b)
+
 ## [0.11.1] — 2026-04-19
 
 ### Bug Fixes
