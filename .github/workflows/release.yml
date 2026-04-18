@@ -81,6 +81,23 @@ jobs:
             libgtk-3-dev \
             libayatana-appindicator3-dev
 
+      # Extract release notes from CHANGELOG.md (latest version section)
+      - name: Extract release notes
+        id: changelog
+        run: |
+          # Extract everything between the first ## [...] heading and the next one (or EOF)
+          NOTES=$(awk '/^## \[/{if(found) exit; found=1; next} found{print}' CHANGELOG.md)
+          # Fall back if empty
+          if [ -z "$(echo "$NOTES" | tr -d '[:space:]')" ]; then
+            NOTES="See [CHANGELOG.md](https://github.com/andras-pinter/ghcp-desktop-app/blob/main/CHANGELOG.md) for details."
+          fi
+          # Write to output using delimiter (supports multiline)
+          {
+            echo "body<<RELEASE_NOTES_EOF"
+            echo "$NOTES"
+            echo "RELEASE_NOTES_EOF"
+          } >> "$GITHUB_OUTPUT"
+
       # macOS: Build with code signing (+ notarization when APPLE_ID/APPLE_TEAM_ID are set)
       - name: Build Tauri app (signed)
         if: startsWith(matrix.platform, 'macos') && env.APPLE_CERTIFICATE != ''
@@ -98,7 +115,7 @@ jobs:
         with:
           tagName: v__VERSION__
           releaseName: "Chuck v__VERSION__"
-          releaseBody: "See [CHANGELOG.md](https://github.com/andras-pinter/ghcp-desktop-app/blob/main/CHANGELOG.md) for details."
+          releaseBody: ${{ steps.changelog.outputs.body }}
           releaseDraft: false
           prerelease: false
           args: --target ${{ matrix.target }}
@@ -114,7 +131,7 @@ jobs:
         with:
           tagName: v__VERSION__
           releaseName: "Chuck v__VERSION__"
-          releaseBody: "See [CHANGELOG.md](https://github.com/andras-pinter/ghcp-desktop-app/blob/main/CHANGELOG.md) for details."
+          releaseBody: ${{ steps.changelog.outputs.body }}
           releaseDraft: false
           prerelease: false
           args: --target ${{ matrix.target }}
