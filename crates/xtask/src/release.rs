@@ -108,7 +108,7 @@ pub fn run(force_level: Option<&str>, dry_run: bool) -> Result<(), String> {
 /// Determine bump level from conventional commits.
 /// - Any `!` (breaking) → major
 /// - Any `feat` → minor
-/// - Any `fix` or `perf` → patch
+/// - Any `fix`, `perf`, or `chore(deps)` → patch
 /// - Everything else (docs, test, chore, style, ci, build, refactor) → none (no bump)
 fn detect_bump_level(commits: &[changelog::ConventionalCommit]) -> String {
     if commits.iter().any(|c| c.is_breaking) {
@@ -117,8 +117,18 @@ fn detect_bump_level(commits: &[changelog::ConventionalCommit]) -> String {
     if commits.iter().any(|c| c.commit_type == "feat") {
         return "minor".to_string();
     }
-    let bump_types = ["fix", "perf"];
-    if commits.iter().any(|c| bump_types.contains(&c.commit_type.as_str())) {
+    let is_patch = |c: &changelog::ConventionalCommit| {
+        let bump_types = ["fix", "perf"];
+        if bump_types.contains(&c.commit_type.as_str()) {
+            return true;
+        }
+        // Dependency updates (chore(deps), build(deps)) should trigger a patch release
+        if c.scope.as_deref() == Some("deps") {
+            return true;
+        }
+        false
+    };
+    if commits.iter().any(is_patch) {
         return "patch".to_string();
     }
     "none".to_string()
@@ -183,6 +193,16 @@ mod tests {
         }
     }
 
+    fn commit_with_scope(typ: &str, scope: &str) -> ConventionalCommit {
+        ConventionalCommit {
+            commit_type: typ.to_string(),
+            scope: Some(scope.to_string()),
+            description: "test".to_string(),
+            hash: "abc1234".to_string(),
+            is_breaking: false,
+        }
+    }
+
     #[test]
     fn detect_patch_from_fixes() {
         let commits = vec![commit("fix", false), commit("chore", false)];
@@ -224,6 +244,24 @@ mod tests {
     #[test]
     fn detect_none_from_docs_only() {
         let commits = vec![commit("docs", false)];
+        assert_eq!(detect_bump_level(&commits), "none");
+    }
+
+    #[test]
+    fn detect_patch_from_deps_scope() {
+        let commits = vec![commit_with_scope("chore", "deps")];
+        assert_eq!(detect_bump_level(&commits), "patch");
+    }
+
+    #[test]
+    fn detect_patch_from_build_deps() {
+        let commits = vec![commit_with_scope("build", "deps"), commit("docs", false)];
+        assert_eq!(detect_bump_level(&commits), "patch");
+    }
+
+    #[test]
+    fn detect_none_from_chore_non_deps() {
+        let commits = vec![commit_with_scope("chore", "ci")];
         assert_eq!(detect_bump_level(&commits), "none");
     }
 }
