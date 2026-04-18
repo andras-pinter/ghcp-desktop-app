@@ -13,6 +13,11 @@ updates:
       - dependencies
       - rust
     open-pull-requests-limit: 10
+    groups:
+      rust-minor-patch:
+        update-types:
+          - minor
+          - patch
 
   # npm (pnpm) dependencies
   - package-ecosystem: npm
@@ -26,6 +31,11 @@ updates:
       - dependencies
       - frontend
     open-pull-requests-limit: 10
+    groups:
+      npm-minor-patch:
+        update-types:
+          - minor
+          - patch
 
   # GitHub Actions
   - package-ecosystem: github-actions
@@ -39,3 +49,7 @@ updates:
       - dependencies
       - ci
     open-pull-requests-limit: 5
+    groups:
+      actions-all:
+        patterns:
+          - "*"
