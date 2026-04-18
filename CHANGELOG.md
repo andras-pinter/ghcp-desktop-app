@@ -3,6 +3,20 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.11.1] — 2026-04-19
+
+### Bug Fixes
+
+- redact token Debug output, fix docs, update deps (601fc53)
+- **ci:** remove notarization env vars to skip notarization (ab841e2)
+- **ci:** force bash shell for changelog extraction step (b6128f1)
+- **ci:** set up keychain manually for self-signed codesign (5cb8ed7)
+
+### Chores
+
+- **deps:** bump the npm-minor-patch group with 6 updates (#15) (b8047ea)
+- **ci:** group Dependabot PRs and auto-merge minor/patch (8703d3b)
+
 ## [0.11.0] — 2026-04-19
 
 ### Features
