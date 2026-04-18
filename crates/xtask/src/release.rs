@@ -37,6 +37,16 @@ pub fn run(force_level: Option<&str>, dry_run: bool) -> Result<(), String> {
         None => detect_bump_level(&commits),
     };
 
+    if level == "none" {
+        println!(
+            "No version-bumping commits since {} ({} commit(s) found, but only docs/test/chore/style/ci/build).",
+            latest_tag.as_deref().unwrap_or("beginning"),
+            commits.len()
+        );
+        println!("Use `cargo xtask release --level patch` to force a release.");
+        return Ok(());
+    }
+
     println!("Detected bump level: {level}");
     println!(
         "  {} commit(s) since {}",
@@ -98,7 +108,8 @@ pub fn run(force_level: Option<&str>, dry_run: bool) -> Result<(), String> {
 /// Determine bump level from conventional commits.
 /// - Any `!` (breaking) → major
 /// - Any `feat` → minor
-/// - Everything else → patch
+/// - Any `fix` or `perf` → patch
+/// - Everything else (docs, test, chore, style, ci, build, refactor) → none (no bump)
 fn detect_bump_level(commits: &[changelog::ConventionalCommit]) -> String {
     if commits.iter().any(|c| c.is_breaking) {
         return "major".to_string();
@@ -106,7 +117,11 @@ fn detect_bump_level(commits: &[changelog::ConventionalCommit]) -> String {
     if commits.iter().any(|c| c.commit_type == "feat") {
         return "minor".to_string();
     }
-    "patch".to_string()
+    let bump_types = ["fix", "perf"];
+    if commits.iter().any(|c| bump_types.contains(&c.commit_type.as_str())) {
+        return "patch".to_string();
+    }
+    "none".to_string()
 }
 
 fn ensure_clean_worktree() -> Result<(), String> {
@@ -159,6 +174,12 @@ mod tests {
     }
 
     #[test]
+    fn detect_patch_from_perf() {
+        let commits = vec![commit("perf", false), commit("docs", false)];
+        assert_eq!(detect_bump_level(&commits), "patch");
+    }
+
+    #[test]
     fn detect_minor_from_feat() {
         let commits = vec![commit("fix", false), commit("feat", false)];
         assert_eq!(detect_bump_level(&commits), "minor");
@@ -168,5 +189,25 @@ mod tests {
     fn detect_major_from_breaking() {
         let commits = vec![commit("feat", false), commit("fix", true)];
         assert_eq!(detect_bump_level(&commits), "major");
+    }
+
+    #[test]
+    fn detect_none_from_non_bumping_types() {
+        let commits = vec![
+            commit("docs", false),
+            commit("test", false),
+            commit("chore", false),
+            commit("style", false),
+            commit("ci", false),
+            commit("build", false),
+            commit("refactor", false),
+        ];
+        assert_eq!(detect_bump_level(&commits), "none");
+    }
+
+    #[test]
+    fn detect_none_from_docs_only() {
+        let commits = vec![commit("docs", false)];
+        assert_eq!(detect_bump_level(&commits), "none");
     }
 }
