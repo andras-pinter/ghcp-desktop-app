@@ -6,7 +6,7 @@ resolver = "2"
 version = "0.8.1"
 edition = "2021"
 license = "Apache-2.0"
-repository = "https://github.com/pinter-copilot/ghcp-desktop-app"
+repository = "https://github.com/andras-pinter/ghcp-desktop-app"
 
 [workspace.dependencies]
 serde = { version = "1", features = ["derive"] }
