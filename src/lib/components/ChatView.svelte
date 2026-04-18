@@ -722,66 +722,6 @@
       </div>
     </div>
   {:else}
-    <button
-      class="width-toggle"
-      aria-label={settings.chatWidth === "wide"
-        ? "Switch to centered layout"
-        : "Switch to wide layout"}
-      title={settings.chatWidth === "wide" ? "Centered layout" : "Wide layout"}
-      onclick={toggleChatWidth}
-    >
-      {#if settings.chatWidth === "wide"}
-        <!-- Contract inward: →| |← -->
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-          <path
-            d="M1 3v10M15 3v10"
-            stroke="currentColor"
-            stroke-width="1.5"
-            stroke-linecap="round"
-          />
-          <path d="M5 8h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
-          <path
-            d="M7 6l-2 2 2 2"
-            stroke="currentColor"
-            stroke-width="1.5"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-          <path
-            d="M9 6l2 2-2 2"
-            stroke="currentColor"
-            stroke-width="1.5"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-        </svg>
-      {:else}
-        <!-- Expand outward: ←| |→ -->
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-          <path
-            d="M1 3v10M15 3v10"
-            stroke="currentColor"
-            stroke-width="1.5"
-            stroke-linecap="round"
-          />
-          <path d="M4 8h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
-          <path
-            d="M6 6l-2 2 2 2"
-            stroke="currentColor"
-            stroke-width="1.5"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-          <path
-            d="M10 6l2 2-2 2"
-            stroke="currentColor"
-            stroke-width="1.5"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-        </svg>
-      {/if}
-    </button>
     {#if showSearch}
       <SearchOverlay {chatContainer} onClose={() => (showSearch = false)} />
     {/if}
@@ -838,6 +778,66 @@
     {/if}
     <div class="chat-input-float">
       <div class="chat-input-container">
+        <div class="input-width-row">
+          <button
+            class="width-toggle"
+            aria-label={settings.chatWidth === "wide"
+              ? "Switch to centered layout"
+              : "Switch to wide layout"}
+            title={settings.chatWidth === "wide" ? "Centered layout" : "Wide layout"}
+            onclick={toggleChatWidth}
+          >
+            {#if settings.chatWidth === "wide"}
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <path
+                  d="M1 3v10M15 3v10"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                />
+                <path d="M5 8h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+                <path
+                  d="M7 6l-2 2 2 2"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+                <path
+                  d="M9 6l2 2-2 2"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+            {:else}
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <path
+                  d="M1 3v10M15 3v10"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                />
+                <path d="M4 8h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+                <path
+                  d="M6 6l-2 2 2 2"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+                <path
+                  d="M10 6l2 2-2 2"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+            {/if}
+          </button>
+        </div>
         <InputArea
           onSend={handleSend}
           {streaming}
@@ -1061,23 +1061,25 @@
 
   /* ── Width toggle ── */
 
+  .input-width-row {
+    display: flex;
+    justify-content: flex-end;
+    padding-bottom: var(--spacing-xs);
+  }
+
   .width-toggle {
-    position: absolute;
-    top: var(--spacing-lg);
-    right: var(--spacing-lg);
-    z-index: 3;
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 30px;
-    height: 30px;
+    width: 26px;
+    height: 26px;
     border: none;
     border-radius: var(--radius-md);
-    background: var(--color-bg-secondary);
+    background: transparent;
     color: var(--color-text-tertiary);
     cursor: pointer;
     transition: var(--transition-fast);
-    opacity: 0.6;
+    opacity: 0.5;
   }
 
   .width-toggle:hover {
