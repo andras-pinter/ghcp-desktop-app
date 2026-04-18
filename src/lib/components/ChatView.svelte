@@ -40,7 +40,7 @@
   } from "$lib/stores/conversations.svelte";
   import { getModelStore, setDefaultModel } from "$lib/stores/models.svelte";
   import { getAgentStore, selectAgent } from "$lib/stores/agents.svelte";
-  import { getSettings } from "$lib/stores/settings.svelte";
+  import { getSettings, updateSetting, SETTING_KEYS } from "$lib/stores/settings.svelte";
   import { getNetwork } from "$lib/stores/network.svelte";
   import { getSkillStore } from "$lib/stores/skills.svelte";
   import { SLASH_COMMANDS } from "$lib/types/commands";
@@ -644,6 +644,11 @@
     }
   }
 
+  function toggleChatWidth() {
+    const next = settings.chatWidth === "wide" ? "centered" : "wide";
+    updateSetting(SETTING_KEYS.chatWidth, next);
+  }
+
   /** Compute index of last assistant message. */
   let lastAssistantIndex = $derived(
     (() => {
@@ -717,6 +722,38 @@
       </div>
     </div>
   {:else}
+    <button
+      class="width-toggle"
+      aria-label={settings.chatWidth === "wide"
+        ? "Switch to centered layout"
+        : "Switch to wide layout"}
+      title={settings.chatWidth === "wide" ? "Centered layout" : "Wide layout"}
+      onclick={toggleChatWidth}
+    >
+      {#if settings.chatWidth === "wide"}
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+          <path
+            d="M5 3l-3 5 3 5M11 3l3 5-3 5"
+            stroke="currentColor"
+            stroke-width="1.5"
+            fill="none"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+      {:else}
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+          <path
+            d="M3 3l3 5-3 5M13 3l-3 5 3 5"
+            stroke="currentColor"
+            stroke-width="1.5"
+            fill="none"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+      {/if}
+    </button>
     {#if showSearch}
       <SearchOverlay {chatContainer} onClose={() => (showSearch = false)} />
     {/if}
@@ -992,6 +1029,33 @@
     font-weight: 500;
     color: var(--color-accent-copper);
     letter-spacing: var(--letter-spacing-tight);
+  }
+
+  /* ── Width toggle ── */
+
+  .width-toggle {
+    position: absolute;
+    top: var(--spacing-md);
+    right: var(--spacing-md);
+    z-index: 3;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: var(--radius-md);
+    background: transparent;
+    color: var(--color-text-tertiary);
+    cursor: pointer;
+    transition: var(--transition-fast);
+    opacity: 0.5;
+  }
+
+  .width-toggle:hover {
+    background: var(--color-bg-tertiary);
+    color: var(--color-text-secondary);
+    opacity: 1;
   }
 
   /* ── Offline banner ── */
