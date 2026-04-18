@@ -21,7 +21,7 @@
     "@testing-library/svelte": "^5",
     "@tsconfig/svelte": "^5.0.8",
     "@types/dompurify": "^3",
-    "eslint": "^9.39.0",
+    "eslint": "^10.2.1",
     "eslint-plugin-svelte": "^3",
     "globals": "^16",
     "jsdom": "^26",
