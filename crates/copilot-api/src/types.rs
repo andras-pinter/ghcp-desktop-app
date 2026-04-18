@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 ///
 /// **Not `Serialize`** — contains `device_code` (polling secret) that must
 /// not be sent to the frontend. Use [`DeviceCodeInfo`] for the IPC boundary.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Clone, Deserialize)]
 pub struct DeviceCodeResponse {
     /// The device verification code (used for polling — internal only).
     pub device_code: String,
@@ -23,6 +23,18 @@ pub struct DeviceCodeResponse {
     pub expires_in: u64,
     /// Minimum seconds between poll attempts.
     pub interval: u64,
+}
+
+impl std::fmt::Debug for DeviceCodeResponse {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("DeviceCodeResponse")
+            .field("device_code", &"[REDACTED]")
+            .field("user_code", &self.user_code)
+            .field("verification_uri", &self.verification_uri)
+            .field("expires_in", &self.expires_in)
+            .field("interval", &self.interval)
+            .finish()
+    }
 }
 
 /// User-facing subset of [`DeviceCodeResponse`] safe to send to the frontend.
@@ -52,11 +64,21 @@ impl From<&DeviceCodeResponse> for DeviceCodeInfo {
 }
 
 /// Successful response from polling `POST https://github.com/login/oauth/access_token`.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Clone, Deserialize)]
 pub struct OAuthTokenResponse {
     pub access_token: String,
     pub token_type: String,
     pub scope: String,
+}
+
+impl std::fmt::Debug for OAuthTokenResponse {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("OAuthTokenResponse")
+            .field("access_token", &"[REDACTED]")
+            .field("token_type", &self.token_type)
+            .field("scope", &self.scope)
+            .finish()
+    }
 }
 
 /// Error body from the OAuth token polling endpoint.
@@ -70,7 +92,7 @@ pub struct OAuthErrorResponse {
 // ── Copilot Token ──────────────────────────────────────────────────
 
 /// Response from `GET https://api.github.com/copilot_internal/v2/token`.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Clone, Deserialize)]
 pub struct CopilotTokenResponse {
     /// Short-lived JWT for Copilot API calls.
     pub token: String,
@@ -79,6 +101,16 @@ pub struct CopilotTokenResponse {
     /// Map of endpoint URLs (e.g., `api` → base URL for chat completions).
     #[serde(default)]
     pub endpoints: CopilotEndpoints,
+}
+
+impl std::fmt::Debug for CopilotTokenResponse {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CopilotTokenResponse")
+            .field("token", &"[REDACTED]")
+            .field("expires_at", &self.expires_at)
+            .field("endpoints", &self.endpoints)
+            .finish()
+    }
 }
 
 /// Copilot API endpoints extracted from the token response.

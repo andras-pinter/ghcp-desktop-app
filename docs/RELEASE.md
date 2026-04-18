@@ -69,10 +69,9 @@ git push origin main --tags
 The `release.yml` workflow triggers on `v*` tags and:
 
 1. Builds for macOS (ARM + Intel), Linux (x86_64), Windows (x86_64)
-2. Signs macOS builds + notarizes with Apple
+2. Signs macOS builds with developer certificate (notarization not yet configured)
 3. Signs update bundles with Ed25519 private key
-4. Creates a draft GitHub Release with all artifacts
-5. Publishes the release (removes draft status)
+4. Creates a GitHub Release with all artifacts and changelog notes
 
 ### 3. Artifacts produced
 
@@ -120,3 +119,11 @@ The `ci.yml` workflow runs on every push to `main` and all PRs:
 - **Rust checks:** fmt, clippy, build, test
 - **Frontend checks:** svelte-check, eslint+prettier, vitest, vite build
 - **Version sync:** verifies Cargo.toml, package.json, tauri.conf.json match
+
+## Dependabot & Auto-Merge
+
+Dependabot is configured in `.github/dependabot.yml` to check for dependency updates weekly across all ecosystems (npm, Cargo, GitHub Actions). Minor and patch updates are grouped into batched PRs per ecosystem.
+
+The `dependabot-auto-merge.yml` workflow automatically approves and squash-merges Dependabot PRs for non-major version bumps after CI checks pass. Major version bumps require manual review.
+
+**Prerequisites:** "Allow auto-merge" must be enabled in repository settings, and branch protection rules must be configured on `main` with required status checks.
