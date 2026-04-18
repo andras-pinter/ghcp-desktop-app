@@ -16,7 +16,7 @@
     "shiki": "^3"
   },
   "devDependencies": {
-    "@eslint/js": "^9.28.0",
+    "@eslint/js": "^9.39.4",
     "@sveltejs/vite-plugin-svelte": "^5",
     "@testing-library/svelte": "^5",
     "@tsconfig/svelte": "^5.0.8",
