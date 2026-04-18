@@ -3,6 +3,16 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.9.1] — 2026-04-18
+
+### Bug Fixes
+
+- **ci:** correct actions/setup-node commit SHA pin (b91d7a0)
+
+### Chores
+
+- bump dependency lock (dfec876)
+
 ## [0.9.0] — 2026-04-18
 
 ### Features
