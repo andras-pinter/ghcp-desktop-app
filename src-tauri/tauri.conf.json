@@ -78,7 +78,7 @@
       "endpoints": [
         "https://github.com/andras-pinter/ghcp-desktop-app/releases/latest/download/latest.json"
       ],
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEI0RTgwMEVGRUI4M0E3MjUKUldRbHA0UHI3d0RvdEtvL2tJME1kNXBETHVNTnYvYk0rbnNDNGFoT3JEUHg5TmdzM3o0dmdaVGIK"
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEUyRjMwMDMyMTMxMDZEREQKUldUZGJSQVRNZ0R6NGtBa3NBdE1vYWZQUk1VMEpjZFE5M09YQXNOUzZCbGhwcFRuYjBhTDlhQVkK"
     }
   },
   "productName": "Chuck",
