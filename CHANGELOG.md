@@ -3,6 +3,23 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.10.1] — 2026-04-18
+
+### Bug Fixes
+
+- **xtask:** skip version bump for non-bumping commit types (feedb04)
+- **ci:** publish releases immediately instead of as drafts (645361a)
+- **docs:** correct table count (14), language count (28), CSS vars (160+) (f8b579f)
+- **docs:** correct index count, language count, remove duplicate section (bd2e0be)
+
+### Documentation
+
+- consolidate implementation phases into feature inventory (752490d)
+
+### Chores
+
+- gitignore SQLite database artifacts (ebad3d3)
+
 ## [0.10.0] — 2026-04-18
 
 ### Features
