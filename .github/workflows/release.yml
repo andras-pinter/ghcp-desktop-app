@@ -99,7 +99,7 @@ jobs:
           tagName: v__VERSION__
           releaseName: "Chuck v__VERSION__"
           releaseBody: "See [CHANGELOG.md](https://github.com/andras-pinter/ghcp-desktop-app/blob/main/CHANGELOG.md) for details."
-          releaseDraft: true
+          releaseDraft: false
           prerelease: false
           args: --target ${{ matrix.target }}
 
@@ -115,40 +115,6 @@ jobs:
           tagName: v__VERSION__
           releaseName: "Chuck v__VERSION__"
           releaseBody: "See [CHANGELOG.md](https://github.com/andras-pinter/ghcp-desktop-app/blob/main/CHANGELOG.md) for details."
-          releaseDraft: true
+          releaseDraft: false
           prerelease: false
           args: --target ${{ matrix.target }}
-
-  publish:
-    needs: build
-    runs-on: ubuntu-24.04
-    name: Publish Release
-    permissions:
-      contents: write
-
-    steps:
-      - name: Publish release
-        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
-        with:
-          script: |
-            const tag = context.ref.replace('refs/tags/', '');
-            try {
-              const { data: release } = await github.rest.repos.getReleaseByTag({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                tag: tag
-              });
-              if (release.draft) {
-                await github.rest.repos.updateRelease({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  release_id: release.id,
-                  draft: false
-                });
-                core.info(`Published release: ${release.name}`);
-              } else {
-                core.info(`Release ${release.name} is already published`);
-              }
-            } catch (error) {
-              core.warning(`Could not find release for tag ${tag}: ${error.message}`);
-            }
