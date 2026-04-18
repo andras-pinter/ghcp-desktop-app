@@ -94,10 +94,10 @@ The app runs with App Sandbox enabled via `src-tauri/Entitlements.plist`:
 
 - `com.apple.security.app-sandbox` — sandbox enabled
 - `com.apple.security.network.client` — outbound network (API calls)
-- `com.apple.security.files.user-selected.read-only` — read files user selects via dialogs/drag-drop
+- `com.apple.security.files.user-selected.read-write` — read/write files user selects via save/open dialogs and drag-drop
 
-No filesystem write access outside the app container. No subprocess spawning
-(except MCP stdio servers which require user approval).
+Filesystem write access is limited to user-selected files (via native save dialogs).
+No subprocess spawning (except MCP stdio servers which require user approval).
 
 ---
 
