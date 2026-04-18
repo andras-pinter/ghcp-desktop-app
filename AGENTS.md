@@ -743,7 +743,7 @@ an MCP server binary. This is the **only** exception to the no-subprocess rule:
 
 ## Data Model (SQLite)
 
-> 📄 **See [docs/DATA-MODEL.md](docs/DATA-MODEL.md)** for the complete SQLite schema (12 tables, 8 indexes),
+> 📄 **See [docs/DATA-MODEL.md](docs/DATA-MODEL.md)** for the complete SQLite schema (14 tables, 11 indexes),
 > persistence rules, migration strategy (v1→v2→v3), and the versioning/release system.
 >
 > **Key points:**
@@ -756,7 +756,7 @@ an MCP server binary. This is the **only** exception to the no-subprocess rule:
 
 ## Implementation Plan, Build & Run, Risks, Design Reference
 
-> 📄 **See [docs/PLAN.md](docs/PLAN.md)** for the full implementation plan (12 phases, all ✅ through Phase 11),
+> 📄 **See [docs/PLAN.md](docs/PLAN.md)** for the complete feature inventory,
 > build/run commands, risk mitigations, and the "Warm Ink" visual design system reference.
 >
 > **Quick build reference:**
