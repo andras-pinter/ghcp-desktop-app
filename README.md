@@ -144,6 +144,13 @@ See [AGENTS.md](./AGENTS.md) for the complete security specification.
 
 - **[AGENTS.md](./AGENTS.md)** — comprehensive project specification, architecture, coding conventions, implementation plan, and agent instructions
 
+**Extended Documentation** (in `docs/`):
+- **[docs/PLAN.md](./docs/PLAN.md)** — implementation plan, build commands, risks, design reference
+- **[docs/API-REFERENCE.md](./docs/API-REFERENCE.md)** — dependencies, Copilot API, MCP protocol, skills/agents system
+- **[docs/DATA-MODEL.md](./docs/DATA-MODEL.md)** — SQLite schema, migrations, versioning
+- **[docs/WIREFRAMES.md](./docs/WIREFRAMES.md)** — 9 ASCII wireframes for all screens
+- **[docs/RELEASE.md](./docs/RELEASE.md)** — release workflow, code signing, distribution
+
 ## Legal
 
 ### Disclaimer
