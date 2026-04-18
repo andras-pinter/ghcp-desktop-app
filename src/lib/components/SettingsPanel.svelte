@@ -213,6 +213,24 @@
           {/each}
         </select>
       </div>
+      <div class="setting-divider"></div>
+
+      <div class="setting-row">
+        <div class="setting-info">
+          <span class="setting-label">Chat width</span>
+          <span class="setting-desc">Centered for readability, wide for more space</span>
+        </div>
+        <select
+          id="chat-width-select"
+          class="form-select"
+          value={settings.chatWidth}
+          onchange={(e) =>
+            updateSetting(SETTING_KEYS.chatWidth, (e.target as HTMLSelectElement).value)}
+        >
+          <option value="centered">Centered</option>
+          <option value="wide">Wide</option>
+        </select>
+      </div>
     </div>
 
     <!-- ═══════════════════ INPUT ═══════════════════ -->

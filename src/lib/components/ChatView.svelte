@@ -40,7 +40,7 @@
   } from "$lib/stores/conversations.svelte";
   import { getModelStore, setDefaultModel } from "$lib/stores/models.svelte";
   import { getAgentStore, selectAgent } from "$lib/stores/agents.svelte";
-  import { getSettings } from "$lib/stores/settings.svelte";
+  import { getSettings, updateSetting, SETTING_KEYS } from "$lib/stores/settings.svelte";
   import { getNetwork } from "$lib/stores/network.svelte";
   import { getSkillStore } from "$lib/stores/skills.svelte";
   import { SLASH_COMMANDS } from "$lib/types/commands";
@@ -644,6 +644,11 @@
     }
   }
 
+  function toggleChatWidth() {
+    const next = settings.chatWidth === "wide" ? "centered" : "wide";
+    updateSetting(SETTING_KEYS.chatWidth, next);
+  }
+
   /** Compute index of last assistant message. */
   let lastAssistantIndex = $derived(
     (() => {
@@ -773,6 +778,66 @@
     {/if}
     <div class="chat-input-float">
       <div class="chat-input-container">
+        <div class="input-width-row">
+          <button
+            class="width-toggle"
+            aria-label={settings.chatWidth === "wide"
+              ? "Switch to centered layout"
+              : "Switch to wide layout"}
+            title={settings.chatWidth === "wide" ? "Centered layout" : "Wide layout"}
+            onclick={toggleChatWidth}
+          >
+            {#if settings.chatWidth === "wide"}
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <path
+                  d="M1 3v10M15 3v10"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                />
+                <path d="M5 8h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+                <path
+                  d="M7 6l-2 2 2 2"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+                <path
+                  d="M9 6l2 2-2 2"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+            {:else}
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <path
+                  d="M1 3v10M15 3v10"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                />
+                <path d="M4 8h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+                <path
+                  d="M6 6l-2 2 2 2"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+                <path
+                  d="M10 6l2 2-2 2"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+            {/if}
+          </button>
+        </div>
         <InputArea
           onSend={handleSend}
           {streaming}
@@ -992,6 +1057,35 @@
     font-weight: 500;
     color: var(--color-accent-copper);
     letter-spacing: var(--letter-spacing-tight);
+  }
+
+  /* ── Width toggle ── */
+
+  .input-width-row {
+    display: flex;
+    justify-content: flex-end;
+    padding-bottom: var(--spacing-xs);
+  }
+
+  .width-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border: none;
+    border-radius: var(--radius-md);
+    background: transparent;
+    color: var(--color-text-tertiary);
+    cursor: pointer;
+    transition: var(--transition-fast);
+    opacity: 0.5;
+  }
+
+  .width-toggle:hover {
+    background: var(--color-bg-tertiary);
+    color: var(--color-text-primary);
+    opacity: 1;
   }
 
   /* ── Offline banner ── */

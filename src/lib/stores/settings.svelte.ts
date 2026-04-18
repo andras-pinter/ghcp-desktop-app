@@ -7,6 +7,7 @@ import { getSetting, updateSetting as updateSettingCmd } from "$lib/utils/comman
 export type ThemeMode = "system" | "light" | "dark";
 export type SendShortcut = "enter" | "cmd-enter";
 export type UpdateFrequency = "startup" | "daily" | "weekly";
+export type ChatWidth = "centered" | "wide";
 
 /** All user-configurable setting keys. */
 export const SETTING_KEYS = {
@@ -20,6 +21,7 @@ export const SETTING_KEYS = {
   updateSnoozedUntil: "update_snoozed_until",
   aitmplEnabled: "aitmpl_enabled",
   defaultAgentId: "default_agent_id",
+  chatWidth: "chat_width",
 } as const;
 
 // ── Reactive state ──────────────────────────────────────────────
@@ -34,6 +36,7 @@ let skippedVersion = $state<string | null>(null);
 let updateSnoozedUntil = $state<string | null>(null);
 let aitmplEnabled = $state(true);
 let defaultAgentId = $state<string>("default");
+let chatWidth = $state<ChatWidth>("centered");
 let loaded = $state(false);
 
 // ── Theme application ───────────────────────────────────────────
@@ -47,6 +50,14 @@ function applyFontSize(size: number): void {
   document.documentElement.style.setProperty("--font-size-sm", `${size - 1}px`);
   document.documentElement.style.setProperty("--font-size-xs", `${size - 2}px`);
   document.documentElement.style.setProperty("--font-size-lg", `${size + 2}px`);
+}
+
+function applyChatWidth(mode: ChatWidth): void {
+  if (mode === "wide") {
+    document.documentElement.style.setProperty("--content-max-width", "none");
+  } else {
+    document.documentElement.style.removeProperty("--content-max-width");
+  }
 }
 
 // ── Public API ──────────────────────────────────────────────────
@@ -64,6 +75,7 @@ export async function initSettings(): Promise<void> {
     snoozedVal,
     aitmplVal,
     defaultAgentVal,
+    chatWidthVal,
   ] = await Promise.all([
     getSetting(SETTING_KEYS.theme),
     getSetting(SETTING_KEYS.fontSize),
@@ -75,6 +87,7 @@ export async function initSettings(): Promise<void> {
     getSetting(SETTING_KEYS.updateSnoozedUntil),
     getSetting(SETTING_KEYS.aitmplEnabled),
     getSetting(SETTING_KEYS.defaultAgentId),
+    getSetting(SETTING_KEYS.chatWidth),
   ]);
 
   if (themeVal) theme = themeVal as ThemeMode;
@@ -87,9 +100,11 @@ export async function initSettings(): Promise<void> {
   updateSnoozedUntil = snoozedVal ?? null;
   aitmplEnabled = aitmplVal !== "false";
   if (defaultAgentVal) defaultAgentId = defaultAgentVal;
+  if (chatWidthVal === "centered" || chatWidthVal === "wide") chatWidth = chatWidthVal;
 
   applyTheme(theme);
   applyFontSize(fontSize);
+  applyChatWidth(chatWidth);
   loaded = true;
 }
 
@@ -130,6 +145,10 @@ export async function updateSetting(key: string, value: string): Promise<void> {
     case SETTING_KEYS.defaultAgentId:
       defaultAgentId = value || "default";
       break;
+    case SETTING_KEYS.chatWidth:
+      chatWidth = (value === "wide" ? "wide" : "centered") as ChatWidth;
+      applyChatWidth(chatWidth);
+      break;
   }
 }
 
@@ -165,6 +184,9 @@ export function getSettings() {
     },
     get defaultAgentId() {
       return defaultAgentId;
+    },
+    get chatWidth() {
+      return chatWidth;
     },
     get loaded() {
       return loaded;
