@@ -731,23 +731,51 @@
       onclick={toggleChatWidth}
     >
       {#if settings.chatWidth === "wide"}
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+        <!-- Contract inward: →| |← -->
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
           <path
-            d="M5 3l-3 5 3 5M11 3l3 5-3 5"
+            d="M1 3v10M15 3v10"
             stroke="currentColor"
             stroke-width="1.5"
-            fill="none"
+            stroke-linecap="round"
+          />
+          <path d="M5 8h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+          <path
+            d="M7 6l-2 2 2 2"
+            stroke="currentColor"
+            stroke-width="1.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+          <path
+            d="M9 6l2 2-2 2"
+            stroke="currentColor"
+            stroke-width="1.5"
             stroke-linecap="round"
             stroke-linejoin="round"
           />
         </svg>
       {:else}
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+        <!-- Expand outward: ←| |→ -->
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
           <path
-            d="M3 3l3 5-3 5M13 3l-3 5 3 5"
+            d="M1 3v10M15 3v10"
             stroke="currentColor"
             stroke-width="1.5"
-            fill="none"
+            stroke-linecap="round"
+          />
+          <path d="M4 8h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+          <path
+            d="M6 6l-2 2 2 2"
+            stroke="currentColor"
+            stroke-width="1.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+          <path
+            d="M10 6l2 2-2 2"
+            stroke="currentColor"
+            stroke-width="1.5"
             stroke-linecap="round"
             stroke-linejoin="round"
           />
@@ -1035,26 +1063,26 @@
 
   .width-toggle {
     position: absolute;
-    top: var(--spacing-md);
-    right: var(--spacing-md);
+    top: var(--spacing-lg);
+    right: var(--spacing-lg);
     z-index: 3;
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 28px;
-    height: 28px;
+    width: 30px;
+    height: 30px;
     border: none;
     border-radius: var(--radius-md);
-    background: transparent;
+    background: var(--color-bg-secondary);
     color: var(--color-text-tertiary);
     cursor: pointer;
     transition: var(--transition-fast);
-    opacity: 0.5;
+    opacity: 0.6;
   }
 
   .width-toggle:hover {
     background: var(--color-bg-tertiary);
-    color: var(--color-text-secondary);
+    color: var(--color-text-primary);
     opacity: 1;
   }
 
