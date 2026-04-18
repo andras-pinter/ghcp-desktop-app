@@ -269,6 +269,7 @@ pub fn run(force_logout: bool) {
         .expect("error while building Chuck")
         .run(|app_handle, event| {
             // macOS: reopen the main window when the dock icon is clicked
+            #[cfg(target_os = "macos")]
             if let tauri::RunEvent::Reopen {
                 has_visible_windows,
                 ..
@@ -278,6 +279,8 @@ pub fn run(force_logout: bool) {
                     show_and_focus(app_handle);
                 }
             }
+
+            let _ = (&app_handle, &event); // suppress unused warnings on non-macOS
         });
 }
 
