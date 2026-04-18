@@ -84,6 +84,7 @@ jobs:
       # Extract release notes from CHANGELOG.md (latest version section)
       - name: Extract release notes
         id: changelog
+        shell: bash
         run: |
           # Extract everything between the first ## [...] heading and the next one (or EOF)
           NOTES=$(awk '/^## \[/{if(found) exit; found=1; next} found{print}' CHANGELOG.md)
