@@ -43,7 +43,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -51,16 +51,16 @@ jobs:
           targets: ${{ matrix.target }}
 
       - name: Rust cache
-        uses: swatinem/rust-cache@9d47c6ad4b02e050fd481d890b2ea34778fd09d6 # v2.7.8
+        uses: swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
         with:
           workspaces: src-tauri
           cache-on-failure: true
 
       - name: Install pnpm
-        uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4.1.0
+        uses: pnpm/action-setup@078e9d416474b29c0c387560859308974f7e9c53 # v6.0.1
 
       - name: Install Node.js
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
         with:
           node-version: 22
           cache: pnpm
@@ -81,24 +81,81 @@ jobs:
             libgtk-3-dev \
             libayatana-appindicator3-dev
 
+      # Extract release notes from CHANGELOG.md (latest version section)
+      - name: Extract release notes
+        id: changelog
+        shell: bash
+        run: |
+          # Extract everything between the first ## [...] heading and the next one (or EOF)
+          NOTES=$(awk '/^## \[/{if(found) exit; found=1; next} found{print}' CHANGELOG.md)
+          # Fall back if empty
+          if [ -z "$(echo "$NOTES" | tr -d '[:space:]')" ]; then
+            NOTES="See [CHANGELOG.md](https://github.com/andras-pinter/ghcp-desktop-app/blob/main/CHANGELOG.md) for details."
+          fi
+          # Write to output using delimiter (supports multiline)
+          {
+            echo "body<<RELEASE_NOTES_EOF"
+            echo "$NOTES"
+            echo "RELEASE_NOTES_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      # macOS: import self-signed certificate and set up keychain for codesign
+      - name: Set up macOS code signing
+        if: startsWith(matrix.platform, 'macos') && env.APPLE_CERTIFICATE != ''
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          # Decode certificate
+          CERT_PATH="$RUNNER_TEMP/certificate.p12"
+          echo "$APPLE_CERTIFICATE" | base64 --decode > "$CERT_PATH"
+
+          # Create a temporary keychain
+          KEYCHAIN_PATH="$RUNNER_TEMP/signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(openssl rand -hex 12)"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          # Import certificate
+          security import "$CERT_PATH" \
+            -k "$KEYCHAIN_PATH" \
+            -P "$APPLE_CERTIFICATE_PASSWORD" \
+            -T /usr/bin/codesign \
+            -T /usr/bin/security
+
+          # Allow codesign to access the key without UI prompt
+          security set-key-partition-list -S apple-tool:,apple:,codesign: \
+            -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          # Add to keychain search list (prepend so it's found first)
+          security list-keychains -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | tr -d '"')
+
+          # Verify identity is visible
+          security find-identity -v -p codesigning "$KEYCHAIN_PATH"
+
+          # Clean up cert file
+          rm -f "$CERT_PATH"
+
       # macOS: Build with code signing (+ notarization when APPLE_ID/APPLE_TEAM_ID are set)
+      # Note: APPLE_CERTIFICATE is NOT passed here — keychain is already set up above.
       - name: Build Tauri app (signed)
         if: startsWith(matrix.platform, 'macos') && env.APPLE_CERTIFICATE != ''
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # Notarization requires a paid Apple Developer account — only set these
+          # secrets when you have one. If unset, Tauri skips notarization.
+          # APPLE_ID: ${{ secrets.APPLE_ID }}
+          # APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          # APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: v__VERSION__
           releaseName: "Chuck v__VERSION__"
-          releaseBody: "See [CHANGELOG.md](https://github.com/andras-pinter/ghcp-desktop-app/blob/main/CHANGELOG.md) for details."
+          releaseBody: ${{ steps.changelog.outputs.body }}
           releaseDraft: false
           prerelease: false
           args: --target ${{ matrix.target }}
@@ -114,7 +171,7 @@ jobs:
         with:
           tagName: v__VERSION__
           releaseName: "Chuck v__VERSION__"
-          releaseBody: "See [CHANGELOG.md](https://github.com/andras-pinter/ghcp-desktop-app/blob/main/CHANGELOG.md) for details."
+          releaseBody: ${{ steps.changelog.outputs.body }}
           releaseDraft: false
           prerelease: false
           args: --target ${{ matrix.target }}

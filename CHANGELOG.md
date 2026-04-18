@@ -3,6 +3,22 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.11.0] — 2026-04-19
+
+### Features
+
+- **ci:** include changelog in GitHub Release body (a972eaa)
+
+### Bug Fixes
+
+- **xtask:** treat dependency updates as patch releases (805021a)
+- **xtask:** allow lock file changes in release clean check (9fd93b7)
+- **ci:** add self-signed code signing for macOS auto-updater (1521b94)
+
+### Chores
+
+- **ci:** add Dependabot configuration (b100ffb)
+
 ## [0.10.1] — 2026-04-18
 
 ### Bug Fixes
