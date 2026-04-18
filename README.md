@@ -103,6 +103,31 @@ pnpm test          # Vitest
 pnpm build         # Vite production build
 ```
 
+## macOS Code Signing & Auto-Update
+
+The macOS auto-updater requires a consistent code signing identity across builds.
+Without it, macOS blocks the in-place app replacement (ad-hoc signatures are unique per build).
+
+**Current setup:** A self-signed code signing certificate is used via GitHub Actions secrets:
+
+| Secret | Value |
+|---|---|
+| `APPLE_CERTIFICATE` | Base64-encoded `.p12` certificate |
+| `APPLE_CERTIFICATE_PASSWORD` | Password for the `.p12` file |
+| `APPLE_SIGNING_IDENTITY` | Certificate Common Name (e.g., `Chuck Self-Signed`) |
+
+This enables the auto-updater to work without a paid Apple Developer account.
+Users will see a Gatekeeper warning on first launch (right-click → Open to bypass).
+
+**To upgrade to notarized builds** (removes Gatekeeper warning), add these additional secrets
+from a paid Apple Developer account ($99/year):
+
+| Secret | Value |
+|---|---|
+| `APPLE_ID` | Your Apple ID email |
+| `APPLE_PASSWORD` | App-specific password |
+| `APPLE_TEAM_ID` | Your Apple Developer Team ID |
+
 ## Security Model
 
 This application enforces a **strict no-filesystem-access policy**:
