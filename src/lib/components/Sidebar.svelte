@@ -24,14 +24,27 @@
   const store = getConversationStore();
   const sourceStore = getSourceStore();
 
+  let searchOpen = $state(false);
+  let searchQuery = $state("");
+  let searchInput: HTMLInputElement | undefined = $state();
+
   // Group conversations: favourites first, then by date
   let favourites = $derived(store.conversations.filter((c) => c.isFavourite));
   let nonFavourites = $derived(store.conversations.filter((c) => !c.isFavourite));
 
+  // Filter by search query
+  let query = $derived(searchQuery.trim().toLowerCase());
+  let filteredFavourites = $derived(
+    query ? favourites.filter((c) => c.title?.toLowerCase().includes(query)) : favourites,
+  );
+  let filteredNonFavourites = $derived(
+    query ? nonFavourites.filter((c) => c.title?.toLowerCase().includes(query)) : nonFavourites,
+  );
+
   // Group non-favourites by date label
   let dateGroups = $derived.by(() => {
-    const groups: Record<string, typeof nonFavourites> = {};
-    for (const conv of nonFavourites) {
+    const groups: Record<string, typeof filteredNonFavourites> = {};
+    for (const conv of filteredNonFavourites) {
       const label = formatDateGroup(conv.updatedAt);
       if (!groups[label]) groups[label] = [];
       groups[label].push(conv);
@@ -166,7 +179,17 @@
         </svg>
         <span class="nav-label">New Chat</span>
       </button>
-      <button class="nav-btn" aria-label="Search" title="Search">
+      <button
+        class="nav-btn"
+        class:active={searchOpen}
+        aria-label="Search"
+        title="Search"
+        onclick={() => {
+          searchOpen = !searchOpen;
+          if (!searchOpen) searchQuery = "";
+          else queueMicrotask(() => searchInput?.focus());
+        }}
+      >
         <svg
           width="16"
           height="16"
@@ -182,12 +205,43 @@
       </button>
     </div>
 
+    {#if searchOpen}
+      <div class="sidebar-search">
+        <input
+          bind:this={searchInput}
+          type="text"
+          class="search-input"
+          placeholder="Filter conversations…"
+          bind:value={searchQuery}
+          onkeydown={(e) => {
+            if (e.key === "Escape") {
+              searchOpen = false;
+              searchQuery = "";
+            }
+          }}
+          aria-label="Filter conversations"
+        />
+        {#if searchQuery}
+          <button
+            class="search-clear"
+            aria-label="Clear search"
+            onclick={() => {
+              searchQuery = "";
+              searchInput?.focus();
+            }}
+          >
+            ✕
+          </button>
+        {/if}
+      </div>
+    {/if}
+
     <!-- Conversation list -->
     <div class="sidebar-content">
-      {#if favourites.length > 0}
+      {#if filteredFavourites.length > 0}
         <section class="sidebar-section">
           <h3 class="section-label">★ Favourites</h3>
-          {#each favourites as conv (conv.id)}
+          {#each filteredFavourites as conv (conv.id)}
             {@render convItem(conv)}
           {/each}
         </section>
@@ -201,6 +255,10 @@
           {/each}
         </section>
       {/each}
+
+      {#if query && filteredFavourites.length === 0 && Object.keys(dateGroups).length === 0}
+        <p class="section-empty search-no-results">No conversations match "{searchQuery}"</p>
+      {/if}
 
       {#if !store.hasConversations}
         <section class="sidebar-section">
@@ -519,6 +577,10 @@
     color: var(--color-text-primary);
   }
 
+  .nav-btn.active {
+    color: var(--color-accent);
+  }
+
   .nav-btn svg {
     flex-shrink: 0;
   }
@@ -534,6 +596,63 @@
   .collapsed .nav-label {
     opacity: 0;
     transition: opacity 80ms ease;
+  }
+
+  /* ── Search ── */
+
+  .sidebar-search {
+    position: relative;
+    padding: 0 var(--spacing-sm);
+    margin-bottom: var(--spacing-xs);
+    flex-shrink: 0;
+  }
+
+  .search-input {
+    width: 100%;
+    height: 32px;
+    padding: 0 var(--spacing-md);
+    padding-right: 28px;
+    background: var(--color-bg-elevated);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    color: var(--color-text-primary);
+    font-family: var(--font-sans);
+    font-size: var(--font-size-sm);
+    outline: none;
+    transition: border-color var(--transition-fast);
+    box-sizing: border-box;
+  }
+
+  .search-input::placeholder {
+    color: var(--color-text-tertiary);
+  }
+
+  .search-input:focus {
+    border-color: var(--color-accent);
+  }
+
+  .search-clear {
+    position: absolute;
+    right: calc(var(--spacing-sm) + 6px);
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--color-text-tertiary);
+    font-size: 11px;
+    padding: 2px 4px;
+    border-radius: var(--radius-xs);
+    line-height: 1;
+  }
+
+  .search-clear:hover {
+    color: var(--color-text-primary);
+  }
+
+  .search-no-results {
+    padding: var(--spacing-md) var(--spacing-sm);
+    text-align: center;
   }
 
   /* ── Content ── */
