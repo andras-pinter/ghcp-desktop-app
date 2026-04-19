@@ -97,6 +97,14 @@ jobs:
           VERSION=$(echo "$OUTPUT" | sed -n 's/.*Release v\([^ !]*\) complete.*/\1/p')
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
+      - name: Regenerate pnpm lockfile
+        if: ${{ !inputs.dry_run && steps.release.outputs.version != '' }}
+        run: |
+          # pnpm/action-setup can prepend its own mini-lockfile to pnpm-lock.yaml
+          # Regenerate cleanly after xtask bumps package.json version
+          rm -f pnpm-lock.yaml
+          pnpm install
+
       - name: Format release artifacts
         if: ${{ !inputs.dry_run && steps.release.outputs.version != '' }}
         run: |
