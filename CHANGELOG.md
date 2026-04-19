@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.12.5] — 2026-04-19
+
+### Bug Fixes
+
+- **ci:** sanitize pnpm-lock.yaml after regeneration (2d9732e)
+
 ## [0.12.4] — 2026-04-19
 
 ### Bug Fixes
