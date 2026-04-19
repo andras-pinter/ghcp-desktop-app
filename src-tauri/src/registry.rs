@@ -302,7 +302,7 @@ pub async fn search_aitmpl(
 
     if browse_all {
         // Browse mode: sort alphabetically by name
-        scored.sort_by(|a, b| a.0.name.to_lowercase().cmp(&b.0.name.to_lowercase()));
+        scored.sort_by_key(|a| a.0.name.to_lowercase());
     } else {
         // Search mode: sort by relevance score descending, then by name
         scored.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.name.cmp(&b.0.name)));
@@ -533,7 +533,7 @@ pub async fn search_registries(
     }
 
     // Sort alphabetically by name (case-insensitive)
-    items.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    items.sort_by_key(|a| a.name.to_lowercase());
 
     let total = items.len() as u64;
     Ok(RegistrySearchResult {

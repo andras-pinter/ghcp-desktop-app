@@ -384,7 +384,7 @@ pub async fn search_catalog(
     }
 
     // Sort all items alphabetically by name (case-insensitive)
-    items.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    items.sort_by_key(|a| a.name.to_lowercase());
 
     // Apply pagination
     let total = items.len() as u64;
