@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.12.6] — 2026-04-19
+
+### Bug Fixes
+
+- **ci:** gitignore pnpm-lock.yaml to avoid CI corruption (baa3ad3)
+
 ## [0.12.5] — 2026-04-19
 
 ### Bug Fixes
