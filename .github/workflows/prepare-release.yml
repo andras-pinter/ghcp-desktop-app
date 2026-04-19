@@ -97,13 +97,22 @@ jobs:
           VERSION=$(echo "$OUTPUT" | sed -n 's/.*Release v\([^ !]*\) complete.*/\1/p')
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
-      - name: Regenerate pnpm lockfile
+      - name: Regenerate and sanitize pnpm lockfile
         if: ${{ !inputs.dry_run && steps.release.outputs.version != '' }}
         run: |
-          # pnpm/action-setup can prepend its own mini-lockfile to pnpm-lock.yaml
-          # Regenerate cleanly after xtask bumps package.json version
+          # pnpm/action-setup contaminates pnpm-lock.yaml by prepending its own
+          # mini-lockfile (pnpm self-installer packages). Even after rm + reinstall,
+          # the corruption can reappear. Strip any multi-document YAML artifacts.
           rm -f pnpm-lock.yaml
           pnpm install
+          # Ensure single YAML document — strip everything before the real lockfile
+          if [ "$(grep -c '^lockfileVersion' pnpm-lock.yaml)" -gt 1 ]; then
+            echo "⚠️  Detected multi-document lockfile, sanitizing..."
+            # Keep only the last YAML document (the real lockfile)
+            awk '/^---$/{found=NR} {lines[NR]=$0} END{start=(found?found+1:1); for(i=start;i<=NR;i++) print lines[i]}' pnpm-lock.yaml > pnpm-lock.yaml.clean
+            mv pnpm-lock.yaml.clean pnpm-lock.yaml
+          fi
+          echo "✅ lockfileVersion count: $(grep -c '^lockfileVersion' pnpm-lock.yaml)"
 
       - name: Format release artifacts
         if: ${{ !inputs.dry_run && steps.release.outputs.version != '' }}
