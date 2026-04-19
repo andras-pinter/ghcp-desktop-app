@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.12.3] — 2026-04-19
+
+### Bug Fixes
+
+- **deps:** regenerate corrupted pnpm-lock.yaml (1a28697)
+- **deps:** regenerate corrupted pnpm-lock.yaml (9d5cf7d)
+
+### Chores
+
+- release v0.12.2 (d4457c4)
+
 ## [0.12.2] — 2026-04-19
 
 ### Bug Fixes
