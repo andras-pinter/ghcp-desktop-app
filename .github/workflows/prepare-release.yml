@@ -1,0 +1,116 @@
+name: Prepare Release
+
+# Bumps version, updates CHANGELOG.md, commits, tags, and pushes.
+# The existing release.yml workflow then triggers on the new v* tag
+# to build and publish the GitHub Release with platform binaries.
+#
+# Token note:
+#   By default GITHUB_TOKEN cannot trigger other workflows. To get
+#   end-to-end automation (prepare → build → publish), create a PAT
+#   with `contents: write` scope and save it as the RELEASE_TOKEN secret.
+#   Without it the tag push won't trigger release.yml and you'll need
+#   to run the Release workflow manually.
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump_level:
+        description: "Version bump level (auto = detect from conventional commits)"
+        required: true
+        default: "auto"
+        type: choice
+        options:
+          - auto
+          - patch
+          - minor
+          - major
+      dry_run:
+        description: "Preview only — no commits, tags, or pushes"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+concurrency:
+  group: prepare-release
+  cancel-in-progress: false
+
+jobs:
+  prepare-release:
+    name: Prepare release
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: master
+          fetch-depth: 0 # Full history for changelog + tag detection
+          token: ${{ secrets.RELEASE_TOKEN || github.token }}
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Run cargo xtask release
+        id: release
+        run: |
+          ARGS=""
+          if [ "${{ inputs.bump_level }}" != "auto" ]; then
+            ARGS="--bump ${{ inputs.bump_level }}"
+          fi
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            ARGS="$ARGS --dry-run"
+          fi
+
+          OUTPUT=$(cargo xtask release $ARGS 2>&1) || {
+            echo "$OUTPUT"
+            echo "::error::cargo xtask release failed"
+            exit 1
+          }
+          echo "$OUTPUT"
+
+          # Extract new version from "Release v{version} complete!" line
+          VERSION=$(echo "$OUTPUT" | sed -n 's/.*Release v\([^ !]*\) complete.*/\1/p')
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Push release commit and tag
+        if: ${{ !inputs.dry_run && steps.release.outputs.version != '' }}
+        run: |
+          git push origin master
+          git push origin "v${{ steps.release.outputs.version }}"
+
+      # --- Job summaries ---
+
+      - name: Summary — released
+        if: ${{ !inputs.dry_run && steps.release.outputs.version != '' }}
+        run: |
+          {
+            echo "### 🎉 Release v${{ steps.release.outputs.version }} prepared"
+            echo ""
+            echo "Tag \`v${{ steps.release.outputs.version }}\` pushed to \`master\`."
+            echo "The [Release workflow](../actions/workflows/release.yml) will build and publish binaries."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Summary — dry run
+        if: ${{ inputs.dry_run }}
+        run: echo "### 🔍 Dry run complete — no changes were made" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Summary — nothing to release
+        if: ${{ !inputs.dry_run && steps.release.outputs.version == '' }}
+        run: |
+          {
+            echo "### ℹ️ Nothing to release"
+            echo ""
+            echo "No version-bumping conventional commits found since the last tag."
+            echo "Use the \`patch\` / \`minor\` / \`major\` bump level to force a release."
+          } >> "$GITHUB_STEP_SUMMARY"
