@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.12.7] — 2026-04-19
+
+### Bug Fixes
+
+- **copilot-api:** consolidate auth keychain into single entry (b315094)
+
 ## [0.12.6] — 2026-04-19
 
 ### Bug Fixes
