@@ -90,7 +90,7 @@ jobs:
           NOTES=$(awk '/^## \[/{if(found) exit; found=1; next} found{print}' CHANGELOG.md)
           # Fall back if empty
           if [ -z "$(echo "$NOTES" | tr -d '[:space:]')" ]; then
-            NOTES="See [CHANGELOG.md](https://github.com/andras-pinter/ghcp-desktop-app/blob/main/CHANGELOG.md) for details."
+            NOTES="See [CHANGELOG.md](https://github.com/andras-pinter/ghcp-desktop-app/blob/master/CHANGELOG.md) for details."
           fi
           # Write to output using delimiter (supports multiline)
           {

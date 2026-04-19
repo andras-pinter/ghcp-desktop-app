@@ -406,8 +406,6 @@ ghcp-desktop-app/
 ├── eslint.config.js              # ESLint flat config
 ├── .prettierrc                   # Prettier formatting config
 ├── .prettierignore               # Prettier ignore patterns
-├── .githooks/                    # Git hooks (post-merge)
-│   └── post-merge                # Auto-run pnpm install after merges
 ├── src/                          # ── Svelte Frontend ──
 │   ├── main.ts                   # Svelte app bootstrap (mount to #app)
 │   ├── vite-env.d.ts             # Vite client type declarations
@@ -598,12 +596,12 @@ ghcp-desktop-app/
 
 #### ⛔ Always Branch First
 
-**Agents must ALWAYS create a new branch before starting work.** No commits on `main` — ever.
+**Agents must ALWAYS create a new branch before starting work.** No commits on `master` — ever.
 
 - Before making any changes, create a descriptive branch: `git checkout -b <type>/<short-description>` (e.g., `feat/mcp-settings`, `fix/streaming-crash`, `docs/update-agents-md`)
 - Branch naming follows the same `<type>` prefixes as Conventional Commits (see below)
 - If the agent is resuming work on an existing task branch, it may reuse that branch instead of creating a new one
-- **Never commit directly to `main`** — this applies to all agents, all tasks, all circumstances
+- **Never commit directly to `master`** — this applies to all agents, all tasks, all circumstances
 
 #### ⛔ Never Push
 
