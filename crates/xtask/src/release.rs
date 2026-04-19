@@ -151,7 +151,7 @@ fn ensure_clean_worktree() -> Result<(), String> {
     let only_lock_files = dirty.iter().all(|line| {
         let path = line.trim().trim_start_matches(|c: char| !c.is_whitespace());
         let path = path.trim();
-        path == "Cargo.lock" || path == "pnpm-lock.yaml"
+        path == "Cargo.lock"
     });
 
     if only_lock_files {
