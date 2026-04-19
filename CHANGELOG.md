@@ -3,6 +3,14 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.12.1] — 2026-04-19
+
+### Bug Fixes
+
+- **ci:** use RELEASE_TOKEN in release workflow for GitHub Releases creation (9934571)
+- **ci:** add full check suite to prepare-release workflow (ec9e894)
+- **ci:** format tauri.conf.json and add prettier step to prepare-release (18a2a4f)
+
 ## [0.12.0] — 2026-04-19
 
 ### Features
