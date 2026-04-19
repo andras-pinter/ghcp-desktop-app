@@ -5,12 +5,18 @@
 //! 2. `poll_for_token()` → polls until user authorizes or timeout
 //! 3. `exchange_for_copilot_token()` → exchanges GitHub token for Copilot JWT
 //! 4. Copilot token auto-refreshed before expiry
+//!
+//! All auth credentials are stored as a single consolidated JSON blob in the
+//! OS keychain under one key (`auth_credentials`). This reduces macOS Keychain
+//! password prompts from 4× to 1× after app updates (unsigned binary signature
+//! changes trigger per-entry prompts).
 
 use crate::keychain;
 use crate::types::{
     CopilotTokenResponse, DeviceCodeResponse, GitHubUser, OAuthErrorResponse, OAuthTokenResponse,
 };
 use crate::user_agent;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 /// GitHub OAuth app client ID for Copilot (same as VS Code uses).
@@ -28,11 +34,28 @@ const GITHUB_USER_URL: &str = "https://api.github.com/user";
 /// Default Copilot API base URL (used when token response has no endpoints).
 pub const DEFAULT_COPILOT_API_BASE: &str = "https://api.individual.githubcopilot.com";
 
-/// Keychain keys.
-const KEY_GITHUB_TOKEN: &str = "github_oauth_token";
-const KEY_COPILOT_TOKEN: &str = "copilot_token";
-const KEY_COPILOT_EXPIRES: &str = "copilot_token_expires_at";
-const KEY_COPILOT_API_BASE: &str = "copilot_api_base";
+/// Single consolidated keychain key for all auth credentials.
+const KEY_AUTH_CREDENTIALS: &str = "auth_credentials";
+
+/// Legacy keychain keys (pre-consolidation) — used only for migration.
+const LEGACY_KEY_GITHUB_TOKEN: &str = "github_oauth_token";
+const LEGACY_KEY_COPILOT_TOKEN: &str = "copilot_token";
+const LEGACY_KEY_COPILOT_EXPIRES: &str = "copilot_token_expires_at";
+const LEGACY_KEY_COPILOT_API_BASE: &str = "copilot_api_base";
+
+/// All auth credentials stored as a single keychain entry.
+///
+/// Serialized to JSON before storage. This is intentionally `Serialize` because
+/// the JSON never leaves the keychain — it is stored in and loaded from the OS
+/// secure credential store only. The individual token values are never sent to
+/// the frontend.
+#[derive(Serialize, Deserialize)]
+struct StoredCredentials {
+    github_token: String,
+    copilot_token: String,
+    copilot_expires_at: i64,
+    copilot_api_base: String,
+}
 
 /// Errors that can occur during authentication.
 #[derive(Debug, Error)]
@@ -180,44 +203,104 @@ impl DeviceFlowAuth {
         Ok(user)
     }
 
-    /// Store auth tokens in the OS keychain after successful authentication.
+    /// Store auth tokens in the OS keychain as a single consolidated entry.
     pub fn store_tokens(
         github_token: &str,
         copilot_resp: &CopilotTokenResponse,
     ) -> Result<(), AuthError> {
-        keychain::store(KEY_GITHUB_TOKEN, github_token)?;
-        keychain::store(KEY_COPILOT_TOKEN, &copilot_resp.token)?;
-        keychain::store(KEY_COPILOT_EXPIRES, &copilot_resp.expires_at.to_string())?;
-
         let api_base = copilot_resp
             .endpoints
             .api
             .as_deref()
             .unwrap_or(DEFAULT_COPILOT_API_BASE);
-        keychain::store(KEY_COPILOT_API_BASE, api_base)?;
 
+        let creds = StoredCredentials {
+            github_token: github_token.to_string(),
+            copilot_token: copilot_resp.token.clone(),
+            copilot_expires_at: copilot_resp.expires_at,
+            copilot_api_base: api_base.to_string(),
+        };
+
+        let json = serde_json::to_string(&creds)
+            .map_err(|e| keychain::KeychainError::Store(e.to_string()))?;
+        keychain::store(KEY_AUTH_CREDENTIALS, &json)?;
         Ok(())
+    }
+
+    /// Load stored credentials from the keychain.
+    ///
+    /// Transparently migrates from legacy per-key storage on first access.
+    fn load_credentials() -> Result<StoredCredentials, AuthError> {
+        // Try consolidated key first
+        match keychain::retrieve(KEY_AUTH_CREDENTIALS) {
+            Ok(json) => {
+                let creds: StoredCredentials = serde_json::from_str(&json)
+                    .map_err(|e| keychain::KeychainError::Retrieve(e.to_string()))?;
+                return Ok(creds);
+            }
+            Err(keychain::KeychainError::NotFound(_)) => {
+                // Fall through to legacy migration
+            }
+            Err(e) => return Err(AuthError::Keychain(e)),
+        }
+
+        // Migrate from legacy individual keys
+        let github_token = keychain::retrieve(LEGACY_KEY_GITHUB_TOKEN)?;
+        let copilot_token = keychain::retrieve(LEGACY_KEY_COPILOT_TOKEN)?;
+        let expires_str = keychain::retrieve(LEGACY_KEY_COPILOT_EXPIRES)?;
+        let copilot_expires_at = expires_str.parse::<i64>().unwrap_or_else(|_| {
+            log::warn!(
+                "Corrupted copilot token expiration in legacy keychain, treating as expired"
+            );
+            0
+        });
+        let copilot_api_base = keychain::retrieve(LEGACY_KEY_COPILOT_API_BASE)
+            .unwrap_or_else(|_| DEFAULT_COPILOT_API_BASE.to_string());
+
+        let creds = StoredCredentials {
+            github_token,
+            copilot_token,
+            copilot_expires_at,
+            copilot_api_base,
+        };
+
+        // Store consolidated and clean up legacy keys
+        let json = serde_json::to_string(&creds)
+            .map_err(|e| keychain::KeychainError::Store(e.to_string()))?;
+        keychain::store(KEY_AUTH_CREDENTIALS, &json)?;
+        Self::delete_legacy_keys();
+
+        log::info!("Migrated auth credentials from legacy keychain entries to consolidated entry");
+        Ok(creds)
+    }
+
+    /// Delete legacy individual keychain entries (best-effort, ignores errors).
+    fn delete_legacy_keys() {
+        for key in [
+            LEGACY_KEY_GITHUB_TOKEN,
+            LEGACY_KEY_COPILOT_TOKEN,
+            LEGACY_KEY_COPILOT_EXPIRES,
+            LEGACY_KEY_COPILOT_API_BASE,
+        ] {
+            let _ = keychain::delete(key);
+        }
     }
 
     /// Load the stored GitHub OAuth token from the keychain.
     pub fn load_github_token() -> Result<String, AuthError> {
-        keychain::retrieve(KEY_GITHUB_TOKEN).map_err(AuthError::from)
+        Ok(Self::load_credentials()?.github_token)
     }
 
     /// Load the stored Copilot API token from the keychain.
     ///
     /// Returns `(token, expires_at_unix, api_base_url)`.
     pub fn load_copilot_token() -> Result<(String, i64, String), AuthError> {
-        let token = keychain::retrieve(KEY_COPILOT_TOKEN)?;
-        let expires_str = keychain::retrieve(KEY_COPILOT_EXPIRES)?;
-        let expires_at = expires_str.parse::<i64>().unwrap_or_else(|_| {
-            log::warn!("Corrupted copilot token expiration in keychain, treating as expired");
-            0
-        });
-        let api_base = keychain::retrieve(KEY_COPILOT_API_BASE)
-            .unwrap_or_else(|_| DEFAULT_COPILOT_API_BASE.to_string());
-
-        Ok((token, expires_at, api_base))
+        let creds = Self::load_credentials()?;
+        Ok((
+            creds.copilot_token,
+            creds.copilot_expires_at,
+            creds.copilot_api_base,
+        ))
     }
 
     /// Check if the stored Copilot token is still valid
@@ -234,12 +317,15 @@ impl DeviceFlowAuth {
 
     /// Refresh the Copilot token if expired. Returns the current valid token.
     pub async fn ensure_copilot_token(&self) -> Result<(String, String), AuthError> {
-        if Self::is_copilot_token_valid() {
-            let (token, _, api_base) = Self::load_copilot_token()?;
-            return Ok((token, api_base));
+        // Single keychain read — check validity and extract token in one pass
+        if let Ok((token, expires_at, api_base)) = Self::load_copilot_token() {
+            let now = chrono::Utc::now().timestamp();
+            if expires_at > now + TOKEN_EXPIRY_BUFFER_SECS {
+                return Ok((token, api_base));
+            }
         }
 
-        // Token expired — refresh using stored GitHub token
+        // Token expired or missing — refresh using stored GitHub token
         let github_token = Self::load_github_token().map_err(|_| AuthError::NotAuthenticated)?;
         let copilot_resp = self.exchange_for_copilot_token(&github_token).await?;
 
@@ -256,17 +342,13 @@ impl DeviceFlowAuth {
 
     /// Clear all stored tokens from the keychain (logout).
     pub fn clear_tokens() -> Result<(), AuthError> {
-        for key in [
-            KEY_GITHUB_TOKEN,
-            KEY_COPILOT_TOKEN,
-            KEY_COPILOT_EXPIRES,
-            KEY_COPILOT_API_BASE,
-        ] {
-            match keychain::delete(key) {
-                Ok(()) | Err(keychain::KeychainError::NotFound(_)) => {}
-                Err(e) => return Err(AuthError::Keychain(e)),
-            }
+        // Delete consolidated entry
+        match keychain::delete(KEY_AUTH_CREDENTIALS) {
+            Ok(()) | Err(keychain::KeychainError::NotFound(_)) => {}
+            Err(e) => return Err(AuthError::Keychain(e)),
         }
+        // Also clean up any remaining legacy entries
+        Self::delete_legacy_keys();
         Ok(())
     }
 }
