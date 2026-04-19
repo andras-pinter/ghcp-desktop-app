@@ -3,6 +3,21 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.12.0] — 2026-04-19
+
+### Features
+
+- **ui:** implement sidebar conversation search (6fe1f17)
+
+### Chores
+
+- bump lock files (952fd2e)
+- **deps:** update @tauri-apps/plugin-dialog to 2.7.0 (416976d)
+
+### Style
+
+- fix prettier formatting in tauri.conf.json (d8879a1)
+
 ## [0.11.3] — 2026-04-19
 
 ### Bug Fixes
