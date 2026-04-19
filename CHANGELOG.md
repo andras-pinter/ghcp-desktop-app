@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.12.4] — 2026-04-19
+
+### Bug Fixes
+
+- **ci:** regenerate pnpm lockfile after xtask version bump (cd61ebc)
+
 ## [0.12.3] — 2026-04-19
 
 ### Bug Fixes
