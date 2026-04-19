@@ -35,7 +35,7 @@ Chuck provides a dedicated chat interface for GitHub Copilot — inspired by sta
 
 | Platform | Status |
 |----------|--------|
-| macOS | Primary (WebKit, App Sandbox) |
+| macOS | Primary (WebKit) |
 | Linux | Supported (WebKitGTK) |
 | Windows | Supported (WebView2) |
 
@@ -133,7 +133,7 @@ This application enforces a **strict no-filesystem-access policy**:
 - Files enter **only** via drag-and-drop or file picker dialogs, read once into memory
 - MCP stdio is the only subprocess exception (user-approved binaries, confirmation dialog required)
 - URL fetching blocks private IPs, localhost, and cloud metadata endpoints
-- macOS builds require App Sandbox entitlements
+- macOS App Sandbox is disabled to support auto-updates (security via Tauri capabilities)
 
 See [AGENTS.md](./AGENTS.md) for the complete security specification.
 

@@ -101,14 +101,17 @@ to the release — this is what the updater endpoint reads.
 
 ## App Sandbox (macOS)
 
-The app runs with App Sandbox enabled via `src-tauri/Entitlements.plist`:
+App Sandbox is **disabled** (`com.apple.security.app-sandbox = false`) in `src-tauri/Entitlements.plist`.
+This is required because Tauri's built-in updater cannot replace the `.app` bundle inside a sandbox.
+Since we distribute via GitHub Releases (not the Mac App Store), this is the standard approach for
+self-updating desktop apps (same as VS Code, Slack, etc.).
 
-- `com.apple.security.app-sandbox` — sandbox enabled
+Entitlements:
+- `com.apple.security.app-sandbox` — **false** (disabled for auto-update compatibility)
 - `com.apple.security.network.client` — outbound network (API calls)
-- `com.apple.security.files.user-selected.read-write` — read/write files user selects via save/open dialogs and drag-drop
 
-Filesystem write access is limited to user-selected files (via native save dialogs).
-No subprocess spawning (except MCP stdio servers which require user approval).
+Security is enforced at the application level via Tauri's capabilities system, IPC permissions,
+and the no-machine-access design documented in AGENTS.md.
 
 ---
 

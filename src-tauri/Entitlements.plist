@@ -2,11 +2,12 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+    <!-- App Sandbox disabled: Tauri's built-in updater cannot replace the .app bundle
+         inside a sandbox. Since we distribute via GitHub Releases (not Mac App Store),
+         disabling sandbox is the standard approach for self-updating desktop apps. -->
     <key>com.apple.security.app-sandbox</key>
-    <true/>
+    <false/>
     <key>com.apple.security.network.client</key>
-    <true/>
-    <key>com.apple.security.files.user-selected.read-write</key>
     <true/>
 </dict>
 </plist>

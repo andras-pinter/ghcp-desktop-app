@@ -201,7 +201,7 @@ custom agent personas, and streaming responses.
 - **Security-first** — capabilities system, CSP, IPC permissions align perfectly with our no-machine-access requirement
 - **Small bundle** — uses system webview (no bundled Chromium), resulting in ~5-10MB app vs ~150MB+ Electron
 - **Rich UI** — full HTML/CSS/JS means world-class UI toolkit, accessibility, animation, and styling
-- **App Sandbox** — native macOS sandbox support, plus Tauri's own capability-based security layer
+- **Security-first** — capabilities system, CSP, IPC permissions, plus Tauri's own capability-based security layer
 
 ---
 
@@ -255,7 +255,7 @@ custom agent personas, and streaming responses.
 - All outbound network destinations beyond GitHub must be **explicitly configured or initiated by the user**
 - **URL fetching safeguards:** the app must block requests to private IP ranges (10.x, 172.16-31.x, 192.168.x), localhost, link-local (169.254.x), and cloud metadata endpoints (169.254.169.254). Only fetch public HTTPS URLs.
 - **Tauri capabilities** must be configured with minimal permissions — only the specific APIs each window/webview actually needs
-- macOS builds should use **App Sandbox** entitlements to enforce this at the OS level
+- macOS App Sandbox is **disabled** to allow Tauri's built-in auto-updater to work (see docs/RELEASE.md). Security is enforced at the application level via Tauri capabilities, IPC permissions, and the no-machine-access design.
 - This is a **non-negotiable security boundary** — any feature that requires filesystem or machine access is out of scope
 
 ### Out of Scope
@@ -707,7 +707,7 @@ test(web-research): add URL validation tests for private IP blocking
 - **Markdown sanitization** — all rendered markdown must be sanitized with DOMPurify before insertion into the DOM. Never use `{@html}` with unsanitized content.
 - **MCP response sanitization** — all MCP tool responses must be sanitized before rendering. Strip scripts from text content, enforce max payload size (e.g., 1MB), validate JSON structure.
 - **MCP server connections** are user-managed — the app never auto-discovers or connects to MCP servers without explicit user configuration
-- **macOS App Sandbox required** — enforce filesystem and network restrictions at the OS level via entitlements
+- **macOS App Sandbox** is disabled to support Tauri's built-in auto-updater (sandbox blocks `.app` bundle replacement). Security enforcement relies on Tauri capabilities, IPC permissions, and the application-level no-machine-access design. If distributing via the Mac App Store in the future, re-enable sandbox and implement an out-of-process updater.
 - Treat any code path that touches the filesystem (outside app data dir) or spawns a non-MCP process as a **security violation**
 - **Conversation export exception:** exporting conversations (JSON/Markdown) writes to a user-chosen location via the Tauri server-side save dialog. The Rust backend controls the dialog and writes the file — the frontend never receives or handles the file path.
 - This is the **only** permitted filesystem write outside the app data directory.
@@ -723,7 +723,7 @@ an MCP server binary. This is the **only** exception to the no-subprocess rule:
 - **Auth header security** — MCP server auth headers are stored in the OS keychain (key pattern: `mcp_auth_{server_id}`), never in SQLite. The `connect_mcp_server` command redacts `auth_header` to `"[REDACTED]"` before returning data to the frontend via `redact_connection_info()`. `McpServerConfig` uses a custom `Debug` implementation that masks auth headers as `"••••••••"`.
 - HTTP transport is preferred and should be the default recommendation in the registry
 - Tauri's `shell` plugin scope must be configured to allow **only** user-configured MCP binaries — no wildcard execution
-- If App Sandbox restricts subprocess spawning, document this limitation and fall back to HTTP-only
+- If App Sandbox is re-enabled in the future (e.g., for Mac App Store distribution), stdio subprocess spawning will be restricted — fall back to HTTP-only MCP transport
 
 ---
 
