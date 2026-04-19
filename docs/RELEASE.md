@@ -107,6 +107,7 @@ Since we distribute via GitHub Releases (not the Mac App Store), this is the sta
 self-updating desktop apps (same as VS Code, Slack, etc.).
 
 Entitlements:
+
 - `com.apple.security.app-sandbox` — **false** (disabled for auto-update compatibility)
 - `com.apple.security.network.client` — outbound network (API calls)
 
