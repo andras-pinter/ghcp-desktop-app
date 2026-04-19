@@ -52,6 +52,8 @@ jobs:
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
 
       - name: Rust cache
         uses: swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
@@ -107,6 +109,56 @@ jobs:
             git tag -d "$TAG"
             git tag -a "$TAG" -m "Release $TAG"
           fi
+
+      # --- Full check suite (catch errors before pushing) ---
+
+      - name: Install Linux dependencies
+        if: ${{ !inputs.dry_run && steps.release.outputs.version != '' }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            librsvg2-dev \
+            patchelf \
+            libssl-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev
+
+      - name: Rust format check
+        if: ${{ !inputs.dry_run && steps.release.outputs.version != '' }}
+        run: cargo fmt --all -- --check
+
+      - name: Rust clippy
+        if: ${{ !inputs.dry_run && steps.release.outputs.version != '' }}
+        run: cargo clippy --workspace -- -D warnings
+
+      - name: Rust build
+        if: ${{ !inputs.dry_run && steps.release.outputs.version != '' }}
+        run: cargo build --workspace
+
+      - name: Rust tests
+        if: ${{ !inputs.dry_run && steps.release.outputs.version != '' }}
+        run: cargo test --workspace
+
+      - name: Svelte check
+        if: ${{ !inputs.dry_run && steps.release.outputs.version != '' }}
+        run: pnpm check
+
+      - name: Frontend lint
+        if: ${{ !inputs.dry_run && steps.release.outputs.version != '' }}
+        run: pnpm lint
+
+      - name: Frontend tests
+        if: ${{ !inputs.dry_run && steps.release.outputs.version != '' }}
+        run: pnpm test
+
+      - name: Frontend build
+        if: ${{ !inputs.dry_run && steps.release.outputs.version != '' }}
+        run: pnpm build
+
+      - name: Version sync check
+        if: ${{ !inputs.dry_run && steps.release.outputs.version != '' }}
+        run: cargo xtask check-version
 
       - name: Push release commit and tag
         if: ${{ !inputs.dry_run && steps.release.outputs.version != '' }}
