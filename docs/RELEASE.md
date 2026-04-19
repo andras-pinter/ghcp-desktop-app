@@ -46,24 +46,36 @@ SmartScreen warnings.
 
 ## Creating a Release
 
-### 1. Bump version
+### Automated (recommended)
+
+Use the **Prepare Release** workflow from the GitHub Actions UI:
+
+1. Go to **Actions → Prepare Release → Run workflow**
+2. Choose bump level (`auto` detects from conventional commits, or pick `patch`/`minor`/`major`)
+3. Optionally enable **dry run** to preview without changes
+4. The workflow bumps versions, updates CHANGELOG.md, commits, tags, and pushes
+5. The **Release** workflow then triggers on the new `v*` tag and builds platform binaries
+
+> **Note:** For the tag push to auto-trigger the Release workflow, store a PAT with
+> `contents: write` scope as the `RELEASE_TOKEN` repository secret. Without it, you'll
+> need to manually trigger the Release workflow after Prepare Release completes.
+
+### Manual (local)
 
 ```bash
 # Auto-detect bump level from conventional commits
 cargo xtask release
 
 # Or specify explicitly
-cargo xtask bump patch   # 0.8.1 → 0.8.2
-cargo xtask bump minor   # 0.8.1 → 0.9.0
-cargo xtask bump major   # 0.8.1 → 1.0.0
-```
+cargo xtask release --bump patch
+cargo xtask release --bump minor
+cargo xtask release --bump major
 
-This updates `Cargo.toml`, `package.json`, and `tauri.conf.json` in lockstep.
+# Preview without making changes
+cargo xtask release --dry-run
 
-### 2. Push the tag
-
-```bash
-git push origin main --tags
+# Push the release commit and tag
+git push origin master --tags
 ```
 
 The `release.yml` workflow triggers on `v*` tags and:
@@ -114,7 +126,7 @@ cargo tauri build --debug
 
 ## CI Pipeline
 
-The `ci.yml` workflow runs on every push to `main` and all PRs:
+The `ci.yml` workflow runs on every push to `master` and all PRs:
 
 - **Rust checks:** fmt, clippy, build, test
 - **Frontend checks:** svelte-check, eslint+prettier, vitest, vite build
@@ -126,4 +138,4 @@ Dependabot is configured in `.github/dependabot.yml` to check for dependency upd
 
 The `dependabot-auto-merge.yml` workflow automatically approves and squash-merges Dependabot PRs for non-major version bumps after CI checks pass. Major version bumps require manual review.
 
-**Prerequisites:** "Allow auto-merge" must be enabled in repository settings, and branch protection rules must be configured on `main` with required status checks.
+**Prerequisites:** "Allow auto-merge" must be enabled in repository settings, and branch protection rules must be configured on `master` with required status checks.

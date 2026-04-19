@@ -225,12 +225,18 @@ INSERT INTO config (key, value) VALUES ('schema_version', '6');
 
 #### Release Flow
 
-The recommended way to cut a release:
+The recommended way to cut a release is via the **Prepare Release** GitHub Actions workflow:
+
+1. Go to **Actions → Prepare Release → Run workflow**
+2. Choose bump level (`auto`, `patch`, `minor`, or `major`)
+3. The workflow runs `cargo xtask release` in CI, commits, tags, and pushes
+
+For local use, the CLI is still available:
 
 ```
 cargo xtask release              # auto-detect + release
 cargo xtask release --dry-run    # preview first (recommended)
-git push && git push --tags      # publish after review
+git push origin master --tags    # publish after review
 ```
 
 **Auto-detection logic** (from conventional commits since last tag):
