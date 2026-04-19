@@ -42,7 +42,11 @@
         "bundleMediaFramework": false
       },
       "deb": {
-        "depends": ["libwebkit2gtk-4.1-0", "libgtk-3-0", "libayatana-appindicator3-1"],
+        "depends": [
+          "libwebkit2gtk-4.1-0",
+          "libgtk-3-0",
+          "libayatana-appindicator3-1"
+        ],
         "section": "utils"
       }
     },
@@ -60,7 +64,9 @@
       "nsis": {
         "displayLanguageSelector": false,
         "installerIcon": "icons/icon.ico",
-        "languages": ["English"],
+        "languages": [
+          "English"
+        ],
         "startMenuFolder": "Chuck"
       },
       "timestampUrl": "https://timestamp.digicert.com"
@@ -76,5 +82,5 @@
     }
   },
   "productName": "Chuck",
-  "version": "0.11.2"
+  "version": "0.11.3"
 }

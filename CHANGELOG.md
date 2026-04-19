@@ -3,6 +3,29 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/).
 
+## [0.11.3] — 2026-04-19
+
+### Bug Fixes
+
+- resolve CI clippy and svelte-check failures (e03fd29)
+- **tauri:** disable macOS App Sandbox for auto-updater compatibility (684d213)
+
+### Documentation
+
+- update branch refs and release instructions for new workflow (70878e1)
+
+### Chores
+
+- remove post-merge githook (4b7b468)
+
+### CI/CD
+
+- add prepare-release workflow and fix branch refs (e67e975)
+
+### Style
+
+- fix prettier formatting in RELEASE.md and tauri.conf.json (327073c)
+
 ## [0.11.2] — 2026-04-19
 
 ### Bug Fixes
