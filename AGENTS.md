@@ -406,8 +406,6 @@ ghcp-desktop-app/
 ├── eslint.config.js              # ESLint flat config
 ├── .prettierrc                   # Prettier formatting config
 ├── .prettierignore               # Prettier ignore patterns
-├── .githooks/                    # Git hooks (post-merge)
-│   └── post-merge                # Auto-run pnpm install after merges
 ├── src/                          # ── Svelte Frontend ──
 │   ├── main.ts                   # Svelte app bootstrap (mount to #app)
 │   ├── vite-env.d.ts             # Vite client type declarations
