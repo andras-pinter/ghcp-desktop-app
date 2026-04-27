@@ -39,7 +39,7 @@ base64.workspace = true
 chrono.workspace = true
 
 # Database
-rusqlite = { version = "0.33", features = ["bundled"] }
+rusqlite = { version = "0.39", features = ["bundled"] }
 
 # SKILL.md parsing
 serde_norway.workspace = true
