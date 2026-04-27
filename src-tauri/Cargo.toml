@@ -57,7 +57,7 @@ env_logger = "0.11"
 # Text extraction from file attachments
 pdf-extract = "0.10"
 lopdf = "0.38"
-zip = "2"
+zip = "4"
 tauri-plugin-process = "2.3.1"
 
 [features]
