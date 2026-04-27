@@ -14,7 +14,7 @@ thiserror.workspace = true
 url.workspace = true
 
 # HTML content extraction (Readability algorithm — Mozilla port)
-dom_smoothie = "0.16"
+dom_smoothie = "0.17"
 
 # Streaming response body reads
 futures-util = "0.3"

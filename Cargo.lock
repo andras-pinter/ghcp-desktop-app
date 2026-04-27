@@ -623,7 +623,7 @@ dependencies = [
 
 [[package]]
 name = "chuck"
-version = "0.12.6"
+version = "0.12.7"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -726,7 +726,7 @@ dependencies = [
 
 [[package]]
 name = "copilot-api"
-version = "0.12.6"
+version = "0.12.7"
 dependencies = [
  "chrono",
  "futures-util",
@@ -1100,9 +1100,9 @@ dependencies = [
 
 [[package]]
 name = "dom_query"
-version = "0.26.0"
+version = "0.27.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "23e4c03f2421dab1870544d171d3db22bdab0da4015995ff0b2f23125bbda9fb"
+checksum = "521e380c0c8afb8d9a1e83a1822ee03556fc3e3e7dbc1fd30be14e37f9cb3f89"
 dependencies = [
  "bit-set",
  "cssparser 0.36.0",
@@ -1115,27 +1115,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "dom_query"
-version = "0.27.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "521e380c0c8afb8d9a1e83a1822ee03556fc3e3e7dbc1fd30be14e37f9cb3f89"
-dependencies = [
- "bit-set",
- "cssparser 0.36.0",
- "foldhash 0.2.0",
- "html5ever 0.38.0",
- "precomputed-hash",
- "selectors 0.36.1",
- "tendril 0.5.0",
-]
-
-[[package]]
 name = "dom_smoothie"
-version = "0.16.0"
+version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0bc8a68d2cb540ae0f9d8602a15f7549cc7addf3b52614d950af1a59c5c8784f"
+checksum = "f21cad308997c8c518aaee15c8b38bb04dc699bbcf30da4176443c9ef40c1bb5"
 dependencies = [
- "dom_query 0.26.0",
+ "dom_query",
  "flagset",
  "foldhash 0.2.0",
  "gjson",
@@ -2892,7 +2877,7 @@ checksum = "2532096657941c2fea9c289d370a250971c689d4f143798ff67113ec042024a5"
 
 [[package]]
 name = "mcp-client"
-version = "0.12.6"
+version = "0.12.7"
 dependencies = [
  "log",
  "reqwest 0.12.28",
@@ -6605,7 +6590,7 @@ dependencies = [
 
 [[package]]
 name = "web-research"
-version = "0.12.6"
+version = "0.12.7"
 dependencies = [
  "dom_smoothie",
  "futures-util",
@@ -7390,7 +7375,7 @@ dependencies = [
  "cookie",
  "crossbeam-channel",
  "dirs",
- "dom_query 0.27.0",
+ "dom_query",
  "dpi",
  "dunce",
  "gdkx11",
@@ -7479,7 +7464,7 @@ checksum = "b9cc00251562a284751c9973bace760d86c0276c471b4be569fe6b068ee97a56"
 
 [[package]]
 name = "xtask"
-version = "0.12.6"
+version = "0.12.7"
 dependencies = [
  "semver",
  "serde_json",
