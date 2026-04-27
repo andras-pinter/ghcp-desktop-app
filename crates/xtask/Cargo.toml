@@ -12,5 +12,5 @@ path = "src/main.rs"
 
 [dependencies]
 semver = "1"
-toml_edit = "0.22"
+toml_edit = "0.25"
 serde_json.workspace = true
