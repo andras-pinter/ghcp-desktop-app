@@ -12,7 +12,7 @@ repository = "https://github.com/andras-pinter/ghcp-desktop-app"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1", features = ["full"] }
-reqwest = { version = "0.12", features = ["json", "stream"] }
+reqwest = { version = "0.13", features = ["json", "stream"] }
 thiserror = "2"
 anyhow = "1"
 log = "0.4"
